@@ -1,4 +1,4 @@
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getFinancialsReported, getBasicFinancials, getSnapshots } from "@/lib/finnhub";
 import { getSkillsPrompt } from "@/agents/skills";
 
@@ -32,7 +32,7 @@ export async function runDcfAgent(input: unknown): Promise<string> {
       const m = metrics.metric ?? {};
       const currentPrice = snaps[0]?.price ?? 0;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const latestReport = (financials.data ?? [])[0]?.report ?? {};
       // Finnhub returns these as arrays; guard so a missing/object value can't throw
       // (.find on {}) and silently nuke the whole valuation.
@@ -90,19 +90,14 @@ export async function runDcfAgent(input: unknown): Promise<string> {
     }
   }
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  const text = await generate({
+    agent: "dcf",
     system: getSkillsPrompt("dcf"),
-    max_tokens: 10000,
-    thinking: { type: "enabled", budget_tokens: 8000 },
-    messages: [
-      {
-        role: "user",
-        content: `Perform a DCF valuation for ${ticker}.\n\n${summary}\n\nProvide: financial health summary, DCF assumption assessment, fair value range (bear/base/bull), valuation risks, and buy/hold/sell signal vs current price. Note: not financial advice.`,
-      },
-    ],
+    maxTokens: 10000,
+    reasoning: 8000,
+    cache: true,
+    prompt: `Perform a DCF valuation for ${ticker}.\n\n${summary}\n\nProvide: financial health summary, DCF assumption assessment, fair value range (bear/base/bull), valuation risks, and buy/hold/sell signal vs current price. Note: not financial advice.`,
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock ? (textBlock as { type: string; text: string }).text : "DCF unavailable.";
+  return text || "DCF unavailable.";
 }

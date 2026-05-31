@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
+import { Hanken_Grotesk, Geist_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/layout/AppShell";
 import { AuthProvider } from "@/context/AuthContext";
 import DevAuthToggle from "@/components/dev/DevAuthToggle";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const hankenSans = Hanken_Grotesk({
+  variable: "--font-sans-ui",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 const geistMono = Geist_Mono({
@@ -34,7 +35,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} h-full`}
+      className={`${hankenSans.variable} ${geistMono.variable} ${playfair.variable} h-full`}
       suppressHydrationWarning
     >
       <head>

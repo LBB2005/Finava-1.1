@@ -63,8 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const user = realUser ?? (DEV_ENABLED && devBypass ? MOCK_USER : null);
 
+  // localStorage is client-only; reading it in an effect (not render) is the
+  // hydration-safe way to pick up the dev-auth bypass flag without an SSR mismatch.
   useEffect(() => {
     if (DEV_ENABLED && typeof window !== "undefined") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDevBypass(localStorage.getItem("lucra_dev_auth") === "1");
     }
   }, []);

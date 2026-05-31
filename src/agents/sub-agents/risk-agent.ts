@@ -1,4 +1,4 @@
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getCandles, getSnapshots } from "@/lib/finnhub";
 import { getSkillsPrompt } from "@/agents/skills";
 
@@ -61,15 +61,13 @@ export async function runRiskAgent(input: unknown): Promise<string> {
 
   const focusNote = focus ? `\nFocus on: ${focus}` : "";
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  const text = await generate({
+    agent: "risk",
     system: getSkillsPrompt("risk"),
-    max_tokens: 10000,
-    thinking: { type: "enabled", budget_tokens: 8000 },
-    messages: [
-      {
-        role: "user",
-        content: `Analyze the risk profile of this portfolio (tickers: ${tickers.join(", ")}).${focusNote}
+    maxTokens: 10000,
+    reasoning: 8000,
+    cache: true,
+    prompt: `Analyze the risk profile of this portfolio (tickers: ${tickers.join(", ")}).${focusNote}
 
 Risk metrics:
 ${riskData}
@@ -80,10 +78,7 @@ Provide:
 3. Beta analysis (market sensitivity)
 4. Volatility comparison across holdings
 5. Specific risk concerns and position-sizing recommendations`,
-      },
-    ],
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock ? (textBlock as { type: string; text: string }).text : "Risk analysis unavailable.";
+  return text || "Risk analysis unavailable.";
 }

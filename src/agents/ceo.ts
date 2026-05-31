@@ -1,4 +1,5 @@
-import { anthropic, MODEL, HAIKU } from "@/lib/anthropic";
+import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { agentTools } from "./tools/index";
 import { runRiskAgent } from "./sub-agents/risk-agent";
 import { runNewsAgent } from "./sub-agents/news-agent";
@@ -69,8 +70,6 @@ const agentDispatch: Record<string, (input: unknown) => Promise<string>> = {
   run_hype_agent: runHypeAgent,
   run_fundamentals_agent: runFundamentalsAgent,
 };
-
-const SKEPTIC_MODEL = HAIKU;
 
 export async function runCeoAgent(
   userPrompt: string,
@@ -177,6 +176,11 @@ You are running in Deep Research mode. This means:
 
   let iteration = 0;
   const MAX_ITERATIONS = deepResearch ? 15 : 10;
+  // Output-token ceiling for the synthesis pass. Sonnet 4.6 supports up to 64K
+  // output tokens; 8192 was truncating long multi-agent reports (deep research
+  // asks for reports ~50% longer with extra sections). Stream the call so the
+  // SDK's non-streaming request-timeout guard doesn't fire on the higher cap.
+  const SYNTH_MAX_TOKENS = deepResearch ? 32_000 : 16_000;
   // Accumulate sub-agent outputs for the skeptic pass
   const agentOutputs = new Map<string, string>();
   let finalResponse = "";
@@ -189,16 +193,18 @@ You are running in Deep Research mode. This means:
   while (iteration < MAX_ITERATIONS) {
     iteration++;
 
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 8192,
-      system: [
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { type: "text", text: fullSystemPrompt, cache_control: { type: "ephemeral" } } as any,
-      ],
-      tools: agentTools,
-      messages,
-    });
+    const response = await anthropic.messages
+      .stream({
+        model: MODEL,
+        max_tokens: SYNTH_MAX_TOKENS,
+        system: [
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { type: "text", text: fullSystemPrompt, cache_control: { type: "ephemeral" } } as any,
+        ],
+        tools: agentTools,
+        messages,
+      })
+      .finalMessage();
 
     // Emit any CEO thinking/text blocks
     for (const block of response.content) {
@@ -331,13 +337,10 @@ You are running in Deep Research mode. This means:
       .join("\n\n");
 
     try {
-      const skepticResponse = await anthropic.messages.create({
-        model: SKEPTIC_MODEL,
-        max_tokens: 600,
-        messages: [
-          {
-            role: "user",
-            content: `You are a skeptical financial analyst reviewing another analyst's research report. Your job is to identify weaknesses, flag overconfidence, and note any contradictions or missing context.
+      const critique = await generate({
+        agent: "skeptic",
+        maxTokens: 600,
+        prompt: `You are a skeptical financial analyst reviewing another analyst's research report. Your job is to identify weaknesses, flag overconfidence, and note any contradictions or missing context.
 
 ## CEO Report
 ${finalResponse.slice(0, 3000)}${finalResponse.length > 3000 ? "\n[truncated]" : ""}
@@ -354,12 +357,8 @@ Write a concise second-opinion critique (3–5 bullet points, max 150 words). Fo
 - Data gaps that would change the conclusion
 
 Be direct and constructive. Start with "**Skeptic Review:**"`,
-          },
-        ],
       });
 
-      const critique =
-        skepticResponse.content.find((b) => b.type === "text")?.text ?? "";
       emit({ type: "skeptic_complete", critique });
     } catch {
       // Skeptic is best-effort — don't fail the whole response
@@ -370,15 +369,11 @@ Be direct and constructive. Start with "**Skeptic Review:**"`,
   // Generate 3 follow-up questions (quick Haiku call — completes before stream closes)
   if (finalResponse) {
     try {
-      const followupRes = await anthropic.messages.create({
-        model: SKEPTIC_MODEL,
-        max_tokens: 120,
-        messages: [{
-          role: "user",
-          content: `Generate exactly 3 short follow-up research questions (max 12 words each) based on this question. Return a JSON array of strings only, no other text.\n\nQuestion: ${userPrompt.slice(0, 200)}`,
-        }],
+      const raw = await generate({
+        agent: "chatFollowups",
+        maxTokens: 120,
+        prompt: `Generate exactly 3 short follow-up research questions (max 12 words each) based on this question. Return a JSON array of strings only, no other text.\n\nQuestion: ${userPrompt.slice(0, 200)}`,
       });
-      const raw = followupRes.content.find((b) => b.type === "text")?.text ?? "";
       const match = raw.match(/\[[\s\S]*\]/);
       if (match) {
         const questions = JSON.parse(match[0]) as string[];

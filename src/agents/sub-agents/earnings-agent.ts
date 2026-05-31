@@ -1,4 +1,4 @@
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getEarnings, getEarningsCalendar, getRecommendationTrends } from "@/lib/finnhub";
 import { getSkillsPrompt } from "@/agents/skills";
 
@@ -28,7 +28,7 @@ export async function runEarningsAgent(input: unknown): Promise<string> {
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const nextEarnings = (calendar.earningsCalendar ?? []).find((e: any) => e.symbol === ticker);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const latestRec = (recs ?? [])[0];
 
         earningsData[ticker] = {
@@ -49,17 +49,10 @@ export async function runEarningsAgent(input: unknown): Promise<string> {
     })
   );
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  return generate({
+    agent: "earnings",
     system: getSkillsPrompt("earnings"),
-    max_tokens: 1500,
-    messages: [
-      {
-        role: "user",
-        content: `Analyze earnings history, upcoming catalysts, and analyst sentiment for ${tickers.join(", ")}.\n\n${JSON.stringify(earningsData, null, 2)}\n\nProvide: EPS trends, beat/miss history, upcoming earnings dates, analyst consensus, and earnings-based investment thesis for each ticker.`,
-      },
-    ],
+    maxTokens: 1500,
+    prompt: `Analyze earnings history, upcoming catalysts, and analyst sentiment for ${tickers.join(", ")}.\n\n${JSON.stringify(earningsData, null, 2)}\n\nProvide: EPS trends, beat/miss history, upcoming earnings dates, analyst consensus, and earnings-based investment thesis for each ticker.`,
   });
-
-  return (response.content[0] as { type: string; text: string }).text;
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { anthropic, HAIKU } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getCandles } from "@/lib/finnhub";
 import { requireAuth } from "@/lib/requireAuth";
 import { db } from "@/lib/firebase-admin";
@@ -49,12 +49,10 @@ export async function POST(req: Request) {
   // ── Step 1: Parse NL → BacktestConfig with Haiku ────────────────────────
   let config: BacktestConfig;
   try {
-    const parseRes = await anthropic.messages.create({
-      model: HAIKU,
-      max_tokens: 300,
-      messages: [{
-        role: "user",
-        content: `Parse this backtesting request into a JSON config. Today is ${today}.
+    const raw = await generate({
+      agent: "backtestParse",
+      maxTokens: 300,
+      prompt: `Parse this backtesting request into a JSON config. Today is ${today}.
 
 User query: "${query}"
 Portfolio tickers available: ${portfolioTickers?.length ? portfolioTickers.join(", ") : "none"}
@@ -76,10 +74,8 @@ Rules:
 - endDate: default today (${today})
 - benchmark: "SPY" unless user mentions QQQ/Nasdaq
 - rebalancePeriod: 1=daily, 5=weekly, 20=monthly (default 20)`,
-      }],
     });
 
-    const raw = parseRes.content.find((b) => b.type === "text")?.text ?? "";
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("No JSON in parse response");
     const parsed = JSON.parse(match[0]) as Partial<BacktestConfig>;
@@ -137,15 +133,11 @@ Rules:
   // ── Step 4: Generate summary with Haiku ──────────────────────────────────
   let summary = "";
   try {
-    const summaryRes = await anthropic.messages.create({
-      model: HAIKU,
-      max_tokens: 120,
-      messages: [{
-        role: "user",
-        content: `Write a 2-sentence backtest summary. Tickers: ${availableTickers.join(", ")}. Strategy: ${config.strategy}. Period: ${config.startDate} to ${config.endDate}. Portfolio CAGR: ${result.cagr}%. Sharpe: ${result.sharpe}. MaxDD: ${result.maxDrawdown}%. Win rate: ${result.winRate}%. Benchmark: ${config.benchmark}. Be direct and specific. No disclaimers.`,
-      }],
+    summary = await generate({
+      agent: "backtestSummary",
+      maxTokens: 120,
+      prompt: `Write a 2-sentence backtest summary. Tickers: ${availableTickers.join(", ")}. Strategy: ${config.strategy}. Period: ${config.startDate} to ${config.endDate}. Portfolio CAGR: ${result.cagr}%. Sharpe: ${result.sharpe}. MaxDD: ${result.maxDrawdown}%. Win rate: ${result.winRate}%. Benchmark: ${config.benchmark}. Be direct and specific. No disclaimers.`,
     });
-    summary = summaryRes.content.find((b) => b.type === "text")?.text ?? "";
   } catch { /* summary is best-effort */ }
 
   const finalResult: BacktestResult = { ...result, summary };

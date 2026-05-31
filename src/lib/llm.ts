@@ -1,0 +1,286 @@
+/**
+ * Per-agent LLM routing via OpenRouter.
+ *
+ * One OpenAI-compatible gateway (OpenRouter) fronts every model. Each routable
+ * call-site ("agent") is mapped to the cheapest model that does its job, with a
+ * single kill-switch — `LLM_ROUTING`:
+ *   - "on"  (default): per-agent routing (Gemini Flash / Flash-Lite for narration,
+ *                       Sonnet 4.6 where the user reads output, Haiku where it was).
+ *   - "off": every agent falls back to the Sonnet/Haiku it used before this refactor,
+ *            with its original thinking budget and max_tokens — i.e. behaves exactly
+ *            as the app did pre-routing. Flip this env var to A/B or roll back instantly.
+ *
+ * Only the model + thinking/token budgets change. Prompts, content, and return
+ * types are untouched. The CEO orchestration loop and the chat SSE stream stay on
+ * the Anthropic SDK directly (they stream and/or use tools, which the string-return
+ * `generate()` below intentionally does not), and Perplexity calls are untouched.
+ */
+import OpenAI from "openai";
+
+// ── Routing flag ────────────────────────────────────────────────────────────
+// Default "on". Any value other than "off" (incl. unset) enables routing.
+export const LLM_ROUTING_ON = (process.env.LLM_ROUTING ?? "on") !== "off";
+
+// ── Model slugs (confirmed live on openrouter.ai/models) ─────────────────────
+const SONNET = "anthropic/claude-sonnet-4.6";
+const HAIKU = "anthropic/claude-haiku-4.5";
+const GEMINI_FLASH = "google/gemini-2.5-flash";
+const GEMINI_FLASH_LITE = "google/gemini-2.5-flash-lite";
+
+// ── Routable call-sites ──────────────────────────────────────────────────────
+export type AgentKey =
+  // Tier C — user-facing quality, stays on Sonnet 4.6
+  | "ceo" // CEO synthesis (stays on Anthropic SDK — streaming + tools; key kept for completeness)
+  | "chat" // chat route main stream (stays on Anthropic SDK — SSE; key kept for completeness)
+  | "aiTake"
+  | "briefingSynthesis"
+  | "portfolioStatement"
+  | "risk"
+  | "dcf"
+  // Tier B — judgment over data → Gemini 2.5 Flash
+  | "graham"
+  | "comparables"
+  | "competitor"
+  | "analyst"
+  | "macro"
+  // Tier A — narrate pre-computed/fetched data → Gemini 2.5 Flash-Lite
+  | "technical"
+  | "earnings"
+  | "insider"
+  | "options"
+  | "fundamentals"
+  | "news"
+  | "sentiment"
+  // Already-Haiku call-sites
+  | "skeptic"
+  | "chatFollowups"
+  | "backtestParse"
+  | "backtestSummary";
+
+// Per-agent model when routing is ON.
+const ROUTED_MODELS: Record<AgentKey, string> = {
+  ceo: SONNET,
+  chat: SONNET,
+  aiTake: SONNET,
+  briefingSynthesis: SONNET,
+  portfolioStatement: SONNET,
+  risk: SONNET,
+  dcf: SONNET,
+  graham: GEMINI_FLASH,
+  comparables: GEMINI_FLASH,
+  competitor: GEMINI_FLASH,
+  analyst: GEMINI_FLASH,
+  macro: GEMINI_FLASH,
+  technical: GEMINI_FLASH_LITE,
+  earnings: GEMINI_FLASH_LITE,
+  insider: GEMINI_FLASH_LITE,
+  options: GEMINI_FLASH_LITE,
+  fundamentals: GEMINI_FLASH_LITE,
+  news: GEMINI_FLASH_LITE,
+  sentiment: GEMINI_FLASH_LITE,
+  skeptic: HAIKU,
+  chatFollowups: HAIKU,
+  backtestParse: HAIKU,
+  backtestSummary: HAIKU,
+};
+
+// Per-agent model when routing is OFF — the model each call-site used before this
+// refactor. Everything was Sonnet except the four Haiku call-sites.
+const HAIKU_AGENTS = new Set<AgentKey>([
+  "skeptic",
+  "chatFollowups",
+  "backtestParse",
+  "backtestSummary",
+]);
+const FALLBACK_MODELS: Record<AgentKey, string> = Object.fromEntries(
+  (Object.keys(ROUTED_MODELS) as AgentKey[]).map((k) => [
+    k,
+    HAIKU_AGENTS.has(k) ? HAIKU : SONNET,
+  ])
+) as Record<AgentKey, string>;
+
+/**
+ * Model slug per agent. Resolves to the routed model when LLM_ROUTING is on, or
+ * to the original Sonnet/Haiku the agent used today when it's off.
+ */
+export const AGENT_MODELS: Record<AgentKey, string> = LLM_ROUTING_ON
+  ? ROUTED_MODELS
+  : FALLBACK_MODELS;
+
+// ── Tier classification for the ON-routing token/thinking overrides ──────────
+// Tier A: narrate pre-fetched data on a non-reasoning model — drop thinking, cap output.
+const TIER_A = new Set<AgentKey>([
+  "technical",
+  "earnings",
+  "insider",
+  "options",
+  "fundamentals",
+  "news",
+  "sentiment",
+]);
+const TIER_A_MAX_TOKENS = 1200;
+// Tier B judgment agents that move to Gemini — drop the (Anthropic) thinking budget.
+const TIER_B_GEMINI = new Set<AgentKey>([
+  "graham",
+  "comparables",
+  "competitor",
+  "analyst",
+  "macro",
+]);
+// DCF stays on Sonnet but its thinking + output budgets are cut hard (cost).
+const DCF_MAX_TOKENS = 2500;
+const DCF_REASONING_MAX_TOKENS = 1500;
+
+function isAnthropicModel(model: string): boolean {
+  return model.startsWith("anthropic/");
+}
+
+// ── OpenRouter client (OpenAI-compatible), kept on globalThis to survive HMR ──
+const g = globalThis as typeof globalThis & { __openrouterClient?: OpenAI };
+
+function getClient(): OpenAI {
+  if (!g.__openrouterClient) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "OPENROUTER_API_KEY is not set. Add it to .env.local and restart the dev server."
+      );
+    }
+    g.__openrouterClient = new OpenAI({
+      apiKey,
+      baseURL: "https://openrouter.ai/api/v1",
+      defaultHeaders: {
+        // Headers OpenRouter uses for attribution/rankings.
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL ?? "https://lucra.app",
+        "X-Title": process.env.NEXT_PUBLIC_APP_NAME ?? "Lucra",
+      },
+    });
+  }
+  return g.__openrouterClient;
+}
+
+// OpenRouter accepts OpenAI content parts plus a `file` part for PDFs. The OpenAI
+// SDK doesn't type `file`, so we describe the parts we actually send loosely.
+export type LlmContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } }
+  | { type: "file"; file: { filename: string; file_data: string } };
+
+export interface GenerateOptions {
+  agent: AgentKey;
+  /** System prompt (mapped straight across from the original call). */
+  system?: string;
+  /** User message text. Ignored when `content` is provided. */
+  prompt?: string;
+  /** Multimodal user content (e.g. statement image/PDF). Overrides `prompt`. */
+  content?: LlmContentPart[];
+  /** The max output tokens the original call used. */
+  maxTokens: number;
+  /**
+   * The original thinking/extended-reasoning budget (Anthropic `budget_tokens`),
+   * if the original call used one. Passed through as OpenRouter `reasoning.max_tokens`.
+   */
+  reasoning?: number;
+  /** Request Anthropic prompt-cache passthrough on the system prompt. */
+  cache?: boolean;
+}
+
+/**
+ * Resolve the effective model + token/thinking budgets for an agent, applying the
+ * ON-routing overrides. When routing is off, the call's original budgets are used
+ * verbatim against the Sonnet/Haiku fallback model.
+ */
+function resolveCall(opts: GenerateOptions): {
+  model: string;
+  maxTokens: number;
+  reasoning?: number;
+} {
+  const model = AGENT_MODELS[opts.agent];
+  let maxTokens = opts.maxTokens;
+  let reasoning = opts.reasoning;
+
+  if (LLM_ROUTING_ON) {
+    if (TIER_A.has(opts.agent)) {
+      maxTokens = Math.min(maxTokens, TIER_A_MAX_TOKENS);
+      reasoning = undefined; // non-reasoning narration model
+    } else if (opts.agent === "dcf") {
+      maxTokens = DCF_MAX_TOKENS;
+      reasoning = DCF_REASONING_MAX_TOKENS;
+    } else if (TIER_B_GEMINI.has(opts.agent)) {
+      reasoning = undefined; // judgment on Gemini Flash, no Anthropic thinking budget
+    }
+  }
+
+  return { model, maxTokens, reasoning };
+}
+
+/**
+ * Single entry point for every routable, non-streaming LLM call. Normalizes to
+ * OpenAI chat format, routes via OpenRouter, and returns the assistant text as a
+ * plain string. Throws (with the agent name + status) on failure so each caller's
+ * existing per-agent try/catch + timeout still isolates it.
+ */
+export async function generate(opts: GenerateOptions): Promise<string> {
+  const { agent, system, cache } = opts;
+  const { model, maxTokens, reasoning } = resolveCall(opts);
+  const start = Date.now();
+
+  const messages: unknown[] = [];
+  if (system) {
+    // For Anthropic models with caching requested, render the system prompt as a
+    // cache_control content block so repeated calls read it from cache (~90% off
+    // input). Other models / no-cache use a plain string.
+    if (cache && isAnthropicModel(model)) {
+      messages.push({
+        role: "system",
+        content: [
+          { type: "text", text: system, cache_control: { type: "ephemeral" } },
+        ],
+      });
+    } else {
+      messages.push({ role: "system", content: system });
+    }
+  }
+  messages.push({
+    role: "user",
+    content: opts.content ?? [{ type: "text", text: opts.prompt ?? "" }],
+  });
+
+  // Build the request body. `reasoning` and content `file` parts are OpenRouter
+  // extensions the OpenAI SDK doesn't type, so assemble loosely and cast.
+  const body: Record<string, unknown> = {
+    model,
+    max_tokens: maxTokens,
+    messages,
+  };
+  if (reasoning != null) body.reasoning = { max_tokens: reasoning };
+
+  let response;
+  try {
+    response = await getClient().chat.completions.create(
+      body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming
+    );
+  } catch (err) {
+    const status =
+      err instanceof OpenAI.APIError && err.status ? ` (status ${err.status})` : "";
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    throw new Error(`[llm:${agent}] ${model} request failed${status}: ${msg}`);
+  }
+
+  const text = response.choices?.[0]?.message?.content ?? "";
+
+  if (process.env.LLM_LOG === "on") {
+    const u = response.usage;
+    console.log(
+      `[llm] ${JSON.stringify({
+        agent,
+        model,
+        inputTokens: u?.prompt_tokens ?? null,
+        outputTokens: u?.completion_tokens ?? null,
+        ms: Date.now() - start,
+      })}`
+    );
+  }
+
+  return text;
+}

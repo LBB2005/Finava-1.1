@@ -47,18 +47,36 @@ export default function StockPage() {
   /* ── Loading state ────────────────────────────────────────────────────── */
   if (isLoading || !bundle) {
     return (
-      <div className="flex flex-col h-full" style={{ background: "var(--color-bg)" }}>
+      <div className="flex flex-col h-full" style={{ background: "var(--color-bg)" }} aria-busy="true" aria-label={`Loading ${ticker}`}>
+        {/* Header skeleton */}
         <div className="flex-shrink-0 px-7 py-4" style={{ borderBottom: "1px solid var(--color-border)" }}>
           <div className="max-w-[1100px] mx-auto flex items-center gap-4">
-            <div className="w-[42px] h-[42px] rounded-[10px] animate-pulse" style={{ background: "var(--color-surface-2)" }} />
+            <div className="w-[42px] h-[42px] rounded-[10px] skeleton" />
             <div className="flex flex-col gap-2">
-              <div className="h-[18px] w-[120px] rounded animate-pulse" style={{ background: "var(--color-surface-2)" }} />
-              <div className="h-[12px] w-[180px] rounded animate-pulse" style={{ background: "var(--color-surface-2)" }} />
+              <div className="h-[18px] w-[120px] skeleton" />
+              <div className="h-[12px] w-[180px] skeleton" />
             </div>
+            <div className="ml-auto h-[34px] w-[140px] skeleton hidden sm:block" />
           </div>
         </div>
-        <div className="flex-1 flex items-center justify-center text-[13px] text-[var(--color-muted)]">
-          Loading {ticker}…
+
+        {/* Body skeleton — mirrors the real layout (chart + two card columns) */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-[1100px] mx-auto px-8 py-6 flex flex-col gap-[18px]">
+            <div className="h-[280px] skeleton rounded-[14px]" />
+            <div className="grid gap-[18px] items-start grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+              <div className="flex flex-col gap-[18px] min-w-0">
+                <div className="h-[150px] skeleton rounded-[14px]" />
+                <div className="h-[180px] skeleton rounded-[14px]" />
+                <div className="h-[160px] skeleton rounded-[14px]" />
+              </div>
+              <div className="flex flex-col gap-[18px] min-w-0">
+                <div className="h-[120px] skeleton rounded-[14px]" />
+                <div className="h-[140px] skeleton rounded-[14px]" />
+                <div className="h-[120px] skeleton rounded-[14px]" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -68,7 +86,7 @@ export default function StockPage() {
   const livePrice = bundle.quote?.price ?? null;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ background: "var(--color-bg)" }}>
+    <div className="flex flex-col h-full overflow-hidden fade-in" style={{ background: "var(--color-bg)" }}>
       <StockHeader ticker={ticker} profile={bundle.profile} fallbackQuote={bundle.quote} />
 
       <div className="flex-1 overflow-y-auto">

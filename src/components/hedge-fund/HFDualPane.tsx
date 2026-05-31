@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Regime, Strategy, WatchItem, Order, Fill, BotLogEntry } from "./types";
 
 // ── V10 "Dual Pane" layout ──────────────────────────────────────────────────
@@ -166,6 +166,7 @@ export function HFDualPane({
   strategies, watchlist, openOrders, fills, onToggleStrategy,
 }: Props) {
   const [running, setRunning] = useState(bot.running);
+  const [prevBotRunning, setPrevBotRunning] = useState(bot.running);
   const [stratFilter, setStratFilter] = useState<"all" | "live" | "paper" | "draft">("all");
   const [logFilter, setLogFilter] = useState<"all" | "order" | "signal" | "risk" | "info">("all");
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
@@ -173,7 +174,12 @@ export function HFDualPane({
   const [qty, setQty] = useState("25");
   const [limit, setLimit] = useState("192.40");
 
-  useEffect(() => { setRunning(bot.running); }, [bot.running]);
+  // Re-sync the local toggle when the bot's running state changes upstream
+  // (render-phase reset, no effect).
+  if (bot.running !== prevBotRunning) {
+    setPrevBotRunning(bot.running);
+    setRunning(bot.running);
+  }
 
   const armedCount = strategies.filter((s) => s.active).length;
   const headlineWord = composite.bias === "Bull" ? "rallies" : composite.bias === "Bear" ? "wavers" : "drifts";
@@ -223,11 +229,13 @@ export function HFDualPane({
                 </div>
                 <div
                   className="reg-track"
-                  title={`Bull ${i.bull.toFixed(0)}% · Sideways ${i.sideways.toFixed(0)}% · Bear ${i.bear.toFixed(0)}%`}
+                  title={`Current: ${i.bias} · Bull ${i.bull.toFixed(0)}% · Sideways ${i.sideways.toFixed(0)}% · Bear ${i.bear.toFixed(0)}%`}
                 >
-                  <div style={{ width: `${i.bull}%`, height: "100%", background: "var(--color-bull)" }} />
-                  <div style={{ width: `${i.sideways}%`, height: "100%", background: "var(--color-warn)" }} />
-                  <div style={{ width: `${i.bear}%`, height: "100%", background: "var(--color-bear)" }} />
+                  {/* Active regime segment is full-strength; the rest dim back so the
+                      bar visually agrees with the Bull/Bear pill on the right. */}
+                  <div style={{ width: `${i.bull}%`, height: "100%", background: "var(--color-bull)", opacity: i.bias === "Bull" ? 1 : 0.28, boxShadow: i.bias === "Bull" ? "inset 0 0 0 1.5px rgba(255,255,255,0.55)" : "none", transition: "opacity 200ms ease" }} />
+                  <div style={{ width: `${i.sideways}%`, height: "100%", background: "var(--color-warn)", opacity: i.bias === "Sideways" ? 1 : 0.28, boxShadow: i.bias === "Sideways" ? "inset 0 0 0 1.5px rgba(255,255,255,0.55)" : "none", transition: "opacity 200ms ease" }} />
+                  <div style={{ width: `${i.bear}%`, height: "100%", background: "var(--color-bear)", opacity: i.bias === "Bear" ? 1 : 0.28, boxShadow: i.bias === "Bear" ? "inset 0 0 0 1.5px rgba(255,255,255,0.55)" : "none", transition: "opacity 200ms ease" }} />
                 </div>
                 <div style={{ textAlign: "right" }}><RegimePill bias={i.bias} /></div>
               </div>
@@ -241,9 +249,11 @@ export function HFDualPane({
           <div key={i.ticker} className="idx-tile">
             <div className="tk">{i.ticker}</div>
             <div className="nm">{i.name}</div>
-            <div className="px">${i.px.toFixed(2)}</div>
-            <div className="day" style={{ color: i.dayPct >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
-              {fmtSigned(i.dayPct, 2)}%
+            <div className="px">
+              {i.px > 0 ? `$${i.px.toFixed(2)}` : <span style={{ color: "var(--v-mut2)" }}>—</span>}
+            </div>
+            <div className="day" style={{ color: i.px <= 0 ? "var(--v-mut2)" : i.dayPct >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
+              {i.px > 0 ? `${fmtSigned(i.dayPct, 2)}%` : "—"}
             </div>
             <div className="row">
               <span className="rec">Rec <strong>{i.equity}%</strong></span>

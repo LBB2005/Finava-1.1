@@ -1,4 +1,5 @@
-import { anthropic, MODEL, HAIKU } from "@/lib/anthropic";
+import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { requireAuth } from "@/lib/requireAuth";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 
@@ -19,7 +20,7 @@ Be concise, data-driven, and actionable. When making recommendations, always not
 
   const stream = anthropic.messages.stream({
     model: MODEL,
-    max_tokens: 4096,
+    max_tokens: 8192,
     system: [
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } } as any,
@@ -48,15 +49,11 @@ Be concise, data-driven, and actionable. When making recommendations, always not
         }
         // Generate follow-up suggestions
         try {
-          const followupRes = await anthropic.messages.create({
-            model: HAIKU,
-            max_tokens: 120,
-            messages: [{
-              role: "user",
-              content: `Generate exactly 3 short follow-up research questions (max 12 words each). Return a JSON array of strings only.\n\nQuestion: ${lastUserText.slice(0, 200)}`,
-            }],
+          const raw = await generate({
+            agent: "chatFollowups",
+            maxTokens: 120,
+            prompt: `Generate exactly 3 short follow-up research questions (max 12 words each). Return a JSON array of strings only.\n\nQuestion: ${lastUserText.slice(0, 200)}`,
           });
-          const raw = followupRes.content.find((b) => b.type === "text")?.text ?? "";
           const match = raw.match(/\[[\s\S]*\]/);
           if (match) {
             const questions = JSON.parse(match[0]) as string[];

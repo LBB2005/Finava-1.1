@@ -8,11 +8,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, loading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [prevPath, setPrevPath] = useState(pathname);
 
-  // Close the drawer whenever the route changes.
-  useEffect(() => {
+  // Close the drawer whenever the route changes (render-phase reset, no effect).
+  if (pathname !== prevPath) {
+    setPrevPath(pathname);
     setMobileOpen(false);
-  }, [pathname]);
+  }
 
   // Lock body scroll while the mobile drawer is open.
   useEffect(() => {
@@ -26,6 +28,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const isLogin = pathname === "/login";
   const isLanding = pathname === "/";
+  const isSettings = pathname === "/settings";
 
   // Marketing landing is always full-bleed, even mid auth-resolution, so the
   // sidebar never flashes for an authed user before the /chat redirect lands.
@@ -69,10 +72,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </span>
       </header>
 
-      {/* Desktop sidebar rail */}
-      <div className="hidden md:flex h-full flex-shrink-0">
-        <Sidebar />
-      </div>
+      {/* Desktop sidebar rail — hidden on settings, which has its own nav rail */}
+      {!isSettings && (
+        <div className="hidden md:flex h-full flex-shrink-0">
+          <Sidebar />
+        </div>
+      )}
 
       {/* Mobile off-canvas drawer */}
       {mobileOpen && (
@@ -91,8 +96,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Main content */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">{children}</main>
+      {/* Main content — keyed by route so it re-mounts and re-runs the subtle
+          route-fade on each navigation (disabled under prefers-reduced-motion). */}
+      <main key={pathname} className="flex-1 flex flex-col min-h-0 overflow-hidden route-fade">{children}</main>
     </div>
   );
 }

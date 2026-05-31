@@ -1,9 +1,27 @@
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getRecommendationTrends, getPriceTarget, getQuote } from "@/lib/finnhub";
 import { getSkillsPrompt } from "@/agents/skills";
 
 interface AnalystInput {
   tickers: string[];
+}
+
+interface RecTrend {
+  strongBuy?: number;
+  buy?: number;
+  hold?: number;
+  sell?: number;
+  strongSell?: number;
+  period?: string;
+}
+
+interface PriceTarget {
+  targetHigh?: number;
+  targetLow?: number;
+  targetMean?: number;
+  targetMedian?: number;
+  numberOfAnalysts?: number;
+  lastUpdated?: string;
 }
 
 export async function runAnalystAgent(input: unknown): Promise<string> {
@@ -17,12 +35,12 @@ export async function runAnalystAgent(input: unknown): Promise<string> {
         getQuote(ticker),
       ]);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rec: any =
-        recRes.status === "fulfilled" ? (recRes.value as any[])?.[0] ?? null : null;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pt: any =
-        ptRes.status === "fulfilled" ? ptRes.value : null;
+      const rec: RecTrend | null =
+        recRes.status === "fulfilled"
+          ? (recRes.value as RecTrend[] | undefined)?.[0] ?? null
+          : null;
+      const pt: PriceTarget | null =
+        ptRes.status === "fulfilled" ? (ptRes.value as PriceTarget | null) : null;
       const currentPrice =
         quoteRes.status === "fulfilled" ? quoteRes.value?.price ?? null : null;
 
@@ -47,19 +65,13 @@ export async function runAnalystAgent(input: unknown): Promise<string> {
     })
   );
 
-  const data = results
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled")
-    .map((r) => r.value);
+  const data = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  const text = await generate({
+    agent: "analyst",
     system: getSkillsPrompt("analyst"),
-    max_tokens: 2000,
-    messages: [
-      {
-        role: "user",
-        content: `You are a financial analyst summarizing Wall Street consensus for the following tickers.
+    maxTokens: 2000,
+    prompt: `You are a financial analyst summarizing Wall Street consensus for the following tickers.
 
 Raw analyst data:
 \`\`\`json
@@ -81,12 +93,7 @@ For each ticker, compute and present:
 3. A 2-3 sentence synthesized takeaway: what does Wall Street think overall about this basket of stocks?
 
 Use "N/A" for missing data. If only one ticker is requested, skip the synthesis and give a 3-sentence single-stock analyst summary instead.`,
-      },
-    ],
   });
 
-  return (
-    response.content.find((b) => b.type === "text")?.text ??
-    "Analyst consensus data unavailable."
-  );
+  return text || "Analyst consensus data unavailable.";
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate, type LlmContentPart } from "@/lib/llm";
 import { requireAuth } from "@/lib/requireAuth";
 
 export async function POST(req: Request) {
@@ -33,25 +33,26 @@ Rules for buyingPower:
 
 Return only the JSON object, no other text`;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const contentBlock: any = isPdf
-      ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } }
-      : { type: "image", source: { type: "base64", media_type: file.type, data: base64 } };
+    // OpenRouter (OpenAI-compatible) content parts: a `file` part for PDFs and an
+    // `image_url` data URL for images. Same Sonnet 4.6 model as before, via the gateway.
+    const contentBlock: LlmContentPart = isPdf
+      ? {
+          type: "file",
+          file: {
+            filename: file.name || "statement.pdf",
+            file_data: `data:application/pdf;base64,${base64}`,
+          },
+        }
+      : {
+          type: "image_url",
+          image_url: { url: `data:${file.type};base64,${base64}` },
+        };
 
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 2000,
-      messages: [
-        {
-          role: "user",
-          content: [contentBlock, { type: "text", text: extractPrompt }],
-        },
-      ],
+    const text = await generate({
+      agent: "portfolioStatement",
+      maxTokens: 2000,
+      content: [contentBlock, { type: "text", text: extractPrompt }],
     });
-
-    const text = response.content.find((b) => b.type === "text")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ?.text as string | undefined;
 
     if (!text) return NextResponse.json({ error: "No response from AI" }, { status: 500 });
 

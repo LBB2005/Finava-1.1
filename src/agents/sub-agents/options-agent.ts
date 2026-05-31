@@ -1,6 +1,13 @@
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getOptionsSnapshot } from "@/lib/polygon";
 import { getSkillsPrompt } from "@/agents/skills";
+
+interface OptionContract {
+  details?: { contract_type?: string; strike_price?: number; expiration_date?: string };
+  open_interest?: number;
+  day?: { volume?: number };
+  implied_volatility?: number;
+}
 
 export async function runOptionsAgent(input: unknown): Promise<string> {
   const { tickers } = input as { tickers: string[] };
@@ -12,21 +19,19 @@ export async function runOptionsAgent(input: unknown): Promise<string> {
       tickers.map(async (ticker) => {
         try {
           const data = await getOptionsSnapshot(ticker);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const contracts = data.results ?? [];
-          const calls = contracts.filter((c: any) => c.details?.contract_type === "call");
-          const puts = contracts.filter((c: any) => c.details?.contract_type === "put");
 
-          const totalCallOI = calls.reduce((s: number, c: any) => s + (c.open_interest ?? 0), 0);
-          const totalPutOI = puts.reduce((s: number, c: any) => s + (c.open_interest ?? 0), 0);
+          const contracts = (data.results ?? []) as OptionContract[];
+          const calls = contracts.filter((c) => c.details?.contract_type === "call");
+          const puts = contracts.filter((c) => c.details?.contract_type === "put");
+
+          const totalCallOI = calls.reduce((s, c) => s + (c.open_interest ?? 0), 0);
+          const totalPutOI = puts.reduce((s, c) => s + (c.open_interest ?? 0), 0);
 
           // Find unusual activity (high volume contracts)
           const unusualCalls = calls
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .sort((a: any, b: any) => (b.day?.volume ?? 0) - (a.day?.volume ?? 0))
+            .sort((a, b) => (b.day?.volume ?? 0) - (a.day?.volume ?? 0))
             .slice(0, 3)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .map((c: any) => ({
+            .map((c) => ({
               strike: c.details?.strike_price,
               expiry: c.details?.expiration_date,
               volume: c.day?.volume,
@@ -35,11 +40,9 @@ export async function runOptionsAgent(input: unknown): Promise<string> {
             }));
 
           const unusualPuts = puts
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .sort((a: any, b: any) => (b.day?.volume ?? 0) - (a.day?.volume ?? 0))
+            .sort((a, b) => (b.day?.volume ?? 0) - (a.day?.volume ?? 0))
             .slice(0, 3)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .map((c: any) => ({
+            .map((c) => ({
               strike: c.details?.strike_price,
               expiry: c.details?.expiration_date,
               volume: c.day?.volume,
@@ -63,14 +66,11 @@ export async function runOptionsAgent(input: unknown): Promise<string> {
     Object.assign(optionsData, Object.fromEntries(tickers.map((t) => [t, { error: "No API key" }])));
   }
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  return generate({
+    agent: "options",
     system: getSkillsPrompt("options"),
-    max_tokens: 1500,
-    messages: [
-      {
-        role: "user",
-        content: `Analyze options flow for ${tickers.join(", ")}.
+    maxTokens: 1500,
+    prompt: `Analyze options flow for ${tickers.join(", ")}.
 
 Options data:
 ${JSON.stringify(optionsData, null, 2)}
@@ -83,9 +83,5 @@ Provide:
 5. Key strikes and expirations to watch
 
 Note that options flow reflects derivatives activity, not direct stock positions.`,
-      },
-    ],
   });
-
-  return (response.content[0] as { type: string; text: string }).text;
 }

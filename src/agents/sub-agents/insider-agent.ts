@@ -6,7 +6,7 @@
  *   B) Finnhub insider transactions (last 90 days) — for broader context
  */
 
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getSkillsPrompt } from "@/agents/skills";
 import { getInsiderTransactions } from "@/lib/finnhub";
 import { searchRecentForm4, type Form4Filing } from "@/lib/edgar";
@@ -40,8 +40,6 @@ async function parseForm4Purchases(
   if (!accessionNo || !cik) return [];
 
   try {
-    // Convert accession number format (0001234567-24-000123 → 000123456724000123)
-    const cleanAcc = accessionNo.replace(/-/g, "");
     const formattedCik = cik.padStart(10, "0");
 
     // Try to get the filing index to find the actual XML
@@ -80,7 +78,6 @@ async function parseForm4Purchases(
       const sharesMatch = block.match(/<transactionShares>\s*<value>([^<]+)<\/value>/);
       const priceMatch = block.match(/<transactionPricePerShare>\s*<value>([^<]+)<\/value>/);
       const ownedMatch = block.match(/<sharesOwnedFollowingTransaction>\s*<value>([^<]+)<\/value>/);
-      const directMatch = block.match(/<directOrIndirectOwnership>\s*<value>([^<]+)<\/value>/);
 
       const txType = typeMatch?.[1]?.trim();
       const adCode = adMatch?.[1]?.trim();
@@ -228,15 +225,12 @@ export async function runInsiderAgent(input: unknown): Promise<string> {
 
   const combinedData = sections.join("\n\n---\n\n");
 
-  // ── C. Claude synthesis ───────────────────────────────────────────────────
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  // ── C. LLM synthesis ──────────────────────────────────────────────────────
+  return generate({
+    agent: "insider",
     system: getSkillsPrompt("insider"),
-    max_tokens: 1600,
-    messages: [
-      {
-        role: "user",
-        content: `You are an expert at reading SEC insider trading signals. Analyze the following insider trading data for ${tickers.join(", ")} and provide actionable insights.
+    maxTokens: 1600,
+    prompt: `You are an expert at reading SEC insider trading signals. Analyze the following insider trading data for ${tickers.join(", ")} and provide actionable insights.
 
 ${combinedData}
 
@@ -248,9 +242,5 @@ Write a structured analysis covering:
 5. **Red Flags**: Any concerning patterns (heavy selling, CEO/CFO liquidating positions)?
 
 Be direct and specific with dollar amounts and names.`,
-      },
-    ],
   });
-
-  return (response.content[0] as { type: string; text: string }).text;
 }

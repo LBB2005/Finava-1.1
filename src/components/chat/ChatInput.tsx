@@ -135,13 +135,13 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
     setPopoverOpen(false);
   }, []);
 
-  const modeConfig = MODE_CONFIG[mode];
-
+  // Kept short enough to stay on one line in the single-row textarea even on
+  // narrow mobile widths (longer copy wrapped and got clipped by the 1-row height).
   const placeholder =
-    mode === "deep_research" ? "Deep research mode — ask anything for a thorough multi-source analysis…"
-    : mode === "agent" ? `Ask a research question — ${AGENT_COUNT} agents will analyze it…`
-    : mode === "backtest" ? "Describe a strategy to backtest: 'equal weight AAPL MSFT NVDA from 2022'…"
-    : "Ask about a stock, sector, or your portfolio…";
+    mode === "deep_research" ? "Deep research — ask anything…"
+    : mode === "agent" ? "Ask a research question…"
+    : mode === "backtest" ? "Describe a strategy to backtest…"
+    : "Ask about a stock or your portfolio…";
 
   const sendBgColor =
     mode === "deep_research" ? "var(--color-deep-research)"
@@ -178,23 +178,13 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
         <div className="relative">
           {/* Input box */}
           <div
-            className="relative flex items-end transition-all duration-200"
+            className="chat-input-box relative flex items-end transition-all duration-200"
             style={{
               background: "var(--color-bg)",
               border: "1px solid var(--color-border)",
               borderRadius: 16,
               boxShadow: disabled ? "none" : "0 1px 4px rgba(15,23,42,0.04)",
               opacity: disabled ? 0.6 : 1,
-            }}
-            onFocus={(e) => {
-              (e.currentTarget as HTMLDivElement).style.borderColor = "var(--color-border-strong)";
-              (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 18px rgba(15,23,42,0.07)";
-            }}
-            onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget)) {
-                (e.currentTarget as HTMLDivElement).style.borderColor = "var(--color-border)";
-                (e.currentTarget as HTMLDivElement).style.boxShadow = "0 1px 4px rgba(15,23,42,0.04)";
-              }
             }}
           >
             {/* + button */}
@@ -248,7 +238,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
             >
               {/* MODE */}
               <div className="px-4 pt-3 pb-2.5" style={{ borderBottom: "1px solid var(--color-border)" }}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-2" style={{ color: "var(--color-muted)" }}>Mode</p>
+                <p className="eyebrow-label mb-2" style={{ color: "var(--color-muted)" }}>Mode</p>
                 {(["agent", "deep_research", "backtest", "simple"] as ChatMode[]).map((m) => {
                   const cfg = MODE_CONFIG[m];
                   const active = mode === m;
@@ -276,7 +266,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
 
               {/* ATTACH */}
               <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--color-border)" }}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-2" style={{ color: "var(--color-muted)" }}>Attach</p>
+                <p className="eyebrow-label mb-2" style={{ color: "var(--color-muted)" }}>Attach</p>
                 <button onClick={() => fileInputRef.current?.click()}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-[8px] text-[12.5px] transition-colors duration-100"
                   style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text-secondary)" }}>
@@ -290,7 +280,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
 
               {/* TICKERS */}
               <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--color-border)" }}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-2" style={{ color: "var(--color-muted)" }}>Pin Tickers</p>
+                <p className="eyebrow-label mb-2" style={{ color: "var(--color-muted)" }}>Pin Tickers</p>
                 {tickers.length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-2">
                     {tickers.map((t) => (
@@ -315,13 +305,11 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
 
               {/* TEMPLATES */}
               <div className="px-4 pt-2.5 pb-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5" style={{ color: "var(--color-muted)" }}>Templates</p>
+                <p className="eyebrow-label mb-1.5" style={{ color: "var(--color-muted)" }}>Templates</p>
                 {PROMPT_TEMPLATES.map((pt) => (
                   <button key={pt.label} onClick={() => applyTemplate(pt.template)}
-                    className="w-full text-left px-2.5 py-1.5 rounded-[7px] text-[12px] transition-colors duration-100"
-                    style={{ color: "var(--color-text-secondary)" }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--color-accent-light)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--color-accent)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-secondary)"; }}>
+                    className="template-btn w-full text-left px-2.5 py-1.5 rounded-[7px] text-[12px] transition-colors duration-100"
+                    style={{ color: "var(--color-text-secondary)" }}>
                     {pt.label}
                   </button>
                 ))}

@@ -54,7 +54,12 @@ export default function ChatSearchModal({ onClose }: { onClose: () => void }) {
     );
   }, [conversations, query]);
 
-  useEffect(() => { setActive(0); }, [query]);
+  // Reset the highlighted row whenever the query changes (render-phase, no effect).
+  const [prevQuery, setPrevQuery] = useState(query);
+  if (query !== prevQuery) {
+    setPrevQuery(query);
+    setActive(0);
+  }
 
   function loadConversation(conv: Conversation) {
     setMessages(conv.messages.map((m) => {

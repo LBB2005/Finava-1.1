@@ -6,7 +6,7 @@
 // is research color, not advice.
 
 import { NextResponse } from "next/server";
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getStockBundle } from "@/lib/stockData";
 
 function fmtNum(n: number | null | undefined, opts?: Intl.NumberFormatOptions): string {
@@ -25,9 +25,9 @@ export async function POST(
     return NextResponse.json({ error: "Missing ticker." }, { status: 400 });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.OPENROUTER_API_KEY) {
     return NextResponse.json(
-      { error: "AI service not configured (ANTHROPIC_API_KEY missing)." },
+      { error: "AI service not configured (OPENROUTER_API_KEY missing)." },
       { status: 503 }
     );
   }
@@ -103,14 +103,13 @@ Write 3 short paragraphs (no headers, no bullet lists):
 
 Be specific with the numbers given. Do not invent data you weren't given. Keep it under ~180 words.`;
 
-    const resp = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 600,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const take =
-      resp.content.find((blk) => blk.type === "text")?.text?.trim() ?? "";
+    const take = (
+      await generate({
+        agent: "aiTake",
+        maxTokens: 600,
+        prompt,
+      })
+    ).trim();
 
     if (!take) {
       return NextResponse.json(

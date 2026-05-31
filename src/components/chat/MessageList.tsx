@@ -7,7 +7,6 @@ import { AGENT_LABELS } from "@/types/chat";
 import type { ChatMessage, ChatMode, AgentStep } from "@/types/chat";
 import { useMarketPulse } from "@/hooks/useMarketPulse";
 import { usMarketStatus } from "@/lib/marketHours";
-import { AGENT_COUNT } from "@/types/chat";
 
 /* ── Starter prompts with tags ──────────────────────────────────────────── */
 const SUGGESTIONS = [
@@ -296,14 +295,14 @@ function MarketPulse() {
         </span>
       </div>
 
-      {/* Ticker grid */}
-      <div className="grid gap-[14px]" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+      {/* Ticker grid — 3 cols on mobile (two tidy rows), 6 across at md+ */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-x-[14px] gap-y-[14px]">
         {items.map((item) => {
           const up = item.chg >= 0;
           return (
-            <div key={item.ticker}>
+            <div key={item.ticker} className="min-w-0">
               <p
-                className="flex items-baseline gap-1 text-[10.5px] font-semibold uppercase tracking-[0.16em] mb-1"
+                className="flex items-baseline gap-1 text-[10.5px] font-semibold uppercase tracking-[0.16em] mb-1 whitespace-nowrap"
                 style={{ color: "var(--color-muted)" }}
               >
                 {item.label}
@@ -380,28 +379,15 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
             </span>
             <span className="text-[11px] text-[var(--color-muted)]">Tailored to your book</span>
           </div>
-          <div className="grid grid-cols-2 gap-[10px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[10px]">
             {SUGGESTIONS.map((s) => (
               <button
                 key={s.text}
                 onClick={() => onSuggestion?.(s.text)}
-                className="text-left px-[16px] py-[14px] rounded-[12px] flex gap-[10px] items-start transition-all duration-120 group"
+                className="followup-chip text-left px-[16px] py-[14px] rounded-[12px] flex gap-[10px] items-start transition-all duration-120 group"
                 style={{
-                  background: "var(--color-bg)",
-                  border: "1px solid var(--color-border)",
-                  color: "var(--color-text-secondary)",
                   fontSize: "13.5px",
                   lineHeight: 1.4,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "var(--color-accent-medium)";
-                  e.currentTarget.style.background = "var(--color-accent-light)";
-                  e.currentTarget.style.color = "var(--color-accent)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "var(--color-border)";
-                  e.currentTarget.style.background = "var(--color-bg)";
-                  e.currentTarget.style.color = "var(--color-text-secondary)";
                 }}
               >
                 <span

@@ -117,61 +117,6 @@ export default function ChatContainer() {
     });
   }
 
-  const handleSend = useCallback(
-    async (text: string) => {
-      if (isStreaming) return;
-
-      try {
-        const convId = await ensureConversation();
-
-        // Fetch Markov signals in parallel with building context (fast — usually cached)
-        const markovSignals = holdings.length > 0
-          ? await fetchMarkovSignals(holdings.map((h) => h.ticker))
-          : {};
-
-        const portfolioContext = buildPortfolioContext(holdings, cashBalance, quoteMap, markovSignals);
-
-        const userMsg: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "user",
-          content: text,
-          mode,
-          createdAt: new Date().toISOString(),
-        };
-        addMessage(userMsg);
-
-        saveMessage(convId, "user", text).catch((e) =>
-          console.warn("[handleSend] saveMessage failed:", e)
-        );
-
-        setStreaming(true);
-        setStreamingConversationId(convId);
-        clearStreamingContent();
-
-        const agentHistory = messages
-          .filter((m) => m.mode === "agent" || m.mode === "deep_research")
-          .map((m) => ({ role: m.role, content: m.content }));
-
-        if (mode === "backtest") {
-          await runBacktest(text, convId);
-        } else if (mode === "simple") {
-          await runSimpleChat(text, portfolioContext, convId);
-        } else if (mode === "deep_research") {
-          await runAgentMode(text, portfolioContext, convId, true, agentHistory);
-        } else {
-          await runAgentMode(text, portfolioContext, convId, false, agentHistory);
-        }
-      } catch (err) {
-        console.error("[handleSend] top-level error:", err);
-        setStreaming(false);
-        clearStreamingContent();
-        setStreamingConversationId(null);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isStreaming, mode, holdings, cashBalance, conversationId, quoteMap]
-  );
-
   async function runBacktest(text: string, convId: string) {
     try {
       const portfolioTickers = holdings.map((h) => h.ticker);
@@ -379,6 +324,61 @@ export default function ChatContainer() {
         break;
     }
   }
+
+  const handleSend = useCallback(
+    async (text: string) => {
+      if (isStreaming) return;
+
+      try {
+        const convId = await ensureConversation();
+
+        // Fetch Markov signals in parallel with building context (fast — usually cached)
+        const markovSignals = holdings.length > 0
+          ? await fetchMarkovSignals(holdings.map((h) => h.ticker))
+          : {};
+
+        const portfolioContext = buildPortfolioContext(holdings, cashBalance, quoteMap, markovSignals);
+
+        const userMsg: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: text,
+          mode,
+          createdAt: new Date().toISOString(),
+        };
+        addMessage(userMsg);
+
+        saveMessage(convId, "user", text).catch((e) =>
+          console.warn("[handleSend] saveMessage failed:", e)
+        );
+
+        setStreaming(true);
+        setStreamingConversationId(convId);
+        clearStreamingContent();
+
+        const agentHistory = messages
+          .filter((m) => m.mode === "agent" || m.mode === "deep_research")
+          .map((m) => ({ role: m.role, content: m.content }));
+
+        if (mode === "backtest") {
+          await runBacktest(text, convId);
+        } else if (mode === "simple") {
+          await runSimpleChat(text, portfolioContext, convId);
+        } else if (mode === "deep_research") {
+          await runAgentMode(text, portfolioContext, convId, true, agentHistory);
+        } else {
+          await runAgentMode(text, portfolioContext, convId, false, agentHistory);
+        }
+      } catch (err) {
+        console.error("[handleSend] top-level error:", err);
+        setStreaming(false);
+        clearStreamingContent();
+        setStreamingConversationId(null);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isStreaming, mode, holdings, cashBalance, conversationId, quoteMap]
+  );
 
   // Fire pending message routed from portfolio ask bar
   useEffect(() => {

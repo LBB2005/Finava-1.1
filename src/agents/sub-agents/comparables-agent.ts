@@ -1,4 +1,4 @@
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getFinancials } from "@/lib/polygon";
 import { getSkillsPrompt } from "@/agents/skills";
 import { getBasicFinancials, getQuote, getPeers } from "@/lib/finnhub";
@@ -99,13 +99,11 @@ export async function runComparablesAgent(input: unknown): Promise<string> {
     .filter((r): r is PromiseFulfilledResult<TickerData> => r.status === "fulfilled")
     .map((r) => r.value);
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  const text = await generate({
+    agent: "comparables",
     system: getSkillsPrompt("comparables"),
-    max_tokens: 2000,
-    messages: [{
-      role: "user",
-      content: `You are a financial analyst computing valuation multiples for a comparables analysis.
+    maxTokens: 2000,
+    prompt: `You are a financial analyst computing valuation multiples for a comparables analysis.
 
 Target: **${ticker}**
 Peers: ${peers.join(", ") || "none found"}
@@ -127,8 +125,7 @@ Output:
 2. Peer median for each metric
 3. For **${ticker}** specifically: a 2-3 sentence verdict — cheap / fairly valued / expensive vs peers on each metric, with the key reason.
 Use "N/A" for any metric that cannot be calculated from available data.`,
-    }],
   });
 
-  return response.content.find((b) => b.type === "text")?.text ?? "Comparables data unavailable.";
+  return text || "Comparables data unavailable.";
 }

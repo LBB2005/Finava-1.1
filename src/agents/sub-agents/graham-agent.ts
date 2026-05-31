@@ -1,4 +1,4 @@
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getFinancials } from "@/lib/polygon";
 import { getSkillsPrompt } from "@/agents/skills";
 import { getBasicFinancials, getQuote } from "@/lib/finnhub";
@@ -49,14 +49,11 @@ export async function runGrahamAgent(input: unknown): Promise<string> {
     totalDebt: balanceSheet?.long_term_debt?.value ?? null,
   };
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  const text = await generate({
+    agent: "graham",
     system: getSkillsPrompt("graham"),
-    max_tokens: 2000,
-    messages: [
-      {
-        role: "user",
-        content: `You are a value investor applying Benjamin Graham's defensive investment criteria to **${ticker}**.
+    maxTokens: 2000,
+    prompt: `You are a value investor applying Benjamin Graham's defensive investment criteria to **${ticker}**.
 
 Raw data:
 \`\`\`json
@@ -81,12 +78,7 @@ Perform ALL of the following checks. Use pre-computed metrics where available; f
 3. Overall score (X/5) and a 2-sentence verdict on whether Graham would buy this stock.
 
 Use "N/A" for any criterion that cannot be calculated. If data is too sparse to run the screen, say so clearly.`,
-      },
-    ],
   });
 
-  return (
-    response.content.find((b) => b.type === "text")?.text ??
-    "Graham screen data unavailable."
-  );
+  return text || "Graham screen data unavailable.";
 }

@@ -8,10 +8,15 @@
  * for a quantitative bullish/bearish signal to complement Perplexity's search.
  */
 
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getSkillsPrompt } from "@/agents/skills";
 
 const PERPLEXITY_API = "https://api.perplexity.ai/chat/completions";
+
+interface StockTwitsMessage {
+  body?: string;
+  entities?: { sentiment?: { basic?: string } };
+}
 
 async function fetchStockTwitsSentiment(ticker: string) {
   const token = process.env.STOCKTWITS_ACCESS_TOKEN;
@@ -25,10 +30,10 @@ async function fetchStockTwitsSentiment(ticker: string) {
     );
     if (!res.ok) return null;
     const data = await res.json();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const messages = (data.messages ?? []).slice(0, 25);
-    const bullish = messages.filter((m: any) => m.entities?.sentiment?.basic === "Bullish").length;
-    const bearish = messages.filter((m: any) => m.entities?.sentiment?.basic === "Bearish").length;
+
+    const messages = ((data.messages ?? []) as StockTwitsMessage[]).slice(0, 25);
+    const bullish = messages.filter((m) => m.entities?.sentiment?.basic === "Bullish").length;
+    const bearish = messages.filter((m) => m.entities?.sentiment?.basic === "Bearish").length;
     const neutral = messages.length - bullish - bearish;
     const total = messages.length;
 
@@ -39,8 +44,10 @@ async function fetchStockTwitsSentiment(ticker: string) {
       neutral,
       bullishPct: total ? Math.round((bullish / total) * 100) : 0,
       bearishPct: total ? Math.round((bearish / total) * 100) : 0,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      topMessages: messages.slice(0, 5).map((m: any) => m.body?.slice(0, 120)),
+      topMessages: messages
+        .slice(0, 5)
+        .map((m) => m.body?.slice(0, 120))
+        .filter((b): b is string => !!b),
     };
   } catch {
     return null;
@@ -139,15 +146,12 @@ export async function runSentimentAgent(input: unknown): Promise<string> {
     .filter(Boolean)
     .join("\n\n---\n\n");
 
-  // Ask Claude to synthesize
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  // Ask the model to synthesize
+  return generate({
+    agent: "sentiment",
     system: getSkillsPrompt("sentiment"),
-    max_tokens: 1400,
-    messages: [
-      {
-        role: "user",
-        content: `You are a social sentiment analyst. Synthesize the following multi-platform sentiment data for ${tickers.join(", ")} into a clear, actionable report.
+    maxTokens: 1400,
+    prompt: `You are a social sentiment analyst. Synthesize the following multi-platform sentiment data for ${tickers.join(", ")} into a clear, actionable report.
 
 ${combinedInput}
 
@@ -160,9 +164,5 @@ Write a structured report covering:
 6. **Divergence Alert**: Does social sentiment align with or contradict the fundamental picture?
 
 Be specific with names, numbers, and sources from the data provided.`,
-      },
-    ],
   });
-
-  return (response.content[0] as { type: string; text: string }).text;
 }

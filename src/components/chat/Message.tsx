@@ -93,25 +93,18 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
       <button
         aria-expanded={expanded}
         onClick={() => setExpanded((v) => !v)}
+        className="agent-ribbon-toggle"
         style={{
           width: "100%",
           display: "flex",
           alignItems: "center",
           gap: 12,
           padding: "11px 14px",
-          background: "transparent",
           border: "none",
           font: "inherit",
           textAlign: "left",
           cursor: "pointer",
           transition: "background 140ms",
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background =
-            "color-mix(in oklab, var(--color-accent) 4%, transparent)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
         }}
       >
         {/* Stack glyph */}
@@ -271,6 +264,7 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
               return (
                 <div
                   key={step.agent}
+                  className="agent-trace-row"
                   style={{
                     display: "grid",
                     gridTemplateColumns: "30px 1fr auto",
@@ -279,12 +273,6 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
                     padding: "9px 10px",
                     borderRadius: 8,
                     transition: "background 120ms",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.background = "var(--color-surface)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.background = "transparent";
                   }}
                 >
                   {/* Index */}
@@ -606,9 +594,8 @@ function MessageInner({
                   <button
                     key={q}
                     onClick={() => onSuggestion(q)}
-                    style={{ border: "1px solid var(--color-border)", background: "var(--color-bg)", color: "var(--color-text-secondary)", padding: "7px 13px", borderRadius: 99, fontSize: 12, fontWeight: 500, fontFamily: "inherit", cursor: "pointer", transition: "all 140ms" }}
-                    onMouseEnter={(e) => { const el = e.currentTarget as HTMLButtonElement; el.style.borderColor = "var(--color-accent-medium)"; el.style.background = "var(--color-accent-light)"; el.style.color = "var(--color-accent)"; }}
-                    onMouseLeave={(e) => { const el = e.currentTarget as HTMLButtonElement; el.style.borderColor = "var(--color-border)"; el.style.background = "var(--color-bg)"; el.style.color = "var(--color-text-secondary)"; }}
+                    className="followup-chip"
+                    style={{ padding: "7px 13px", borderRadius: 99, fontSize: 12, fontWeight: 500, fontFamily: "inherit", cursor: "pointer", transition: "all 140ms" }}
                   >
                     {q}
                   </button>
@@ -646,10 +633,8 @@ function MessageInner({
               <button
                 key={q}
                 onClick={() => onSuggestion(q)}
+                className="followup-chip"
                 style={{
-                  border: "1px solid var(--color-border)",
-                  background: "var(--color-bg)",
-                  color: "var(--color-text-secondary)",
                   padding: "8px 14px",
                   borderRadius: 99,
                   fontSize: 12,
@@ -657,18 +642,6 @@ function MessageInner({
                   fontFamily: "inherit",
                   cursor: "pointer",
                   transition: "all 140ms",
-                }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLButtonElement;
-                  el.style.borderColor = "var(--color-accent-medium)";
-                  el.style.background = "var(--color-accent-light)";
-                  el.style.color = "var(--color-accent)";
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLButtonElement;
-                  el.style.borderColor = "var(--color-border)";
-                  el.style.background = "var(--color-bg)";
-                  el.style.color = "var(--color-text-secondary)";
                 }}
               >
                 {q}

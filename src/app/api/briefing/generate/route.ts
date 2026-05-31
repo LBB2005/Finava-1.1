@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
-import { anthropic, MODEL, HAIKU } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { runRiskAgent } from "@/agents/sub-agents/risk-agent";
 import { runNewsAgent } from "@/agents/sub-agents/news-agent";
 import { runMacroAgent } from "@/agents/sub-agents/macro-agent";
@@ -76,12 +76,10 @@ async function generateForUser(userId: string): Promise<NextResponse> {
       .map((s) => `### ${s.label}\n${(s.result as PromiseFulfilledResult<string>).value.slice(0, 1200)}`);
 
     // Synthesize into a briefing
-    const synthesis = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 3000,
-      messages: [{
-        role: "user",
-        content: `You are Lucra, a financial research assistant. Synthesize these agent reports into a polished weekly portfolio briefing.
+    const content = await generate({
+      agent: "briefingSynthesis",
+      maxTokens: 3000,
+      prompt: `You are Lucra, a financial research assistant. Synthesize these agent reports into a polished weekly portfolio briefing.
 
 ## Portfolio
 ${portfolioContext}
@@ -99,10 +97,7 @@ Write a **Weekly Portfolio Briefing** in this exact structure:
 6. **Watchlist** (any new tickers worth monitoring based on this week's signals)
 
 Be specific, cite data points from the reports, and keep it scannable. Start with "# Weekly Briefing — ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}".`,
-      }],
     });
-
-    const content = synthesis.content.find((b) => b.type === "text")?.text ?? "";
 
     const now = new Date().toISOString();
     const briefingRef = await db
@@ -152,6 +147,3 @@ async function runWithCache(agentName: string, input: unknown): Promise<string> 
   saveCache(agentName, input, result).catch(() => {});
   return result;
 }
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _haiku = HAIKU; // imported for future use in summary distillation

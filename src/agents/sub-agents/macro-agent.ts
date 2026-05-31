@@ -1,4 +1,4 @@
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getMarketSnapshot, getMarketNews } from "@/lib/finnhub";
 import { getSkillsPrompt } from "@/agents/skills";
 import { perplexitySearch } from "@/lib/perplexity";
@@ -42,15 +42,12 @@ export async function runMacroAgent(input: unknown): Promise<string> {
     } catch { /* skip */ }
   }
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  const text = await generate({
+    agent: "macro",
     system: getSkillsPrompt("macro"),
-    max_tokens: 10000,
-    thinking: { type: "enabled", budget_tokens: 8000 },
-    messages: [
-      {
-        role: "user",
-        content: `Analyze the current macro and market environment.${sectors.length ? ` Portfolio sectors: ${sectors.join(", ")}.` : ""}
+    maxTokens: 10000,
+    reasoning: 8000,
+    prompt: `Analyze the current macro and market environment.${sectors.length ? ` Portfolio sectors: ${sectors.join(", ")}.` : ""}
 
 Market snapshot (SPY, QQQ, IWM, sector ETFs):
 ${marketData}
@@ -68,10 +65,7 @@ Provide:
 5. Near-term risks to watch
 
 Be analytical and reference specific data points.`,
-      },
-    ],
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock ? (textBlock as { type: string; text: string }).text : "Macro analysis unavailable.";
+  return text || "Macro analysis unavailable.";
 }

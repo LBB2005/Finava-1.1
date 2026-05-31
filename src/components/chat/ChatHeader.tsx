@@ -21,29 +21,30 @@ export default function ChatHeader({ mode, onModeChange, title = "Research", eye
 
   return (
     <div
-      className="flex-shrink-0 flex items-center justify-between px-7 h-[52px]"
+      className="flex-shrink-0 flex items-center justify-between px-4 sm:px-7 h-[52px]"
       style={{ borderBottom: "1px solid var(--color-border)", background: "var(--color-bg)" }}
     >
-      {/* Left: eyebrow + title — allowed to shrink/truncate so it never collides
-          with the mode toggle on narrow viewports. */}
-      <div className="flex items-baseline gap-3.5 min-w-0 mr-3">
+      {/* Left: eyebrow + title. The eyebrow hides under sm; the title stays
+          whole and never clips — the mode toggle shrinks instead on narrow viewports. */}
+      <div className="flex items-baseline gap-3.5 min-w-0 mr-2 sm:mr-3">
         <span
           className="hidden sm:inline text-[12px] italic whitespace-nowrap flex-shrink-0"
           style={{ fontFamily: "var(--font-serif)", color: "var(--color-muted)" }}
         >
           {eyebrow ?? dayLabel}
         </span>
-        <h1 className="m-0 text-[15px] font-semibold text-[var(--color-text)] truncate" style={{ fontFamily: "var(--font-serif)" }}>{title}</h1>
+        <h1 className="m-0 text-[15px] font-semibold text-[var(--color-text)] whitespace-nowrap flex-shrink-0" style={{ fontFamily: "var(--font-serif)" }}>{title}</h1>
       </div>
 
       {/* Right: Chat ↔ Agent toggle */}
       <div
         className="inline-flex flex-shrink-0 p-[3px] gap-[2px] rounded-[10px]"
         style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+        role="tablist"
       >
         <button
           onClick={() => onModeChange("simple")}
-          className="flex items-center gap-[6px] px-3 py-[5px] text-[12.5px] font-medium rounded-[7px] transition-all duration-150"
+          className="flex items-center gap-[6px] px-2.5 sm:px-3 py-[5px] text-[12.5px] font-medium rounded-[7px] transition-all duration-150"
           style={
             mode === "simple"
               ? { background: "var(--color-bg)", color: "var(--color-accent)", boxShadow: "0 1px 2px rgba(15,23,42,0.06)", fontWeight: 600 }
@@ -55,7 +56,7 @@ export default function ChatHeader({ mode, onModeChange, title = "Research", eye
 
         <button
           onClick={() => onModeChange(isAgentLike ? mode : "agent")}
-          className="flex items-center gap-[6px] px-3 py-[5px] text-[12.5px] font-medium rounded-[7px] transition-all duration-150"
+          className="flex items-center gap-[6px] px-2.5 sm:px-3 py-[5px] text-[12.5px] font-medium rounded-[7px] transition-all duration-150"
           style={
             isAgentLike
               ? { background: agentBtnBg, color: agentBtnColor, boxShadow: "0 1px 2px rgba(15,23,42,0.06)", fontWeight: 600 }
@@ -83,7 +84,7 @@ export default function ChatHeader({ mode, onModeChange, title = "Research", eye
 
         <button
           onClick={() => onModeChange(isBacktest ? "agent" : "backtest")}
-          className="flex items-center gap-[6px] px-3 py-[5px] text-[12.5px] font-medium rounded-[7px] transition-all duration-150"
+          className="flex items-center gap-[6px] px-2.5 sm:px-3 py-[5px] text-[12.5px] font-medium rounded-[7px] transition-all duration-150"
           style={
             isBacktest
               ? { background: "var(--color-backtest-light)", color: "var(--color-backtest)", boxShadow: "0 1px 2px rgba(15,23,42,0.06)", fontWeight: 600 }

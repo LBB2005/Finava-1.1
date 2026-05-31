@@ -88,10 +88,8 @@ function BriefingBanner() {
           {latest && (
             <button
               onClick={openLatest}
-              className="flex-1 text-[10.5px] font-medium py-1.5 transition-colors duration-100"
-              style={{ color: "var(--color-accent)", background: "transparent" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--color-accent-light)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+              className="flex-1 text-[10.5px] font-medium py-1.5 bg-transparent hover:bg-[var(--color-accent-light)] transition-colors duration-100"
+              style={{ color: "var(--color-accent)" }}
             >
               Read
             </button>
@@ -100,10 +98,8 @@ function BriefingBanner() {
           <button
             onClick={generate}
             disabled={generating}
-            className="flex-1 text-[10.5px] font-medium py-1.5 transition-colors duration-100 disabled:opacity-50"
-            style={{ color: "var(--color-text-secondary)", background: "transparent" }}
-            onMouseEnter={(e) => { if (!generating) (e.currentTarget as HTMLButtonElement).style.background = "var(--color-surface-2)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+            className="flex-1 text-[10.5px] font-medium py-1.5 bg-transparent enabled:hover:bg-[var(--color-surface-2)] transition-colors duration-100 disabled:opacity-50"
+            style={{ color: "var(--color-text-secondary)" }}
           >
             {generating ? "Generating…" : "Generate"}
           </button>
@@ -221,8 +217,11 @@ function UserWidget() {
     dedupingInterval: 120_000,
   });
 
+  // localStorage is client-only; reading it in an effect (not render) is the
+  // hydration-safe way to pick up the stored theme without an SSR mismatch.
   useEffect(() => {
     const stored = localStorage.getItem("lucra-theme") as "light" | "dark" | null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(stored ?? "light");
   }, []);
 
@@ -330,10 +329,8 @@ function UserWidget() {
             <button
               key={item.label}
               onClick={item.action}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12.5px] font-medium text-left transition-colors duration-100"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12.5px] font-medium text-left bg-transparent hover:bg-[var(--color-surface)] transition-colors duration-100"
               style={{ color: item.danger ? "var(--color-bear)" : "var(--color-text)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-surface)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
             >
               <span style={{ color: item.danger ? "var(--color-bear)" : "var(--color-muted)" }}>{item.icon}</span>
               {item.label}
@@ -345,24 +342,7 @@ function UserWidget() {
       {/* Trigger button */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2.5 px-[10px] py-[8px] rounded-[9px] transition-colors duration-150"
-        style={{
-          background: open ? "var(--color-surface)" : "transparent",
-          border: "1px solid",
-          borderColor: open ? "var(--color-border)" : "transparent",
-        }}
-        onMouseEnter={(e) => {
-          if (!open) {
-            e.currentTarget.style.background = "var(--color-surface)";
-            e.currentTarget.style.borderColor = "var(--color-border)";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!open) {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.borderColor = "transparent";
-          }
-        }}
+        className={`user-widget-trigger${open ? " is-open" : ""} w-full flex items-center gap-2.5 px-[10px] py-[8px] rounded-[9px] transition-colors duration-150`}
       >
         {/* Avatar */}
         {user.photoURL ? (
@@ -436,13 +416,13 @@ export default function Sidebar({
     setWidth(Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startWidth.current + e.clientX - startX.current)));
   }, []);
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback(function up() {
     if (!isDragging.current) return;
     isDragging.current = false;
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
     document.removeEventListener("mousemove", handleMouseMove);
-    document.removeEventListener("mouseup", handleMouseUp);
+    document.removeEventListener("mouseup", up);
   }, [handleMouseMove]);
 
   function startResize(e: React.MouseEvent) {

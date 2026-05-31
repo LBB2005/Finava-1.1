@@ -1,4 +1,4 @@
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { perplexitySearch } from "@/lib/perplexity";
 import { getSkillsPrompt } from "@/agents/skills";
 import { getCompanyNews } from "@/lib/finnhub";
@@ -39,14 +39,11 @@ export async function runNewsAgent(input: unknown): Promise<string> {
     ? newsItems.join("\n")
     : `No Finnhub news found for ${tickers.join(", ")}.`;
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  return generate({
+    agent: "news",
     system: getSkillsPrompt("news"),
-    max_tokens: 1500,
-    messages: [
-      {
-        role: "user",
-        content: `Summarize recent news and sentiment for ${tickers.join(", ")} (last ${days} days).
+    maxTokens: 1500,
+    prompt: `Summarize recent news and sentiment for ${tickers.join(", ")} (last ${days} days).
 
 Finnhub headlines:
 ${rawNews}
@@ -54,9 +51,5 @@ ${rawNews}
 ${perplexityContext ? `Web research:\n${perplexityContext}` : ""}
 
 Provide: key themes, overall sentiment (bullish/bearish/neutral per ticker), and any material events.`,
-      },
-    ],
   });
-
-  return (response.content[0] as { type: string; text: string }).text;
 }

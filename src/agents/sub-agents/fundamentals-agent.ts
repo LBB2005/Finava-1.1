@@ -5,7 +5,7 @@
  * Outputs a trend analysis with inline charts for the CEO to reference.
  */
 
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getSkillsPrompt } from "@/agents/skills";
 import { getCikByTicker, getCompanyFacts, extractFundamentalTimeSeries } from "@/lib/edgar";
 import { getFinancialsReported, getBasicFinancials } from "@/lib/finnhub";
@@ -168,15 +168,12 @@ export async function runFundamentalsAgent(input: unknown): Promise<string> {
       ? charts.map((c) => `\`\`\`chart\n${JSON.stringify(c, null, 2)}\n\`\`\``).join("\n\n") + "\n\n"
       : "";
 
-  // ── 4. Ask Claude to write the trend analysis ─────────────────────────────
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  // ── 4. Ask the model to write the trend analysis ──────────────────────────
+  const analysis = await generate({
+    agent: "fundamentals",
     system: getSkillsPrompt("fundamentals"),
-    max_tokens: 1800,
-    messages: [
-      {
-        role: "user",
-        content: `You are a fundamental equity analyst. Analyze the multi-year financial trends for ${ticker} and write a concise, insightful report.
+    maxTokens: 1800,
+    prompt: `You are a fundamental equity analyst. Analyze the multi-year financial trends for ${ticker} and write a concise, insightful report.
 
 ## Raw Data
 ${rawData}
@@ -189,11 +186,7 @@ ${rawData}
 5. End with a "Fundamental Trend Verdict" (Improving / Stable / Deteriorating) and why
 
 Be specific with numbers. Use the years provided. Do NOT hallucinate data not in the raw input.`,
-      },
-    ],
   });
-
-  const analysis = (response.content[0] as { type: string; text: string }).text;
 
   return `${chartBlock}${analysis}`;
 }

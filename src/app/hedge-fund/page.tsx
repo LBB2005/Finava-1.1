@@ -169,11 +169,14 @@ const VALID_TABS: DualTab[] = ["dashboard", "strategies", "trading", "activity"]
 export default function HedgeFundPage() {
   const [tab, setTab] = useState<DualTab>("dashboard");
 
+  // window.location is client-only; reading the initial tab from the URL in an
+  // effect (not render) is the hydration-safe way to seed it without an SSR mismatch.
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get("tab") as DualTab | null;
     // legacy aliases from the previous layout
     const alias: Record<string, DualTab> = { overview: "dashboard", bot: "activity" };
     const resolved = p ? (alias[p] ?? p) : null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (resolved && VALID_TABS.includes(resolved)) setTab(resolved);
   }, []);
 

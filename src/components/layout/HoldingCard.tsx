@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Holding, Quote } from "@/types/portfolio";
 
 interface Props {
@@ -26,6 +27,7 @@ function Stat({ label, value, color, span }: { label: string; value: string; col
 
 export default function HoldingCard({ holding, quote, portfolioPct, onRemove, compact = false }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
 
   const price = quote?.price ?? 0;
   const marketValue = price > 0 ? price * holding.shares : holding.avgCost * holding.shares;
@@ -40,13 +42,11 @@ export default function HoldingCard({ holding, quote, portfolioPct, onRemove, co
   if (compact) {
     return (
       <div
-        className="group grid items-center gap-[10px] px-[18px] py-[8px] cursor-pointer transition-colors duration-100"
+        className="group grid items-center gap-[10px] px-[18px] py-[8px] cursor-pointer bg-transparent hover:bg-[var(--color-sidebar-hover)] transition-colors duration-100"
         style={{
           gridTemplateColumns: "auto 1fr auto",
-          background: "transparent",
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-sidebar-hover)")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        onClick={() => router.push(`/stock/${holding.ticker}`)}
       >
         {/* Ticker chip */}
         <span

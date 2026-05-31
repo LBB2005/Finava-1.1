@@ -5,6 +5,7 @@ import { usePortfolio } from "@/hooks/usePortfolio";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useChatStore } from "@/stores/chatStore";
 import type { Holding, Quote } from "@/types/portfolio";
+import TickerSearch from "@/components/stock/TickerSearch";
 
 function segColor(i: number) {
   return `oklch(${0.55 - i * 0.04} 0.135 ${252 - i * 14})`;
@@ -89,17 +90,16 @@ export default function PortfolioPage() {
 
   // Build donut segments — 3° gap between each slice for clean separation
   const GAP = rows.length > 1 ? 3 : 0;
-  let angle = 0;
+  const sweeps = rows.map((r) => Math.max((r.pct / 100) * 360 - GAP, 0.5));
   const segments = rows.map((r, i) => {
-    const sweep = Math.max((r.pct / 100) * 360 - GAP, 0.5);
-    const seg = {
-      path: arcPath(90, 90, 82, 52, angle, angle + sweep),
+    // Start angle is the sum of all prior sweeps + gaps (no render-time mutation).
+    const start = sweeps.slice(0, i).reduce((sum, s) => sum + s + GAP, 0);
+    return {
+      path: arcPath(90, 90, 82, 52, start, start + sweeps[i]),
       color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
       ticker: r.holding.ticker,
       pct: r.pct,
     };
-    angle += sweep + GAP;
-    return seg;
   });
 
   const maxAbsGain = Math.max(...rows.map((r) => Math.abs(r.gainLossPct)), 1);
@@ -133,6 +133,7 @@ export default function PortfolioPage() {
           <h1 className="m-0 text-[15px] font-semibold text-[var(--color-text)]" style={{ fontFamily: "var(--font-serif)" }}>Portfolio</h1>
         </div>
         <div className="flex items-center gap-2">
+          <TickerSearch />
           <button
             onClick={startEditCash}
             className="text-[12px] px-3 py-[5px] rounded-[9px] transition-all duration-150"
@@ -307,7 +308,7 @@ export default function PortfolioPage() {
                     ))}
                     <text x="90" y="82" textAnchor="middle" fontSize="10" fill="var(--color-muted)" fontWeight="600" letterSpacing="0.18em">EQUITY</text>
                     <text x="90" y="100" textAnchor="middle" fontSize="22" fontWeight="700" fill="var(--color-text)" fontFamily="var(--font-serif)">
-                      ${totalAccountValue >= 1000 ? fmt(totalAccountValue / 1000, 1) + "k" : fmt(totalAccountValue, 0)}
+                      ${equityValue >= 1000 ? fmt(equityValue / 1000, 1) + "k" : fmt(equityValue, 0)}
                     </text>
                   </svg>
                   {/* Legend */}
@@ -391,7 +392,7 @@ export default function PortfolioPage() {
                 style={{ background: "var(--color-surface)", borderBottom: "1px solid var(--color-border)" }}
               >
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">Holdings</p>
-                <p className="text-[11px] text-[var(--color-muted)]">Click any row to open a research thread</p>
+                <p className="text-[11px] text-[var(--color-muted)]">Click any row to open its stock page</p>
               </div>
               <table className="w-full">
                 <thead>
@@ -403,17 +404,15 @@ export default function PortfolioPage() {
                 </thead>
                 <tbody>
                   {rows.map((r) => {
-                    const cost = r.holding.avgCost * r.holding.shares;
                     const isPos = r.gainLoss >= 0;
                     const dayPct = r.quote?.changePct ?? 0;
                     const isDayPos = dayPct >= 0;
                     return (
                       <tr
                         key={r.holding.ticker}
+                        className="portfolio-row"
                         style={{ borderBottom: "1px solid var(--color-border)", cursor: "pointer", transition: "background 100ms" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-accent-light)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "")}
-                        onClick={() => { reset(); setPendingMessage(`Analyze ${r.holding.ticker} — full research`); router.push("/chat"); }}
+                        onClick={() => router.push(`/stock/${r.holding.ticker}`)}
                       >
                         <td className="px-4 py-3">
                           <span

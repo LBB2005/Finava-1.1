@@ -1,4 +1,4 @@
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getBasicFinancials, getSnapshots, getPeers } from "@/lib/finnhub";
 import { getSkillsPrompt } from "@/agents/skills";
 
@@ -46,19 +46,13 @@ export async function runCompetitorAgent(input: unknown): Promise<string> {
     );
   }
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  const text = await generate({
+    agent: "competitor",
     system: getSkillsPrompt("competitor"),
-    max_tokens: 10000,
-    thinking: { type: "enabled", budget_tokens: 8000 },
-    messages: [
-      {
-        role: "user",
-        content: `Compare ${ticker} against peers: ${peers.join(", ")}.\n\n${JSON.stringify(compData, null, 2)}\n\nProvide: relative valuation (cheap/expensive vs peers), margin and profitability comparison, growth comparison, competitive moat assessment for ${ticker}, and overall competitive positioning score (leader/competitive/lagging).`,
-      },
-    ],
+    maxTokens: 10000,
+    reasoning: 8000,
+    prompt: `Compare ${ticker} against peers: ${peers.join(", ")}.\n\n${JSON.stringify(compData, null, 2)}\n\nProvide: relative valuation (cheap/expensive vs peers), margin and profitability comparison, growth comparison, competitive moat assessment for ${ticker}, and overall competitive positioning score (leader/competitive/lagging).`,
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock ? (textBlock as { type: string; text: string }).text : "Competitor analysis unavailable.";
+  return text || "Competitor analysis unavailable.";
 }

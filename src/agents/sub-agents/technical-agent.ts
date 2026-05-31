@@ -1,4 +1,4 @@
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { getCandles } from "@/lib/finnhub";
 import { getSkillsPrompt } from "@/agents/skills";
 
@@ -112,21 +112,14 @@ export async function runTechnicalAgent(input: unknown): Promise<string> {
     ? `\n\n⚠️ DATA QUALITY WARNING: The following tickers returned NO live price data and must be explicitly marked as "No data — signal unavailable" with NO technical signal assigned: ${failedTickers.join(", ")}. Do NOT infer or estimate signals for these tickers. Only analyze: ${successTickers.join(", ")}.`
     : "";
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  return generate({
+    agent: "technical",
     system: getSkillsPrompt("technical"),
-    max_tokens: 1500,
-    messages: [
-      {
-        role: "user",
-        content: `Interpret technical indicators for ${tickers.join(", ")}. For each ticker give a bullish/bearish/neutral signal, note overbought/oversold conditions, and flag any key technical levels or crossovers.${dataQualityNote}
+    maxTokens: 1500,
+    prompt: `Interpret technical indicators for ${tickers.join(", ")}. For each ticker give a bullish/bearish/neutral signal, note overbought/oversold conditions, and flag any key technical levels or crossovers.${dataQualityNote}
 
 CRITICAL RULE: If a ticker's data shows { "error": ... }, you MUST write "⚠️ No data available — technical signal withheld" for that ticker. Never assign a signal without actual indicator values.
 
 ${JSON.stringify(results, null, 2)}`,
-      },
-    ],
   });
-
-  return (response.content[0] as { type: string; text: string }).text;
 }
