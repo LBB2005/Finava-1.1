@@ -1319,3 +1319,89 @@ body {
 /* Smooth in-page anchor scroll + offset for sticky nav */
 html:has(.landing-root) { scroll-behavior: smooth; }
 .landing-root [id] { scroll-margin-top: 84px; }
+
+/* ════════════════════════════════════════════════════════════
+   Research page (Direction 6 · Terminal Board)
+   All scoped under .research-root so the sharp terminal radii
+   and helper classes never leak into the rest of the app.
+   ════════════════════════════════════════════════════════════ */
+.research-root {
+  /* Sharper radii for the terminal feel */
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 5px;
+}
+.research-root .serif { font-family: var(--font-serif); }
+.research-root .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.research-root .term { font-variant-numeric: tabular-nums; }
+.research-root .eyebrow {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.16em; color: var(--color-muted);
+}
+
+/* Grade pill */
+.research-root .grade {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-weight: 700;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+  border-radius: var(--radius-sm);
+}
+.research-root .grade-a { color: var(--color-bull); background: color-mix(in oklab, var(--color-bull) 13%, transparent); }
+.research-root .grade-b { color: var(--color-bull); background: color-mix(in oklab, var(--color-bull) 9%, transparent); }
+.research-root .grade-c { color: var(--color-warn); background: color-mix(in oklab, var(--color-warn) 13%, transparent); }
+.research-root .grade-d { color: var(--color-bear); background: color-mix(in oklab, var(--color-bear) 11%, transparent); }
+.research-root .grade-f { color: var(--color-bear); background: color-mix(in oklab, var(--color-bear) 15%, transparent); }
+
+/* Factor strength colour (green strong / amber neutral / red weak) */
+.research-root .f-strong { color: var(--color-bull); }
+.research-root .f-neutral { color: var(--color-warn); }
+.research-root .f-weak { color: var(--color-bear); }
+
+/* Ticker text */
+.research-root .tk {
+  font-family: var(--font-mono); font-weight: 700;
+  letter-spacing: 0.02em; color: var(--color-accent);
+}
+
+/* Clickable ticker → stock page */
+.research-root a.tklink { text-decoration: none; color: inherit; cursor: pointer; }
+.research-root a.tklink:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Factor bar track/fill */
+.research-root .fbar-track { background: var(--color-surface-2); border-radius: 99px; overflow: hidden; }
+.research-root .fbar-fill { height: 100%; border-radius: 99px; }
+
+/* Command bar */
+.research-root .cmdbar { background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+
+/* Horizon toggle buttons */
+.research-root .tbtn {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.04em; padding: 5px 11px; border: 1px solid var(--color-border);
+  background: var(--color-bg); color: var(--color-text-secondary);
+  cursor: pointer; border-radius: 3px;
+}
+.research-root .tbtn:hover { background: var(--color-surface-2); }
+.research-root .tbtn.on { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+
+/* Sector select */
+.research-root .tsel {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  padding: 5px 9px; border: 1px solid var(--color-border);
+  background: var(--color-bg); color: var(--color-text);
+  border-radius: 3px; cursor: pointer;
+}
+
+/* Leaderboard table */
+.research-root .lad-table { width: 100%; border-collapse: collapse; }
+.research-root .lad-table th {
+  position: sticky; top: 0; z-index: 2; background: var(--color-surface);
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--color-muted); padding: 8px 12px; border-bottom: 1px solid var(--color-border-strong);
+  cursor: pointer; white-space: nowrap; font-family: var(--font-mono);
+}
+.research-root .lad-table th:hover { color: var(--color-accent); }
+.research-root .lad-table td { padding: 8px 12px; border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+.research-root .lad-table tbody tr:hover { background: var(--color-accent-light); }
+.research-root .lad-table tbody tr.top3 td { background: color-mix(in oklab, var(--color-accent) 4%, transparent); }
+.research-root .lad-table tbody tr.top3:hover td { background: var(--color-accent-light); }

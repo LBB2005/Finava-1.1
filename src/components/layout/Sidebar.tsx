@@ -60,50 +60,48 @@ function BriefingBanner() {
   return (
     <>
       <div
-        className="mx-[14px] mb-2 flex-shrink-0"
+        className="mx-[14px] mb-2 flex items-center flex-shrink-0 overflow-hidden"
         style={{
           border: `1px solid ${hasUnread ? "var(--color-accent-medium)" : "var(--color-border)"}`,
           background: hasUnread ? "var(--color-accent-light)" : "var(--color-surface)",
           borderRadius: 8,
-          overflow: "hidden",
         }}
       >
-        <div className="flex items-center gap-2 px-3 py-2">
+        <div className="flex items-center gap-2 px-3 py-[7px] flex-1 min-w-0">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
             style={{ color: hasUnread ? "var(--color-accent)" : "var(--color-muted)", flexShrink: 0 }}>
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
             <polyline points="22,6 12,13 2,6" />
           </svg>
           <span
-            className="flex-1 text-[11px] font-semibold truncate"
+            className="text-[11px] font-semibold truncate"
             style={{ color: hasUnread ? "var(--color-accent)" : "var(--color-text-secondary)" }}
           >
-            {hasUnread ? "New briefing ready" : latest ? "Weekly Briefing" : "No briefing yet"}
+            {hasUnread ? "New briefing ready" : "Briefing"}
           </span>
           {hasUnread && (
             <span className="w-[6px] h-[6px] rounded-full flex-shrink-0" style={{ background: "var(--color-accent)" }} />
           )}
         </div>
-        <div className="flex border-t border-[var(--color-border)]">
-          {latest && (
-            <button
-              onClick={openLatest}
-              className="flex-1 text-[10.5px] font-medium py-1.5 bg-transparent hover:bg-[var(--color-accent-light)] transition-colors duration-100"
-              style={{ color: "var(--color-accent)" }}
-            >
-              Read
-            </button>
-          )}
-          {latest && <div style={{ width: 1, background: "var(--color-border)" }} />}
+        {latest && <div style={{ width: 1, background: "var(--color-border)", alignSelf: "stretch" }} />}
+        {latest && (
           <button
-            onClick={generate}
-            disabled={generating}
-            className="flex-1 text-[10.5px] font-medium py-1.5 bg-transparent enabled:hover:bg-[var(--color-surface-2)] transition-colors duration-100 disabled:opacity-50"
-            style={{ color: "var(--color-text-secondary)" }}
+            onClick={openLatest}
+            className="text-[10.5px] font-medium px-3 py-[7px] bg-transparent hover:bg-[var(--color-accent-light)] transition-colors duration-100 flex-shrink-0"
+            style={{ color: "var(--color-accent)" }}
           >
-            {generating ? "Generating…" : "Generate"}
+            Read
           </button>
-        </div>
+        )}
+        <div style={{ width: 1, background: "var(--color-border)", alignSelf: "stretch" }} />
+        <button
+          onClick={generate}
+          disabled={generating}
+          className="text-[10.5px] font-medium px-3 py-[7px] bg-transparent enabled:hover:bg-[var(--color-surface-2)] transition-colors duration-100 disabled:opacity-50 flex-shrink-0"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
+          {generating ? "…" : "Generate"}
+        </button>
       </div>
 
       {openBriefing && (
@@ -154,49 +152,36 @@ function PortfolioHero() {
 
   return (
     <div
-      className="flex-shrink-0 border-t border-b border-[var(--color-border)] px-[18px] py-[14px]"
+      className="flex-shrink-0 border-t border-b border-[var(--color-border)] px-[18px] py-[10px]"
       style={{
         background: "linear-gradient(180deg, color-mix(in oklab, var(--color-accent) 4%, transparent), transparent)",
       }}
     >
       <p
-        className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)] mb-2"
+        className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)] mb-1"
       >
         Portfolio
       </p>
 
       {/* Serif total */}
       <p
-        className="text-[24px] font-bold leading-none tracking-tight text-[var(--color-text)]"
+        className="text-[22px] font-bold leading-none tracking-tight text-[var(--color-text)]"
         style={{ fontFamily: "var(--font-serif)", letterSpacing: "-0.01em" }}
       >
         ${fmt(totalValue)}
       </p>
 
       {/* Delta */}
-      <div className="flex items-center justify-between mt-1.5">
+      <div className="flex items-center justify-between mt-1">
         <span
-          className="text-[12px] font-semibold"
+          className="text-[11.5px] font-semibold"
           style={{ color: isUp ? "var(--color-bull)" : "var(--color-bear)" }}
         >
           {isUp ? "▲" : "▼"} ${fmt(Math.abs(totalGain))} · {isUp ? "+" : ""}
           {totalGainPct.toFixed(2)}%
         </span>
-        <span className="text-[10.5px] text-[var(--color-muted)] tracking-[0.08em]">ALL-TIME</span>
+        <span className="text-[10px] text-[var(--color-muted)] tracking-[0.08em]">ALL-TIME</span>
       </div>
-
-      {/* Alloc bar */}
-      {weights.length > 0 && (
-        <div className="flex h-[4px] rounded-full overflow-hidden mt-3 gap-[2px]">
-          {weights.map((w, i) => (
-            <div
-              key={holdings[i]?.ticker ?? i}
-              style={{ width: `${w}%`, background: allocColor(i) }}
-              title={`${holdings[i]?.ticker} ${w.toFixed(1)}%`}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -455,6 +440,7 @@ export default function Sidebar({
 
   const isOnPortfolio = pathname === "/portfolio";
   const isOnHedgeFund = pathname === "/hedge-fund";
+  const isOnResearch = pathname === "/research";
 
   return (
     <aside
@@ -509,15 +495,15 @@ export default function Sidebar({
           onClick={onNavigate}
           className="flex-1 text-center text-[12px] font-medium py-[5px] transition-all duration-150 relative"
           style={
-            !isOnPortfolio && !isOnHedgeFund
+            !isOnPortfolio && !isOnHedgeFund && !isOnResearch
               ? {
                   background: "var(--color-bg)",
                   color: "var(--color-accent)",
                   boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
                   fontWeight: 600,
-                  borderRadius: isOnHedgeFund ? "2px" : "7px",
+                  borderRadius: "7px",
                 }
-              : { color: "var(--color-text-secondary)", borderRadius: isOnHedgeFund ? "2px" : "7px" }
+              : { color: "var(--color-text-secondary)", borderRadius: "7px" }
           }
         >
           Chat
@@ -528,6 +514,7 @@ export default function Sidebar({
             />
           )}
         </Link>
+        <div style={{ width: 1, background: "var(--color-border)", alignSelf: "stretch", flexShrink: 0 }} />
         <Link
           href="/portfolio"
           onClick={onNavigate}
@@ -539,14 +526,44 @@ export default function Sidebar({
                   color: "var(--color-accent)",
                   boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
                   fontWeight: 600,
-                  borderRadius: isOnHedgeFund ? "2px" : "7px",
+                  borderRadius: "7px",
                 }
-              : { color: "var(--color-text-secondary)", borderRadius: isOnHedgeFund ? "2px" : "7px" }
+              : { color: "var(--color-text-secondary)", borderRadius: "7px" }
           }
         >
           Portfolio
         </Link>
       </div>
+
+      {/* Research nav button */}
+      <Link
+        href="/research"
+        onClick={onNavigate}
+        className="flex items-center gap-[7px] mx-[14px] mb-[6px] px-[10px] py-[7px] text-[12px] font-medium transition-all duration-150 flex-shrink-0"
+        style={
+          isOnResearch
+            ? {
+                background: "var(--color-accent)",
+                color: "#fff",
+                border: "1px solid var(--color-accent)",
+                borderRadius: "4px",
+                fontWeight: 600,
+              }
+            : {
+                color: "var(--color-text-secondary)",
+                border: "1px solid var(--color-border)",
+                background: "var(--color-surface)",
+                borderRadius: "7px",
+              }
+        }
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="7" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          <path d="M8 11h6M11 8v6" />
+        </svg>
+        Research
+      </Link>
 
       {/* Hedge Fund nav button */}
       <Link
