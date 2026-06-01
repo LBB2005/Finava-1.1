@@ -198,20 +198,33 @@ function extractAnalysts(trends: unknown, target: unknown): AnalystRatings | nul
 function extractInsider(raw: unknown): InsiderTrade[] | null {
   const data = (raw as { data?: unknown[] })?.data;
   if (!Array.isArray(data) || data.length === 0) return null;
-  return data
-    .slice(0, 12)
+  const trades = data
     .map((d) => {
       const r = d as Record<string, unknown>;
       const change = num(r.change) ?? 0;
+      // SEC Form 4 transaction code. Only "P" (open-market purchase) and "S"
+      // (open-market sale) are genuine buy/sell signals; "A"/"M"/"G"/"F" etc.
+      // are grants, option exercises, gifts and tax dispositions, which would
+      // otherwise masquerade as bullish insider "buys". When the code is
+      // absent, fall back to the share-change sign.
+      const code =
+        typeof r.transactionCode === "string" ? r.transactionCode.toUpperCase() : "";
+      const direction: "buy" | "sell" | null =
+        code === "P" ? "buy"
+        : code === "S" ? "sell"
+        : code ? null
+        : change >= 0 ? "buy" : "sell";
       return {
         name: (r.name as string) ?? "Insider",
         shares: change,
-        direction: change >= 0 ? ("buy" as const) : ("sell" as const),
+        direction,
         filingDate: (r.filingDate as string) ?? "",
         transactionDate: (r.transactionDate as string) ?? "",
       };
     })
-    .filter((t) => t.shares !== 0);
+    .filter((t): t is InsiderTrade => t.direction !== null && t.shares !== 0)
+    .slice(0, 12);
+  return trades.length ? trades : null;
 }
 
 function extractNews(raw: unknown): NewsItem[] | null {
@@ -248,9 +261,14 @@ export function placeholderSentiment(news: NewsItem[] | null): SentimentRead | n
   let pos = 0;
   let neg = 0;
   for (const item of news) {
-    const text = `${item.headline} ${item.summary}`.toLowerCase();
-    for (const w of POSITIVE_WORDS) if (text.includes(w)) pos++;
-    for (const w of NEGATIVE_WORDS) if (text.includes(w)) neg++;
+    // Whole-word matching via a token Set. Substring matching (text.includes)
+    // false-positives badly: "against"→gain, "below"/"slowdown"→low,
+    // "highlights"→high, "commission"→miss, "laptops"→tops.
+    const tokens = new Set(
+      `${item.headline} ${item.summary}`.toLowerCase().split(/[^a-z]+/)
+    );
+    for (const w of POSITIVE_WORDS) if (tokens.has(w)) pos++;
+    for (const w of NEGATIVE_WORDS) if (tokens.has(w)) neg++;
   }
   const total = pos + neg;
   // 50 neutral baseline; nudge toward the dominant polarity.

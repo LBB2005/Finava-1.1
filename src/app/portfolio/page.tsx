@@ -116,28 +116,27 @@ export default function PortfolioPage() {
   const timeLabel = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
   const dateLabel = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
+  const positionLabel = holdings.length === 0
+    ? "NO POSITIONS"
+    : `${holdings.length} POSITION${holdings.length !== 1 ? "S" : ""}`;
+
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: "var(--color-bg)" }}>
       {/* Topbar */}
-      <div
-        className="flex-shrink-0 flex items-center justify-between px-7 h-[52px]"
-        style={{ borderBottom: "1px solid var(--color-border)", background: "var(--color-bg)" }}
-      >
-        <div className="flex items-baseline gap-3.5">
-          <span
-            className="text-[12px] italic"
-            style={{ fontFamily: "var(--font-serif)", color: "var(--color-muted)" }}
-          >
-            As of {timeLabel} ET · {dateLabel}
+      <div className="research-root cmdbar flex items-center flex-shrink-0" style={{ padding: "11px 22px", gap: 16 }}>
+        <div className="flex items-baseline" style={{ gap: 10 }}>
+          <span className="serif" style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.01em", color: "var(--color-text)" }}>
+            Portfolio
           </span>
-          <h1 className="m-0 text-[15px] font-semibold text-[var(--color-text)]" style={{ fontFamily: "var(--font-serif)" }}>Portfolio</h1>
+          <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)", letterSpacing: "0.04em" }}>
+            {positionLabel} · ACCOUNT OVERVIEW
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center" style={{ gap: 6, marginLeft: "auto" }}>
           <TickerSearch />
           <button
             onClick={startEditCash}
-            className="text-[12px] px-3 py-[5px] rounded-[9px] transition-all duration-150"
-            style={{ border: "1px solid var(--color-border)", background: "var(--color-bg)", color: "var(--color-text-secondary)" }}
+            className="tbtn"
             title="Update buying power"
           >
             {editingCash ? (
@@ -147,23 +146,19 @@ export default function PortfolioPage() {
                 onChange={(e) => setCashInput(e.target.value)}
                 onBlur={commitCash}
                 onKeyDown={(e) => { if (e.key === "Enter") commitCash(); if (e.key === "Escape") setEditingCash(false); }}
-                className="w-24 bg-transparent border-b border-[var(--color-accent)] focus:outline-none text-right text-[12px]"
+                className="w-24 bg-transparent border-b border-[var(--color-accent)] focus:outline-none text-right"
+                style={{ fontSize: 11 }}
                 placeholder="0.00"
               />
             ) : (
-              <span>{cashBalance > 0 ? `$${fmt(cashBalance, 0)} cash` : "Add cash"}</span>
+              <span>{cashBalance > 0 ? `$${fmt(cashBalance, 0)} CASH` : "ADD CASH"}</span>
             )}
           </button>
           <button
-            className="text-[12px] px-3 py-[5px] rounded-[9px] transition-all duration-150"
-            style={{
-              border: "1px solid var(--color-accent)",
-              background: "var(--color-accent)",
-              color: "white",
-            }}
+            className="tbtn on"
             onClick={() => { reset(); setPendingMessage("Give me a full portfolio analysis"); router.push("/chat"); }}
           >
-            Ask AI
+            ASK AI
           </button>
         </div>
       </div>

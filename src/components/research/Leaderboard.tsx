@@ -1,31 +1,50 @@
 "use client";
 import { useState, useMemo } from "react";
-import { FACTORS, SECTORS, UNIVERSE, ranked, type FactorKey, type HorizonKey } from "@/lib/research";
-import LadderRow from "./LadderRow";
+import { SECTORS, UNIVERSE, ranked, type HorizonKey, type RankedStock, type Stock } from "@/lib/research";
+import BoardRow from "./BoardRow";
 
-type SortKey = "rank" | "ticker" | "price" | "chg" | "score";
-const FACTOR_KEYS = new Set<string>(FACTORS.map((f) => f.key));
+type SortKey = "rank" | "ticker" | "price" | "chg" | "marketCap" | "pe" | "avgVol" | "rvol" | "score";
 
-export default function Leaderboard({ horizon }: { horizon: HorizonKey }) {
+function sortVal(s: RankedStock, key: SortKey): number {
+  switch (key) {
+    case "price": return s.price;
+    case "chg": return s.chg;
+    // Missing fundamentals sort to the bottom rather than masquerading as 0.
+    case "marketCap": return s.marketCap ?? -Infinity;
+    case "pe": return s.pe ?? -Infinity;
+    case "avgVol": return s.avgVol ?? -Infinity;
+    case "rvol": return s.rvol ?? -Infinity;
+    case "score": return s.score;
+    default: return s.rank;
+  }
+}
+
+export default function Leaderboard({
+  horizon,
+  universe = UNIVERSE,
+  loading = false,
+}: {
+  horizon: HorizonKey;
+  universe?: Stock[];
+  loading?: boolean;
+}) {
   const [sector, setSector] = useState("All");
-  const [sort, setSort] = useState<{ key: string; dir: number }>({ key: "rank", dir: 1 });
+  const [sort, setSort] = useState<{ key: SortKey; dir: number }>({ key: "rank", dir: 1 });
 
   const rows = useMemo(() => {
-    let r = ranked(horizon);
+    let r = ranked(horizon, universe);
     if (sector !== "All") r = r.filter((s) => s.sector === sector);
     const { key, dir } = sort;
     r = [...r].sort((a, b) => {
       if (key === "ticker") return dir * a.ticker.localeCompare(b.ticker);
-      const av = FACTOR_KEYS.has(key) ? a.f[key as FactorKey] : (a[key as keyof typeof a] as number);
-      const bv = FACTOR_KEYS.has(key) ? b.f[key as FactorKey] : (b[key as keyof typeof b] as number);
-      return dir * (av - bv);
+      return dir * (sortVal(a, key) - sortVal(b, key));
     });
     return r;
-  }, [horizon, sector, sort]);
+  }, [horizon, universe, sector, sort]);
 
   const th = (key: SortKey) =>
     setSort((s) => (s.key === key ? { key, dir: -s.dir } : { key, dir: key === "rank" || key === "ticker" ? 1 : -1 }));
-  const ar = (key: SortKey) => (sort.key === key ? (sort.dir === 1 ? "▲" : "▼") : "");
+  const ar = (key: SortKey) => (sort.key === key ? (sort.dir === 1 ? " ▲" : " ▼") : "");
 
   return (
     <div style={{ border: "1px solid var(--color-border)", borderRadius: 4, overflow: "hidden", background: "var(--color-bg)" }}>
@@ -34,6 +53,9 @@ export default function Leaderboard({ horizon }: { horizon: HorizonKey }) {
           <span className="mono" style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-text)" }}>LEADERBOARD</span>
           <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>
             {rows.length} / {UNIVERSE.length} · weighted {horizon.toUpperCase()}
+          </span>
+          <span className="mono board-live" style={{ fontSize: 10, letterSpacing: "0.06em", color: loading ? "var(--color-muted)" : "var(--color-bull)" }}>
+            {loading ? "○ SYNCING" : "● LIVE"}
           </span>
         </div>
         <div className="flex items-center" style={{ gap: 8 }}>
@@ -47,21 +69,27 @@ export default function Leaderboard({ horizon }: { horizon: HorizonKey }) {
       </div>
 
       <div style={{ overflowX: "auto" }}>
-        <table className="lad-table" style={{ minWidth: 860 }}>
+        <table className="lad-table board-table" style={{ minWidth: 980 }}>
           <thead>
+            {/* Every column is fixed-width except Lucra Score, so the left
+                cluster (#/ticker/price/fundamentals) stays tight and the score
+                bar — the app's headline metric — absorbs the slack. */}
             <tr>
-              <th onClick={() => th("rank")} style={{ textAlign: "left", width: 42 }}>#{ar("rank")}</th>
-              <th onClick={() => th("ticker")} style={{ textAlign: "left" }}>Ticker {ar("ticker")}</th>
-              <th onClick={() => th("price")} style={{ textAlign: "right" }}>Last {ar("price")}</th>
-              <th onClick={() => th("chg")} style={{ textAlign: "right" }}>Chg {ar("chg")}</th>
-              <th style={{ textAlign: "center", width: 150 }}>Factor profile</th>
-              <th onClick={() => th("score")} style={{ textAlign: "left", width: 150 }}>Lucra Score {ar("score")}</th>
-              <th style={{ textAlign: "center", width: 52 }}>Grd</th>
+              <th onClick={() => th("rank")} style={{ textAlign: "left", width: 40 }}>#{ar("rank")}</th>
+              <th onClick={() => th("ticker")} style={{ textAlign: "left", width: 188 }}>Ticker{ar("ticker")}</th>
+              <th onClick={() => th("price")} className="num" style={{ width: 82 }}>Last{ar("price")}</th>
+              <th onClick={() => th("chg")} className="num" style={{ width: 72 }}>Chg{ar("chg")}</th>
+              <th onClick={() => th("marketCap")} className="num" style={{ width: 94 }}>Mkt Cap{ar("marketCap")}</th>
+              <th onClick={() => th("pe")} className="num" style={{ width: 62 }}>P/E{ar("pe")}</th>
+              <th onClick={() => th("avgVol")} className="num" style={{ width: 86 }}>Avg Vol{ar("avgVol")}</th>
+              <th onClick={() => th("rvol")} className="num" style={{ width: 72 }}>RVOL{ar("rvol")}</th>
+              <th onClick={() => th("score")} style={{ textAlign: "left", minWidth: 160 }}>Lucra Score{ar("score")}</th>
+              <th style={{ textAlign: "center", width: 54 }}>Grd</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((s) => (
-              <LadderRow key={s.ticker} s={s} highlight={s.rank <= 3 && sort.key === "rank"} />
+              <BoardRow key={s.ticker} s={s} highlight={s.rank <= 3 && sort.key === "rank"} />
             ))}
           </tbody>
         </table>

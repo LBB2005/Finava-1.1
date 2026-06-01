@@ -5,11 +5,11 @@ const BASE = "https://finnhub.io/api/v1";
 const KEY = process.env.FINNHUB_API_KEY;
 const FETCH_TIMEOUT_MS = 10_000;
 
-async function fhFetch(path: string) {
+async function fhFetch(path: string, revalidate = 30) {
   const sep = path.includes("?") ? "&" : "?";
   const res = await fetch(`${BASE}${path}${sep}token=${KEY}`, {
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    next: { revalidate: 30 },
+    next: { revalidate },
   });
   if (!res.ok) throw new Error(`Finnhub ${res.status}: ${path}`);
   return res.json();
@@ -179,9 +179,12 @@ export async function getFinancialsReported(ticker: string, freq: "annual" | "qu
   return fhFetch(`/stock/financials-reported?symbol=${ticker}&freq=${freq}`);
 }
 
-// Basic financials metrics (P/E, EV/EBITDA, margins, etc.)
+// Basic financials metrics (P/E, EV/EBITDA, margins, avg volume, etc.).
+// Cached for an hour — these barely move intraday, and the research leaderboard
+// fetches them across the whole universe, so a short TTL would hammer the
+// free-tier rate limit on every refresh.
 export async function getBasicFinancials(ticker: string) {
-  return fhFetch(`/stock/metric?symbol=${ticker}&metric=all`);
+  return fhFetch(`/stock/metric?symbol=${ticker}&metric=all`, 3600);
 }
 
 // Historical EPS surprises

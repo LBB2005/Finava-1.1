@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { movers, fmtPct1, type HorizonKey, type Mover } from "@/lib/research";
+import { movers, fmtPct1, type HorizonKey, type Mover, type Stock } from "@/lib/research";
 
 function Side({ rows, up, win }: { rows: Mover[]; up: boolean; win: HorizonKey }) {
   return (
@@ -24,8 +24,8 @@ function Side({ rows, up, win }: { rows: Mover[]; up: boolean; win: HorizonKey }
   );
 }
 
-export default function Movers({ window: win }: { window: HorizonKey }) {
-  const { gainers, losers } = movers(win);
+export default function Movers({ window: win, universe }: { window: HorizonKey; universe?: Stock[] }) {
+  const { gainers, losers } = movers(win, universe);
   return (
     <div className="flex" style={{ gap: 12 }}>
       <Side rows={gainers} up win={win} />

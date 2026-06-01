@@ -99,3 +99,120 @@ export async function getAlpacaBars(
     t: bars.map((b) => Math.floor(new Date(b.t).getTime() / 1000)),
   };
 }
+
+// ── Batched, multi-symbol helpers for the research leaderboard ────────────────
+// These hit Alpaca's *multi-symbol* endpoints so the whole universe (~75 names)
+// costs 1–3 requests instead of one-per-ticker — Finnhub's /quote can't scale to
+// that at free-tier rate limits. Prices are IEX (free feed): for liquid S&P 500
+// names they track consolidated to within pennies, which is fine for a board.
+
+const AUTH_HEADERS = () => ({
+  "APCA-API-KEY-ID": KEY ?? "",
+  "APCA-API-SECRET-KEY": SECRET ?? "",
+});
+
+export interface AlpacaSnapshot {
+  price: number | null;
+  prevClose: number | null;
+  changePct: number | null;
+  dayVolume: number | null;
+}
+
+// Latest price + prior close + today's (IEX) volume for many symbols in ONE call.
+// GET /v2/stocks/snapshots?symbols=...  →  { "AAPL": { latestTrade, dailyBar, prevDailyBar }, ... }
+export async function getAlpacaSnapshots(
+  tickers: string[]
+): Promise<Map<string, AlpacaSnapshot>> {
+  const out = new Map<string, AlpacaSnapshot>();
+  if (!KEY || !SECRET || tickers.length === 0) return out;
+
+  const params = new URLSearchParams({ symbols: tickers.join(","), feed: FEED });
+  const res = await fetch(`${DATA_BASE}/v2/stocks/snapshots?${params}`, {
+    headers: AUTH_HEADERS(),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    next: { revalidate: 30 },
+  });
+  if (!res.ok) throw new Error(`Alpaca snapshots ${res.status}`);
+
+  const data = (await res.json()) as Record<
+    string,
+    {
+      latestTrade?: { p?: number };
+      dailyBar?: { c?: number; v?: number };
+      prevDailyBar?: { c?: number };
+    }
+  >;
+
+  for (const [sym, snap] of Object.entries(data)) {
+    const price = snap.latestTrade?.p ?? snap.dailyBar?.c ?? null;
+    const prevClose = snap.prevDailyBar?.c ?? null;
+    const changePct =
+      price != null && prevClose != null && prevClose > 0
+        ? ((price - prevClose) / prevClose) * 100
+        : null;
+    out.set(sym.toUpperCase(), {
+      price: typeof price === "number" && price > 0 ? price : null,
+      prevClose: typeof prevClose === "number" ? prevClose : null,
+      changePct,
+      dayVolume: typeof snap.dailyBar?.v === "number" ? snap.dailyBar.v : null,
+    });
+  }
+  return out;
+}
+
+// Trailing N-session average daily (IEX) volume per symbol, for relative-volume.
+// Multi-symbol bars: GET /v2/stocks/bars?symbols=...&timeframe=1Day  →
+//   { bars: { "AAPL": [ {t,v,...}, ... ] }, next_page_token }
+// The IEX scale cancels in today÷avg, so the RVOL ratio is meaningful even
+// though IEX absolute volume undercounts consolidated.
+export async function getAlpacaAvgVolumes(
+  tickers: string[],
+  sessions = 10
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (!KEY || !SECRET || tickers.length === 0) return out;
+
+  // ~2 calendar days per trading day, plus slack for holidays/weekends.
+  const startMs = Date.now() - (sessions + 6) * 2 * 86_400 * 1000;
+  const start = new Date(startMs).toISOString();
+  const byTicker: Record<string, number[]> = {};
+  let pageToken: string | undefined;
+
+  for (let page = 0; page < 20; page++) {
+    const params = new URLSearchParams({
+      symbols: tickers.join(","),
+      timeframe: "1Day",
+      start,
+      limit: "10000",
+      adjustment: "split",
+      feed: FEED,
+    });
+    if (pageToken) params.set("page_token", pageToken);
+
+    const res = await fetch(`${DATA_BASE}/v2/stocks/bars?${params}`, {
+      headers: AUTH_HEADERS(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      next: { revalidate: 900 },
+    });
+    if (!res.ok) throw new Error(`Alpaca bars(multi) ${res.status}`);
+
+    const data = (await res.json()) as {
+      bars?: Record<string, { v: number }[]>;
+      next_page_token?: string | null;
+    };
+    for (const [sym, bars] of Object.entries(data.bars ?? {})) {
+      (byTicker[sym.toUpperCase()] ??= []).push(...bars.map((b) => b.v));
+    }
+    if (!data.next_page_token) break;
+    pageToken = data.next_page_token;
+  }
+
+  for (const [sym, vols] of Object.entries(byTicker)) {
+    // Drop the most recent (current, partial) session, then average the prior N.
+    const prior = vols.slice(0, -1).slice(-sessions);
+    if (prior.length === 0) continue;
+    const avg = prior.reduce((a, b) => a + b, 0) / prior.length;
+    if (avg > 0) out.set(sym, avg);
+  }
+  return out;
+}

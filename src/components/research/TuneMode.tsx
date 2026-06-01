@@ -9,13 +9,14 @@ import {
   factorColor,
   type FactorScores,
   type RankedStock,
+  type Stock,
 } from "@/lib/research";
 import WeightRadar from "./WeightRadar";
 import LadderRow from "./LadderRow";
 
 const sameWeights = (a: FactorScores, b: FactorScores) => FACTORS.every((f) => a[f.key] === b[f.key]);
 
-export default function TuneMode() {
+export default function TuneMode({ universe }: { universe?: Stock[] }) {
   const [weights, setWeights] = useState<FactorScores>(NEUTRAL_WEIGHTS);
   const [results, setResults] = useState<RankedStock[] | null>(null);
   const [ranWeights, setRanWeights] = useState<FactorScores | null>(null);
@@ -25,7 +26,7 @@ export default function TuneMode() {
   const dirty = results != null && ranWeights != null && !sameWeights(ranWeights, weights);
 
   function findMatches() {
-    setResults(rankByWeights(weights));
+    setResults(rankByWeights(weights, universe));
     setRanWeights(weights);
   }
 
@@ -107,16 +108,16 @@ export default function TuneMode() {
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table className="lad-table" style={{ minWidth: 760 }}>
+            <table className="lad-table" style={{ minWidth: 620, width: "100%" }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: "left", width: 42 }}>#</th>
-                  <th style={{ textAlign: "left" }}>Ticker</th>
-                  <th style={{ textAlign: "right" }}>Last</th>
-                  <th style={{ textAlign: "right" }}>Chg</th>
-                  <th style={{ textAlign: "center", width: 150 }}>Factor profile</th>
-                  <th style={{ textAlign: "left", width: 150 }}>Match score</th>
-                  <th style={{ textAlign: "center", width: 52 }}>Grd</th>
+                  <th style={{ textAlign: "left", width: 36 }}>#</th>
+                  <th style={{ textAlign: "left", width: 160 }}>Ticker</th>
+                  <th style={{ textAlign: "right", width: 68 }}>Last</th>
+                  <th style={{ textAlign: "right", width: 60 }}>Chg</th>
+                  <th style={{ textAlign: "center", width: 132 }}>Factor profile</th>
+                  <th style={{ textAlign: "left" }}>Match score</th>
+                  <th style={{ textAlign: "center", width: 48 }}>Grd</th>
                 </tr>
               </thead>
               <tbody>

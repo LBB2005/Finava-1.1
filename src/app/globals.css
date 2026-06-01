@@ -1405,3 +1405,21 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 .research-root .lad-table tbody tr:hover { background: var(--color-accent-light); }
 .research-root .lad-table tbody tr.top3 td { background: color-mix(in oklab, var(--color-accent) 4%, transparent); }
 .research-root .lad-table tbody tr.top3:hover td { background: var(--color-accent-light); }
+
+/* Data-dense board variant — clickable rows + right-aligned numeric columns.
+   The Lucra Score column has no fixed width, so it absorbs the slack and the
+   #/ticker/price/fundamentals cluster stays tight on the left (no dead gap). */
+.research-root .lad-table th.num,
+.research-root .lad-table td.num { text-align: right; }
+.research-root .board-table th,
+.research-root .board-table td { padding: 8px 10px; }
+.research-root .board-row { cursor: pointer; }
+.research-root .board-row:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+.research-root .board-table .lad-name {
+  display: inline-block; max-width: 130px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom;
+}
+/* Drop the company name on narrow viewports so the numeric columns keep room. */
+@media (max-width: 920px) {
+  .research-root .board-table .lad-name { display: none; }
+}

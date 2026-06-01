@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
-import { HORIZONS, topPicks, AS_OF, type HorizonKey } from "@/lib/research";
+import { HORIZONS, topPicks, overlayLive, UNIVERSE, AS_OF, type HorizonKey } from "@/lib/research";
+import { useLiveBoard } from "@/hooks/useLiveBoard";
 import HeroPicks from "@/components/research/HeroPicks";
 import Leaderboard from "@/components/research/Leaderboard";
 import Movers from "@/components/research/Movers";
@@ -20,7 +21,13 @@ function SectionRule({ label }: { label: string }) {
 export default function ResearchPage() {
   const [mode, setMode] = useState<Mode>("board");
   const [horizon, setHorizon] = useState<HorizonKey>("week");
-  const picks = useMemo(() => topPicks(), []);
+
+  // Live market data overlaid on the seed universe — real price/% change plus
+  // market cap, P/E and volume. Scores/grades are untouched (factor-derived).
+  const tickers = useMemo(() => UNIVERSE.map((s) => s.ticker), []);
+  const { liveMap, isLoading } = useLiveBoard(tickers);
+  const universe = useMemo(() => overlayLive(UNIVERSE, liveMap), [liveMap]);
+  const picks = useMemo(() => topPicks(universe), [universe]);
 
   return (
     <div className="research-root term flex flex-col h-full overflow-hidden">
@@ -61,15 +68,15 @@ export default function ResearchPage() {
               <SectionRule label="FORWARD PICKS · FACTOR PROFILE BY HORIZON" />
               <HeroPicks picks={picks} />
 
-              <Leaderboard horizon={horizon} />
+              <Leaderboard horizon={horizon} universe={universe} loading={isLoading} />
 
               <SectionRule label="TOP PERFORMERS · BACKWARD-LOOKING" />
-              <Movers window={horizon} />
+              <Movers window={horizon} universe={universe} />
             </>
           ) : (
             <>
               <SectionRule label="TUNE YOUR LENS · WEIGHT THE FACTORS, GET MATCHED" />
-              <TuneMode />
+              <TuneMode universe={universe} />
             </>
           )}
         </div>

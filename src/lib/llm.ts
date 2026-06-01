@@ -225,6 +225,17 @@ export async function generate(opts: GenerateOptions): Promise<string> {
   const { model, maxTokens, reasoning } = resolveCall(opts);
   const start = Date.now();
 
+  // PDF/file input is only validated against Anthropic's native document support
+  // (the statement route runs on Sonnet). If an agent that sends a `file` part is
+  // ever re-tiered to a non-Anthropic model, fail loudly here rather than silently
+  // shipping an unparsed PDF to a model that can't read it.
+  if (opts.content?.some((p) => p.type === "file") && !isAnthropicModel(model)) {
+    throw new Error(
+      `[llm:${agent}] file/PDF input requires an Anthropic model (native document support); ` +
+        `resolved model is ${model}. Re-tier this agent to Sonnet/Haiku or attach an OpenRouter file-parser plugin.`
+    );
+  }
+
   const messages: unknown[] = [];
   if (system) {
     // For Anthropic models with caching requested, render the system prompt as a
@@ -267,7 +278,8 @@ export async function generate(opts: GenerateOptions): Promise<string> {
     throw new Error(`[llm:${agent}] ${model} request failed${status}: ${msg}`);
   }
 
-  const text = response.choices?.[0]?.message?.content ?? "";
+  const rawContent = response.choices?.[0]?.message?.content;
+  const text = typeof rawContent === "string" ? rawContent : "";
 
   if (process.env.LLM_LOG === "on") {
     const u = response.usage;
@@ -279,6 +291,19 @@ export async function generate(opts: GenerateOptions): Promise<string> {
         outputTokens: u?.completion_tokens ?? null,
         ms: Date.now() - start,
       })}`
+    );
+  }
+
+  // An empty/blank completion is a failure, not a valid result — throw it so each
+  // caller's existing try/catch isolates it (the CEO turns it into a non-empty
+  // is_error tool_result; routes surface an error) rather than silently returning
+  // "". A bare "" would poison the CEO tool_result loop (the Messages API rejects
+  // empty tool_result content, aborting the whole run) or persist an empty briefing.
+  if (!text.trim()) {
+    const finish = response.choices?.[0]?.finish_reason ?? "unknown";
+    throw new Error(
+      `[llm:${agent}] ${model} returned empty content (finish_reason: ${finish}). ` +
+        `Likely truncated (raise max_tokens) or content-filtered.`
     );
   }
 

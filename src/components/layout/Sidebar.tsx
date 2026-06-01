@@ -497,9 +497,8 @@ export default function Sidebar({
           style={
             !isOnPortfolio && !isOnHedgeFund && !isOnResearch
               ? {
-                  background: "var(--color-bg)",
-                  color: "var(--color-accent)",
-                  boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
+                  background: "var(--color-accent)",
+                  color: "#fff",
                   fontWeight: 600,
                   borderRadius: "7px",
                 }
@@ -522,9 +521,8 @@ export default function Sidebar({
           style={
             isOnPortfolio
               ? {
-                  background: "var(--color-bg)",
-                  color: "var(--color-accent)",
-                  boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
+                  background: "var(--color-accent)",
+                  color: "#fff",
                   fontWeight: 600,
                   borderRadius: "7px",
                 }

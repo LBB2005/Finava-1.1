@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { authFetch } from "@/lib/authFetch";
 import type { SentimentRead } from "@/lib/stockData";
 
 interface Props {
@@ -46,7 +47,7 @@ export default function AiTakePanel({ ticker, sentiment }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/stock/${encodeURIComponent(ticker)}/ai-take`, { method: "POST" });
+      const res = await authFetch(`/api/stock/${encodeURIComponent(ticker)}/ai-take`, { method: "POST" });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
       setTake(body.take ?? "");

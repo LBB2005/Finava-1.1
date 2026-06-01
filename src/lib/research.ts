@@ -43,6 +43,31 @@ export interface Stock {
   f: FactorScores;
   /** Actual realised price move (%) over each window — backward-looking. */
   mv: Record<HorizonKey, number>;
+  // ── Live market data, overlaid by `overlayLive` from /api/leaderboard. ──
+  //    Undefined before the feed loads; null when a source has no value for
+  //    this ticker (render as "—", never as a fabricated number). The seed
+  //    price/chg above are placeholders the overlay replaces.
+  /** Market capitalisation in USD (absolute, not millions). */
+  marketCap?: number | null;
+  /** Trailing-twelve-month price/earnings ratio. */
+  pe?: number | null;
+  /** 10-day average daily share volume (absolute shares, consolidated). */
+  avgVol?: number | null;
+  /** Relative volume: latest session volume ÷ 10-day average (1.4 = 140%). */
+  rvol?: number | null;
+  /** True once a live quote has been applied (so the UI can stop showing a loading state). */
+  live?: boolean;
+}
+
+/** Live market-data overlay for one ticker, as returned by /api/leaderboard. */
+export interface LiveRow {
+  ticker: string;
+  price: number | null;
+  changePct: number | null;
+  marketCap: number | null; // absolute USD
+  pe: number | null;
+  avgVol: number | null; // absolute shares
+  rvol: number | null;
 }
 
 export interface RankedStock extends Stock {
@@ -223,8 +248,11 @@ export function factorColor(v: number): string {
 }
 
 // Full ranked list for a horizon (desc by composite).
-export function ranked(horizon: HorizonKey): RankedStock[] {
-  return UNIVERSE.map((s) => {
+// `universe` defaults to the seed list; pass a live-overlaid universe to rank
+// the same names with real market data attached (scores are unaffected — they
+// come from the factor sub-scores, which the overlay never touches).
+export function ranked(horizon: HorizonKey, universe: Stock[] = UNIVERSE): RankedStock[] {
+  return universe.map((s) => {
     const score = composite(s, horizon);
     return { ...s, score, grade: grade(score) };
   })
@@ -245,12 +273,12 @@ function genericTake(s: RankedStock, h: Horizon): string {
   return `Tops the ${h.label.toLowerCase()} screen on a ${h.sub.split("·")[1]?.trim() || "blended"} weighting — strongest blend of ${top[0]} and ${top[1]} in the S&P 500 right now.`;
 }
 
-export function topPicks(): Pick[] {
+export function topPicks(universe: Stock[] = UNIVERSE): Pick[] {
   // One distinct name per horizon — take each horizon's highest scorer that a
   // shorter horizon hasn't already claimed, so the three cards never repeat.
   const used = new Set<string>();
   return HORIZONS.map((h) => {
-    const list = ranked(h.key);
+    const list = ranked(h.key, universe);
     const r = list.find((s) => !used.has(s.ticker)) ?? list[0];
     used.add(r.ticker);
     return { ...r, horizon: h, take: TAKES[r.ticker] || genericTake(r, h) };
@@ -258,8 +286,8 @@ export function topPicks(): Pick[] {
 }
 
 // Top performers (backward-looking actual movers) for a window.
-export function movers(window: HorizonKey): { gainers: Mover[]; losers: Mover[] } {
-  const sorted = [...UNIVERSE].sort((a, b) => b.mv[window] - a.mv[window]);
+export function movers(window: HorizonKey, universe: Stock[] = UNIVERSE): { gainers: Mover[]; losers: Mover[] } {
+  const sorted = [...universe].sort((a, b) => b.mv[window] - a.mv[window]);
   return {
     gainers: sorted.slice(0, 5).map((s) => ({ ...s, move: s.mv[window] })),
     losers: sorted.slice(-5).reverse().map((s) => ({ ...s, move: s.mv[window] })),
@@ -305,11 +333,11 @@ export function normalizedWeights(weights: FactorScores): FactorScores {
 }
 
 /** Rank the universe by a user-defined factor weighting (same composite engine). */
-export function rankByWeights(weights: FactorScores): RankedStock[] {
+export function rankByWeights(weights: FactorScores, universe: Stock[] = UNIVERSE): RankedStock[] {
   const raw = FACTORS.map((f) => Math.max(0, weights[f.key]));
   const sum = raw.reduce((a, b) => a + b, 0);
   const w = sum > 0 ? raw.map((x) => x / sum) : raw.map(() => 1 / FACTORS.length);
-  return UNIVERSE.map((s) => {
+  return universe.map((s) => {
     let sc = 0;
     FACTORS.forEach((f, i) => {
       sc += w[i] * s.f[f.key];
@@ -321,8 +349,64 @@ export function rankByWeights(weights: FactorScores): RankedStock[] {
     .map((s, i) => ({ ...s, rank: i + 1 }));
 }
 
+// ── Live overlay ──
+// Merge a map of live market data onto the seed universe. Returns a NEW array
+// (never mutates UNIVERSE) so React sees a fresh reference. Price/chg fall back
+// to the seed values until the live row arrives; the fundamental columns stay
+// `null` (→ "—") until populated. `live` flips true once a real price applies.
+export function overlayLive(
+  universe: Stock[],
+  live: Map<string, LiveRow> | null | undefined
+): Stock[] {
+  if (!live || live.size === 0) return universe;
+  return universe.map((s) => {
+    const l = live.get(s.ticker);
+    if (!l) return s;
+    return {
+      ...s,
+      price: l.price ?? s.price,
+      chg: l.changePct ?? s.chg,
+      marketCap: l.marketCap,
+      pe: l.pe,
+      avgVol: l.avgVol,
+      rvol: l.rvol,
+      live: l.price != null,
+    };
+  });
+}
+
 // ── Formatting helpers ──
 export const fmtPrice = (n: number) =>
   "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const fmtPct = (n: number) => (n >= 0 ? "+" : "") + n.toFixed(2) + "%";
 export const fmtPct1 = (n: number) => (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
+
+/** Compact market cap: $5.11T, $612.3B, $84.6M. Null → "—". */
+export function fmtMktCap(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+  if (n >= 1e12) return "$" + (n / 1e12).toFixed(2) + "T";
+  if (n >= 1e9) return "$" + (n / 1e9).toFixed(1) + "B";
+  if (n >= 1e6) return "$" + (n / 1e6).toFixed(1) + "M";
+  return "$" + n.toLocaleString("en-US");
+}
+
+/** Compact share volume: 181.3M, 4.2M, 850.0K. Null → "—". */
+export function fmtVol(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+  return String(Math.round(n));
+}
+
+/** P/E to one decimal. Negative (loss-making) or missing → "—". */
+export function fmtPE(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+  return n.toFixed(1);
+}
+
+/** Relative volume as a multiple: 1.4×, 0.8×. Null → "—". */
+export function fmtRvol(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+  return n.toFixed(2) + "×";
+}
