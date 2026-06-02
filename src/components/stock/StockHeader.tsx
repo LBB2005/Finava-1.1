@@ -1,8 +1,8 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useChatStore } from "@/stores/chatStore";
-import AddToWatchlistButton from "@/components/watchlist/AddToWatchlistButton";
 import type { StockProfile } from "@/lib/stockData";
 import type { TickerSnapshot } from "@/lib/finnhub";
 
@@ -16,10 +16,35 @@ function fmt(n: number, d = 2) {
   return n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 
+const WATCHLIST_KEY = "lucra:watchlist";
+
+function readWatchlist(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem(WATCHLIST_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
 export default function StockHeader({ ticker, profile, fallbackQuote }: Props) {
   const router = useRouter();
   const { setPendingMessage, reset } = useChatStore();
   const { quoteMap } = useQuotes([ticker]);
+  const [watched, setWatched] = useState(false);
+
+  useEffect(() => {
+    // Read localStorage only after mount to avoid an SSR/CSR hydration mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setWatched(readWatchlist().includes(ticker));
+  }, [ticker]);
+
+  function toggleWatch() {
+    const list = readWatchlist();
+    const next = list.includes(ticker) ? list.filter((t) => t !== ticker) : [...list, ticker];
+    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(next));
+    setWatched(next.includes(ticker));
+  }
 
   function askAi() {
     reset();
@@ -92,7 +117,21 @@ export default function StockHeader({ ticker, profile, fallbackQuote }: Props) {
 
         {/* Actions */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <AddToWatchlistButton ticker={ticker} variant="button" />
+          <button
+            onClick={toggleWatch}
+            className="text-[12px] px-3 py-[6px] rounded-[9px] transition-all duration-150 flex items-center gap-1.5"
+            style={{
+              border: "1px solid var(--color-border)",
+              background: watched ? "var(--color-accent-light)" : "var(--color-bg)",
+              color: watched ? "var(--color-accent)" : "var(--color-text-secondary)",
+            }}
+            title={watched ? "Remove from watchlist" : "Add to watchlist"}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill={watched ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+            {watched ? "Watching" : "Watch"}
+          </button>
           <button
             onClick={askAi}
             className="text-[12px] px-3 py-[6px] rounded-[9px] transition-all duration-150"
