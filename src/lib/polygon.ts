@@ -1,11 +1,11 @@
 const BASE = "https://api.polygon.io";
 const KEY = process.env.POLYGON_API_KEY;
 
-async function polyFetch(path: string) {
+async function polyFetch(path: string, revalidate = 30) {
   const sep = path.includes("?") ? "&" : "?";
   const res = await fetch(`${BASE}${path}${sep}apiKey=${KEY}`, {
     signal: AbortSignal.timeout(10_000),
-    next: { revalidate: 30 },
+    next: { revalidate },
   });
   if (!res.ok) throw new Error(`Polygon ${res.status}: ${path}`);
   return res.json();
@@ -59,6 +59,13 @@ export async function getNews(tickers: string[], limit = 20) {
 
 export async function getFinancials(ticker: string) {
   return polyFetch(`/vX/reference/financials?ticker=${ticker}&timeframe=annual&limit=4`);
+}
+
+// Annual financials for factor scoring. Cached 1h — these come from 10-K/10-Q
+// filings and never change intraday, so a short TTL would re-hammer the API on
+// every research-page refresh across the whole S&P 500.
+export async function getAnnualFinancials(ticker: string) {
+  return polyFetch(`/vX/reference/financials?ticker=${ticker}&timeframe=annual&limit=4`, 3600);
 }
 
 export async function getOptionsSnapshot(ticker: string) {

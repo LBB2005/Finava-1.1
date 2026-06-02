@@ -76,7 +76,7 @@ export default function ResearchPage() {
           ) : (
             <>
               <SectionRule label="TUNE YOUR LENS · WEIGHT THE FACTORS, GET MATCHED" />
-              <TuneMode universe={universe} />
+              <TuneMode />
             </>
           )}
         </div>

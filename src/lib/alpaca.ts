@@ -216,3 +216,63 @@ export async function getAlpacaAvgVolumes(
   }
   return out;
 }
+
+export interface DailyClose {
+  t: number; // Unix seconds
+  c: number; // adjusted close
+}
+
+// Adjusted daily close history for many symbols, for momentum factors.
+// Uses the same multi-symbol bars endpoint as getAlpacaAvgVolumes, so a full
+// year of closes for the whole S&P 500 costs only a handful of paginated calls
+// rather than one request per ticker. Split-adjusted so returns aren't distorted
+// by stock splits. Cached 15min (revalidate) — momentum barely moves intraday.
+export async function getAlpacaCloseHistory(
+  tickers: string[],
+  calendarDays = 400
+): Promise<Map<string, DailyClose[]>> {
+  const out = new Map<string, DailyClose[]>();
+  if (!KEY || !SECRET || tickers.length === 0) return out;
+
+  const start = new Date(Date.now() - calendarDays * 86_400 * 1000).toISOString();
+  const byTicker: Record<string, DailyClose[]> = {};
+  let pageToken: string | undefined;
+
+  for (let page = 0; page < 40; page++) {
+    const params = new URLSearchParams({
+      symbols: tickers.join(","),
+      timeframe: "1Day",
+      start,
+      limit: "10000",
+      adjustment: "split",
+      feed: FEED,
+    });
+    if (pageToken) params.set("page_token", pageToken);
+
+    const res = await fetch(`${DATA_BASE}/v2/stocks/bars?${params}`, {
+      headers: AUTH_HEADERS(),
+      signal: AbortSignal.timeout(15_000),
+      next: { revalidate: 900 },
+    });
+    if (!res.ok) throw new Error(`Alpaca bars(history) ${res.status}`);
+
+    const data = (await res.json()) as {
+      bars?: Record<string, { t: string; c: number }[]>;
+      next_page_token?: string | null;
+    };
+    for (const [sym, bars] of Object.entries(data.bars ?? {})) {
+      (byTicker[sym.toUpperCase()] ??= []).push(
+        ...bars.map((b) => ({ t: Math.floor(new Date(b.t).getTime() / 1000), c: b.c }))
+      );
+    }
+    if (!data.next_page_token) break;
+    pageToken = data.next_page_token;
+  }
+
+  for (const [sym, closes] of Object.entries(byTicker)) {
+    // Bars arrive ascending; keep them sorted defensively across pages.
+    closes.sort((a, b) => a.t - b.t);
+    if (closes.length) out.set(sym, closes);
+  }
+  return out;
+}

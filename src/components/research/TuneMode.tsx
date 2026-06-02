@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   FACTORS,
   NEUTRAL_WEIGHTS,
@@ -8,26 +8,41 @@ import {
   rankByWeights,
   factorColor,
   type FactorScores,
-  type RankedStock,
-  type Stock,
 } from "@/lib/research";
+import { useFactorUniverse } from "@/hooks/useFactorUniverse";
 import WeightRadar from "./WeightRadar";
 import LadderRow from "./LadderRow";
 
 const sameWeights = (a: FactorScores, b: FactorScores) => FACTORS.every((f) => a[f.key] === b[f.key]);
+const DEFAULT_VISIBLE = 25;
 
-export default function TuneMode({ universe }: { universe?: Stock[] }) {
+export default function TuneMode() {
+  const { universe, coverage, isLoading, error } = useFactorUniverse();
+
   const [weights, setWeights] = useState<FactorScores>(NEUTRAL_WEIGHTS);
-  const [results, setResults] = useState<RankedStock[] | null>(null);
-  const [ranWeights, setRanWeights] = useState<FactorScores | null>(null);
+  // The weighting the user last ran (null until they hit the button).
+  const [applied, setApplied] = useState<FactorScores | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const norm = normalizedWeights(weights);
   const activePreset = TUNE_PRESETS.find((p) => sameWeights(p.weights, weights))?.key ?? null;
-  const dirty = results != null && ranWeights != null && !sameWeights(ranWeights, weights);
+
+  // Re-ranks automatically when either the applied weighting OR the universe
+  // changes — so results appear as soon as the scored universe finishes loading,
+  // even if the user clicked "find matches" first.
+  const results = useMemo(
+    () => (applied && universe ? rankByWeights(applied, universe) : null),
+    [applied, universe]
+  );
+
+  const dirty = applied != null && !sameWeights(applied, weights);
+  const ranButWaiting = applied != null && !universe;
+  const total = coverage?.total ?? universe?.length ?? 0;
+  const visible = showAll ? results?.length ?? 0 : DEFAULT_VISIBLE;
 
   function findMatches() {
-    setResults(rankByWeights(weights, universe));
-    setRanWeights(weights);
+    setApplied(weights);
+    setShowAll(false);
   }
 
   return (
@@ -74,15 +89,25 @@ export default function TuneMode({ universe }: { universe?: Stock[] }) {
 
           <button
             onClick={findMatches}
+            disabled={!universe}
             className="mono"
             style={{
               width: "100%", padding: "10px 0", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
-              color: "#fff", background: "var(--color-accent)", border: "1px solid var(--color-accent)",
-              borderRadius: 4, cursor: "pointer",
+              color: "#fff", background: universe ? "var(--color-accent)" : "var(--color-muted)",
+              border: "1px solid " + (universe ? "var(--color-accent)" : "var(--color-muted)"),
+              borderRadius: 4, cursor: universe ? "pointer" : "default",
             }}
           >
-            {results == null ? "FIND MY MATCHES →" : dirty ? "UPDATE MATCHES →" : "REFRESH MATCHES →"}
+            {!universe
+              ? (error ? "DATA UNAVAILABLE" : "LOADING S&P 500 …")
+              : applied == null ? "FIND MY MATCHES →" : dirty ? "UPDATE MATCHES →" : "REFRESH MATCHES →"}
           </button>
+
+          {universe && (
+            <span className="mono" style={{ fontSize: 10, color: "var(--color-muted)", textAlign: "center", letterSpacing: "0.04em" }}>
+              {`scanning ${total} S&P 500 names · real factor data`}
+            </span>
+          )}
         </div>
       </div>
 
@@ -91,20 +116,35 @@ export default function TuneMode({ universe }: { universe?: Stock[] }) {
         <div className="flex items-center justify-between" style={{ padding: "9px 14px", borderBottom: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
           <div className="flex items-center" style={{ gap: 9 }}>
             <span className="mono" style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-text)" }}>YOUR MATCHES</span>
-            {results && <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>top {Math.min(15, results.length)} · weighted MY LENS</span>}
+            {results && (
+              <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>
+                {showAll ? `all ${results.length}` : `top ${Math.min(DEFAULT_VISIBLE, results.length)} of ${results.length}`} · weighted MY LENS
+              </span>
+            )}
           </div>
           {dirty && <span className="mono" style={{ fontSize: 10, color: "var(--color-warn)", letterSpacing: "0.04em" }}>● lens changed</span>}
         </div>
 
         {results == null ? (
           <div className="flex flex-col items-center justify-center" style={{ minHeight: 320, padding: 24, textAlign: "center", gap: 8 }}>
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><path d="M8 11h6M11 8v6" />
-            </svg>
-            <p className="serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)" }}>Shape your lens, then find matches</p>
-            <p style={{ fontSize: 12, color: "var(--color-muted)", maxWidth: 320, lineHeight: 1.5 }}>
-              Drag the radar to weight the six factors however you invest — or pick a preset — then run it against the S&amp;P 500.
-            </p>
+            {ranButWaiting || isLoading ? (
+              <>
+                <div className="spin" style={{ width: 28, height: 28, border: "2.5px solid var(--color-border)", borderTopColor: "var(--color-accent)", borderRadius: "50%" }} />
+                <p style={{ fontSize: 12, color: "var(--color-muted)", maxWidth: 320, lineHeight: 1.5 }}>
+                  Scoring the S&amp;P 500 on real fundamentals, price and analyst data…
+                </p>
+              </>
+            ) : (
+              <>
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><path d="M8 11h6M11 8v6" />
+                </svg>
+                <p className="serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)" }}>Shape your lens, then find matches</p>
+                <p style={{ fontSize: 12, color: "var(--color-muted)", maxWidth: 320, lineHeight: 1.5 }}>
+                  Drag the radar to weight the six factors however you invest — or pick a preset — then run it against the whole S&amp;P 500.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -121,11 +161,19 @@ export default function TuneMode({ universe }: { universe?: Stock[] }) {
                 </tr>
               </thead>
               <tbody>
-                {results.slice(0, 15).map((s) => (
+                {results.slice(0, visible).map((s) => (
                   <LadderRow key={s.ticker} s={s} highlight={s.rank <= 3} />
                 ))}
               </tbody>
             </table>
+
+            {results.length > DEFAULT_VISIBLE && (
+              <div className="flex justify-center" style={{ padding: "10px 0", borderTop: "1px solid var(--color-border)" }}>
+                <button className="tbtn" onClick={() => setShowAll((v) => !v)}>
+                  {showAll ? "Show top 25" : `Show all ${results.length} →`}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

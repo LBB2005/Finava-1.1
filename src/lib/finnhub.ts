@@ -203,14 +203,18 @@ export async function getInsiderTransactions(ticker: string) {
   return fhFetch(`/stock/insider-transactions?symbol=${ticker}`);
 }
 
-// Recommendation trends (analyst ratings)
+// Recommendation trends (analyst ratings).
+// Cached 6h: ratings move on a quarterly cadence, and the research factor engine
+// fetches these across the whole S&P 500. A long TTL lets successful calls
+// persist and accumulate across refreshes instead of re-hitting the free-tier
+// rate limit (60/min) every cycle, so analyst coverage converges to full.
 export async function getRecommendationTrends(ticker: string) {
-  return fhFetch(`/stock/recommendation?symbol=${ticker}`);
+  return fhFetch(`/stock/recommendation?symbol=${ticker}`, 21600);
 }
 
-// Analyst price targets
+// Analyst price targets (also cached 6h — see getRecommendationTrends).
 export async function getPriceTarget(ticker: string) {
-  return fhFetch(`/stock/price-target?symbol=${ticker}`);
+  return fhFetch(`/stock/price-target?symbol=${ticker}`, 21600);
 }
 
 // Company profile

@@ -1,0 +1,384 @@
+/* ============================================================
+   Lucra · Research — real factor engine for the "Tune" lens
+   ------------------------------------------------------------
+   Scores every S&P 500 name on the six Lucra factors from REAL
+   data, not placeholders:
+
+     MOM  Momentum    ← Alpaca daily closes (price returns + trend)
+     GRW  Growth      ← Polygon financials (revenue & EPS growth)
+     QAL  Quality     ← Polygon financials (ROE, ROA, margins)
+     VAL  Valuation   ← Polygon financials + live price (P/E, P/S, P/B, P/FCF)
+     FIN  Health      ← Polygon financials (leverage, liquidity, cash gen)
+     ANL  Analyst     ← Finnhub (rating skew + upside to price target)
+
+   Each raw metric is converted to a 0–100 score by SECTOR-RELATIVE
+   percentile rank — a bank is graded against banks, a utility against
+   utilities — so the factor profile is comparable across very different
+   business models. A factor with no usable inputs for a stock falls back
+   to a neutral 50 rather than dropping the stock from the board.
+
+   Polygon is the primary fundamentals source; EDGAR (SEC XBRL) is the
+   fallback when Polygon has no filing for a ticker. Everything is
+   failure-isolated: a down source nulls a metric, never 500s the board.
+   ============================================================ */
+
+import { getAnnualFinancials } from "@/lib/polygon";
+import {
+  getAlpacaSnapshots,
+  getAlpacaCloseHistory,
+  type AlpacaSnapshot,
+  type DailyClose,
+} from "@/lib/alpaca";
+import { getRecommendationTrends } from "@/lib/finnhub";
+import { getCikByTicker, getCompanyFacts } from "@/lib/edgar";
+import { SP500 } from "@/lib/sp500";
+import type { FactorScores, Stock } from "@/lib/research";
+
+// ── small utilities ───────────────────────────────────────────────────────────
+function num(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+function ratio(a: number | null, b: number | null): number | null {
+  return a != null && b != null && b > 0 ? a / b : null;
+}
+function growth(curr: number | null, prev: number | null): number | null {
+  // Only meaningful when the prior base is positive — growth off a negative or
+  // zero base is not interpretable as a percentage.
+  return curr != null && prev != null && prev > 0 ? curr / prev - 1 : null;
+}
+
+/** Run `fn` over `items` with at most `limit` in flight at once. */
+async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const idx = cursor++;
+      out[idx] = await fn(items[idx]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+// ── fundamentals shape (source-agnostic) ───────────────────────────────────────
+interface Fundamentals {
+  // Annual series, newest-first (index 0 = latest fiscal year).
+  revenue: number[];
+  eps: number[];
+  // Latest-period balance-sheet / income snapshot.
+  netIncome: number | null;
+  grossProfit: number | null;
+  operatingIncome: number | null;
+  equity: number | null;
+  assets: number | null;
+  currentAssets: number | null;
+  currentLiabilities: number | null;
+  longTermDebt: number | null;
+  operatingCashFlow: number | null;
+  dilutedShares: number | null;
+}
+
+const EMPTY_FUND: Fundamentals = {
+  revenue: [], eps: [], netIncome: null, grossProfit: null, operatingIncome: null,
+  equity: null, assets: null, currentAssets: null, currentLiabilities: null,
+  longTermDebt: null, operatingCashFlow: null, dilutedShares: null,
+};
+
+// ── Polygon parser ──────────────────────────────────────────────────────────
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function fval(stmt: any, key: string): number | null {
+  return num(stmt?.[key]?.value);
+}
+
+function parsePolygon(data: any): Fundamentals | null {
+  const results: any[] = Array.isArray(data?.results) ? data.results : [];
+  if (results.length === 0) return null;
+  const inc = (r: any) => r?.financials?.income_statement ?? {};
+  const latest = results[0];
+  const incL = inc(latest);
+  const bal = latest?.financials?.balance_sheet ?? {};
+  const cf = latest?.financials?.cash_flow_statement ?? {};
+
+  const revenue = results.map((r) => fval(inc(r), "revenues")).filter((v): v is number => v != null);
+  const eps = results
+    .map((r) => fval(inc(r), "diluted_earnings_per_share") ?? fval(inc(r), "basic_earnings_per_share"))
+    .filter((v): v is number => v != null);
+
+  return {
+    revenue,
+    eps,
+    netIncome: fval(incL, "net_income_loss") ?? fval(incL, "net_income_loss_attributable_to_parent"),
+    grossProfit: fval(incL, "gross_profit"),
+    operatingIncome: fval(incL, "operating_income_loss"),
+    equity: fval(bal, "equity_attributable_to_parent") ?? fval(bal, "equity"),
+    assets: fval(bal, "assets"),
+    currentAssets: fval(bal, "current_assets"),
+    currentLiabilities: fval(bal, "current_liabilities"),
+    longTermDebt: fval(bal, "long_term_debt"),
+    operatingCashFlow: fval(cf, "net_cash_flow_from_operating_activities"),
+    dilutedShares: fval(incL, "diluted_average_shares") ?? fval(incL, "basic_average_shares"),
+  };
+}
+
+// ── EDGAR fallback parser ─────────────────────────────────────────────────────
+// Pull a clean annual (10-K) series for a GAAP concept, newest fiscal year first.
+function edgarAnnual(us: any, ...keys: string[]): number[] {
+  for (const key of keys) {
+    const units =
+      us?.[key]?.units?.USD ??
+      us?.[key]?.units?.shares ??
+      us?.[key]?.units?.["USD/shares"] ??
+      [];
+    const annual = (units as any[]).filter(
+      (u) => u.form === "10-K" && (!u.frame || /^CY\d{4}$/.test(u.frame) || u.frame.endsWith("I"))
+    );
+    if (!annual.length) continue;
+    const byYear = new Map<number, number>();
+    for (const e of annual) byYear.set(new Date(e.end).getFullYear(), e.val); // later filings overwrite
+    return Array.from(byYear.entries())
+      .sort((a, b) => b[0] - a[0]) // newest first
+      .map(([, v]) => v)
+      .filter((v) => typeof v === "number" && Number.isFinite(v));
+  }
+  return [];
+}
+
+function parseEdgar(facts: any): Fundamentals | null {
+  const us = facts?.facts?.["us-gaap"];
+  if (!us) return null;
+  const first = (a: number[]) => (a.length ? a[0] : null);
+  return {
+    revenue: edgarAnnual(us, "Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax"),
+    eps: edgarAnnual(us, "EarningsPerShareDiluted", "EarningsPerShareBasic"),
+    netIncome: first(edgarAnnual(us, "NetIncomeLoss")),
+    grossProfit: first(edgarAnnual(us, "GrossProfit")),
+    operatingIncome: first(edgarAnnual(us, "OperatingIncomeLoss")),
+    equity: first(edgarAnnual(us, "StockholdersEquity")),
+    assets: first(edgarAnnual(us, "Assets")),
+    currentAssets: first(edgarAnnual(us, "AssetsCurrent")),
+    currentLiabilities: first(edgarAnnual(us, "LiabilitiesCurrent")),
+    longTermDebt: first(edgarAnnual(us, "LongTermDebtNoncurrent", "LongTermDebt")),
+    operatingCashFlow: first(edgarAnnual(us, "NetCashProvidedByUsedInOperatingActivities")),
+    dilutedShares: first(edgarAnnual(us, "WeightedAverageNumberOfDilutedSharesOutstanding")),
+  };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+async function fetchFundamentals(ticker: string): Promise<Fundamentals | null> {
+  try {
+    const f = parsePolygon(await getAnnualFinancials(ticker));
+    if (f && f.revenue.length) return f;
+  } catch { /* fall through to EDGAR */ }
+  try {
+    const cik = await getCikByTicker(ticker);
+    if (cik) {
+      const f = parseEdgar(await getCompanyFacts(cik));
+      if (f && f.revenue.length) return f;
+    }
+  } catch { /* give up — this ticker's fundamentals stay null */ }
+  return null;
+}
+
+// ── analyst (Finnhub) ─────────────────────────────────────────────────────────
+// Rating skew only (one call/ticker). We deliberately skip the separate
+// price-target endpoint: at S&P 500 scale a second per-ticker call doubles the
+// free-tier rate-limit pressure for a marginal signal. The buy/sell skew is the
+// stronger, more widely-covered indicator.
+interface AnalystRaw {
+  skew: number | null; // -1 (all sell) … +1 (all strong buy)
+}
+
+async function fetchAnalyst(ticker: string): Promise<AnalystRaw> {
+  try {
+    const rec = await getRecommendationTrends(ticker);
+    if (Array.isArray(rec) && rec.length) {
+      const r = rec[0] as Record<string, number>; // latest period first
+      const sb = r.strongBuy ?? 0, b = r.buy ?? 0, h = r.hold ?? 0, s = r.sell ?? 0, ss = r.strongSell ?? 0;
+      const total = sb + b + h + s + ss;
+      if (total > 0) return { skew: (2 * sb + b - s - 2 * ss) / (2 * total) }; // normalise to [-1, 1]
+    }
+  } catch { /* rate-limited or unknown symbol → neutral */ }
+  return { skew: null };
+}
+
+// ── momentum (from daily closes) ───────────────────────────────────────────────
+interface MomentumRaw {
+  ret12_1: number | null; // 12-month return excluding the most recent month
+  ret6: number | null;
+  ret3: number | null;
+  vs200: number | null; // price vs 200-day moving average
+}
+
+function momentum(closes: DailyClose[] | undefined): MomentumRaw {
+  if (!closes || closes.length < 30) return { ret12_1: null, ret6: null, ret3: null, vs200: null };
+  const c = closes.map((x) => x.c).filter((x) => x > 0);
+  const n = c.length;
+  const last = c[n - 1];
+  const ago = (d: number) => (n - 1 - d >= 0 ? c[n - 1 - d] : null);
+
+  const p21 = ago(21), p252 = ago(252);
+  const ret12_1 = n >= 252 && p21 && p252 ? p21 / p252 - 1 : null;
+  const p126 = ago(126);
+  const ret6 = n >= 126 && p126 ? last / p126 - 1 : null;
+  const p63 = ago(63);
+  const ret3 = n >= 63 && p63 ? last / p63 - 1 : null;
+  const ma200 = n >= 200 ? c.slice(-200).reduce((a, b) => a + b, 0) / 200 : null;
+  const vs200 = ma200 && ma200 > 0 ? last / ma200 - 1 : null;
+
+  return { ret12_1, ret6, ret3, vs200 };
+}
+
+// ── sector-relative percentile engine ──────────────────────────────────────────
+type Dir = 1 | -1; // 1 = higher is better, -1 = lower is better (e.g. valuation, leverage)
+
+interface SubMetric {
+  weight: number;
+  dir: Dir;
+  raw: (number | null)[]; // one value per stock (index-aligned), null = no data
+}
+
+// Rank each sub-metric to a 0–100 percentile WITHIN its sector, then take a
+// weighted average of whatever sub-metrics a stock actually has. No usable
+// sub-metric → neutral 50.
+function scoreFactor(subs: SubMetric[], sectors: string[]): number[] {
+  const n = sectors.length;
+  const pcts = subs.map((sm) => sectorPercentile(sm.raw, sectors, sm.dir));
+  const out = new Array<number>(n);
+  for (let i = 0; i < n; i++) {
+    let acc = 0, wsum = 0;
+    subs.forEach((sm, si) => {
+      const p = pcts[si][i];
+      if (p != null) { acc += p * sm.weight; wsum += sm.weight; }
+    });
+    out[i] = wsum > 0 ? Math.round(acc / wsum) : 50;
+  }
+  return out;
+}
+
+function sectorPercentile(raw: (number | null)[], sectors: string[], dir: Dir): (number | null)[] {
+  const out = new Array<number | null>(raw.length).fill(null);
+  const bySector = new Map<string, number[]>();
+  raw.forEach((v, i) => {
+    if (v != null && Number.isFinite(v)) {
+      (bySector.get(sectors[i]) ?? bySector.set(sectors[i], []).get(sectors[i])!).push(i);
+    }
+  });
+  for (const idxs of bySector.values()) {
+    // Sort so the BEST value lands last (rank m-1 → percentile 100).
+    const sorted = [...idxs].sort((a, b) => (dir === 1 ? raw[a]! - raw[b]! : raw[b]! - raw[a]!));
+    const m = sorted.length;
+    sorted.forEach((idx, rank) => {
+      out[idx] = m === 1 ? 100 : Math.round((rank / (m - 1)) * 100);
+    });
+  }
+  return out;
+}
+
+// ── orchestrator ────────────────────────────────────────────────────────────
+export interface FactorUniverse {
+  stocks: Stock[];
+  asOf: string;
+  coverage: { total: number; fundamentals: number; analyst: number; momentum: number; priced: number };
+}
+
+export async function computeFactorUniverse(): Promise<FactorUniverse> {
+  const list = SP500;
+  const tickers = list.map((c) => c.ticker);
+  const sectors = list.map((c) => c.sector);
+
+  const [snaps, closeHist, funds, analysts] = await Promise.all([
+    getAlpacaSnapshots(tickers).catch(() => new Map<string, AlpacaSnapshot>()),
+    getAlpacaCloseHistory(tickers).catch(() => new Map<string, DailyClose[]>()),
+    mapPool(tickers, 12, fetchFundamentals),
+    mapPool(tickers, 8, fetchAnalyst),
+  ]);
+
+  const price = (i: number) => snaps.get(tickers[i])?.price ?? null;
+  const fund = (i: number) => funds[i] ?? EMPTY_FUND;
+  const mom = tickers.map((t) => momentum(closeHist.get(t)));
+
+  // Per-stock raw sub-metrics (index-aligned).
+  const marketCap = tickers.map((_, i) => {
+    const p = price(i), sh = fund(i).dilutedShares;
+    return p != null && sh != null && sh > 0 ? p * sh : null;
+  });
+
+  // GROWTH
+  const growthScore = scoreFactor([
+    { weight: 0.4, dir: 1, raw: tickers.map((_, i) => growth(fund(i).revenue[0] ?? null, fund(i).revenue[1] ?? null)) },
+    { weight: 0.3, dir: 1, raw: tickers.map((_, i) => growth(fund(i).eps[0] ?? null, fund(i).eps[1] ?? null)) },
+    { weight: 0.3, dir: 1, raw: tickers.map((_, i) => {
+      const r = fund(i).revenue; // 3-year revenue CAGR
+      return r.length >= 4 && r[3] > 0 ? Math.pow(r[0] / r[3], 1 / 3) - 1 : null;
+    }) },
+  ], sectors);
+
+  // QUALITY
+  const qualityScore = scoreFactor([
+    { weight: 0.3, dir: 1, raw: tickers.map((_, i) => ratio(fund(i).netIncome, fund(i).equity)) },          // ROE
+    { weight: 0.2, dir: 1, raw: tickers.map((_, i) => ratio(fund(i).netIncome, fund(i).assets)) },           // ROA
+    { weight: 0.2, dir: 1, raw: tickers.map((_, i) => ratio(fund(i).grossProfit, fund(i).revenue[0] ?? null)) }, // gross margin
+    { weight: 0.3, dir: 1, raw: tickers.map((_, i) => ratio(fund(i).operatingIncome, fund(i).revenue[0] ?? null)) }, // op margin
+  ], sectors);
+
+  // VALUATION — lower multiple = cheaper = better (dir -1). Loss-making / no-data → excluded.
+  const valueScore = scoreFactor([
+    { weight: 0.35, dir: -1, raw: tickers.map((_, i) => ratio(marketCap[i], fund(i).netIncome)) },              // P/E
+    { weight: 0.25, dir: -1, raw: tickers.map((_, i) => ratio(marketCap[i], fund(i).revenue[0] ?? null)) },     // P/S
+    { weight: 0.2,  dir: -1, raw: tickers.map((_, i) => ratio(marketCap[i], fund(i).equity)) },                 // P/B
+    { weight: 0.2,  dir: -1, raw: tickers.map((_, i) => ratio(marketCap[i], fund(i).operatingCashFlow)) },      // P/FCF (OCF proxy)
+  ], sectors);
+
+  // HEALTH
+  const healthScore = scoreFactor([
+    { weight: 0.4,  dir: -1, raw: tickers.map((_, i) => ratio(fund(i).longTermDebt, fund(i).equity)) },           // debt / equity (lower better)
+    { weight: 0.35, dir: 1,  raw: tickers.map((_, i) => ratio(fund(i).currentAssets, fund(i).currentLiabilities)) }, // current ratio
+    { weight: 0.25, dir: 1,  raw: tickers.map((_, i) => ratio(fund(i).operatingCashFlow, fund(i).assets)) },      // cash generation
+  ], sectors);
+
+  // MOMENTUM
+  const momScore = scoreFactor([
+    { weight: 0.35, dir: 1, raw: mom.map((m) => m.ret12_1) },
+    { weight: 0.25, dir: 1, raw: mom.map((m) => m.ret6) },
+    { weight: 0.2,  dir: 1, raw: mom.map((m) => m.ret3) },
+    { weight: 0.2,  dir: 1, raw: mom.map((m) => m.vs200) },
+  ], sectors);
+
+  // ANALYST — buy/sell rating skew, sector-relative.
+  const analystScore = scoreFactor([
+    { weight: 1, dir: 1, raw: analysts.map((a) => a.skew) },
+  ], sectors);
+
+  const stocks: Stock[] = list.map((c, i) => {
+    const f: FactorScores = {
+      mom: momScore[i],
+      growth: growthScore[i],
+      quality: qualityScore[i],
+      analyst: analystScore[i],
+      value: valueScore[i],
+      health: healthScore[i],
+    };
+    const p = price(i);
+    return {
+      ticker: c.ticker,
+      name: c.name,
+      sector: c.sector,
+      price: p ?? 0,
+      chg: snaps.get(c.ticker)?.changePct ?? 0,
+      f,
+      mv: { week: 0, month: 0, year: 0 }, // backward-looking moves unused in the Tune lens
+      live: p != null,
+    };
+  });
+
+  const coverage = {
+    total: list.length,
+    fundamentals: funds.filter((f) => f && f.revenue.length).length,
+    analyst: analysts.filter((a) => a.skew != null).length,
+    momentum: mom.filter((m) => m.ret3 != null).length,
+    priced: tickers.filter((_, i) => price(i) != null).length,
+  };
+
+  return { stocks, asOf: new Date().toISOString(), coverage };
+}
