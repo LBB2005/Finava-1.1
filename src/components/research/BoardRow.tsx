@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { fmtPct1, fmtMktCap, fmtPE, fmtVol, fmtRvol, type RankedStock } from "@/lib/research";
 import { GradeBadge } from "./primitives";
+import AddToWatchlistButton from "@/components/watchlist/AddToWatchlistButton";
 
 const muted = { color: "var(--color-muted)" };
 
@@ -32,8 +33,11 @@ export default function BoardRow({ s, highlight = false }: { s: RankedStock; hig
       </td>
 
       <td style={{ textAlign: "left" }}>
-        <span className="tk" style={{ fontSize: 13 }}>{s.ticker}</span>
-        <span className="lad-name" style={{ fontSize: 10.5, color: "var(--color-muted)", marginLeft: 8 }}>{s.name}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <AddToWatchlistButton ticker={s.ticker} variant="icon" />
+          <span className="tk" style={{ fontSize: 13 }}>{s.ticker}</span>
+          <span className="lad-name" style={{ fontSize: 10.5, color: "var(--color-muted)", marginLeft: 2 }}>{s.name}</span>
+        </span>
       </td>
 
       {/* Last */}
