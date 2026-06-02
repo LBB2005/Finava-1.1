@@ -1,11 +1,25 @@
 "use client";
 import { auth } from "@/lib/firebase";
 
-/** Get the current Firebase ID token, or null if not signed in. */
+/** Sentinel sent in place of a real ID token when the dev-auth bypass is on.
+ *  The server only honours it outside production (see requireAuth). */
+export const DEV_BYPASS_TOKEN = "dev-bypass";
+
+/** Get the current Firebase ID token, or null if not signed in.
+ *  Under the "DEV AUTH ON" toggle there is no real Firebase user, so we send a
+ *  dev sentinel (non-production only) that requireAuth maps to the dev user —
+ *  this lets authed APIs work in local/preview dev without a Google sign-in. */
 export async function getAuthToken(): Promise<string | null> {
   const user = auth.currentUser;
-  if (!user) return null;
-  return user.getIdToken();
+  if (user) return user.getIdToken();
+  if (
+    process.env.NODE_ENV !== "production" &&
+    typeof window !== "undefined" &&
+    localStorage.getItem("lucra_dev_auth") === "1"
+  ) {
+    return DEV_BYPASS_TOKEN;
+  }
+  return null;
 }
 
 /** Wrapper around fetch() that automatically adds the Firebase Bearer token. */

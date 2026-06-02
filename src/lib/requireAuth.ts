@@ -13,6 +13,15 @@ export async function requireAuth(): Promise<
   }
 
   const token = authHeader.slice(7);
+
+  // Dev-only bypass: mirrors AuthContext's client-side "DEV AUTH ON" mock
+  // session so authed APIs work in local/preview dev without a real Google
+  // sign-in. Hard-gated to non-production — in a production build NODE_ENV is
+  // "production" and this branch is dead, so the sentinel can never authenticate.
+  if (process.env.NODE_ENV !== "production" && token === "dev-bypass") {
+    return { userId: "dev-user" };
+  }
+
   try {
     const decoded = await adminAuth.verifyIdToken(token);
     return { userId: decoded.uid };
