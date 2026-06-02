@@ -14,6 +14,7 @@ import AddHoldingModal from "@/components/portfolio/AddHoldingModal";
 import CsvUploadModal from "@/components/portfolio/CsvUploadModal";
 import StatementUploadModal from "@/components/portfolio/StatementUploadModal";
 import BriefingModal from "@/components/briefing/BriefingModal";
+import WatchlistSidebarWidget from "./WatchlistSidebarWidget";
 import type { HoldingFormData } from "@/types/portfolio";
 import { authFetch, authFetcher } from "@/lib/authFetch";
 
@@ -441,6 +442,7 @@ export default function Sidebar({
   const isOnPortfolio = pathname === "/portfolio";
   const isOnHedgeFund = pathname === "/hedge-fund";
   const isOnResearch = pathname === "/research";
+  const isOnWatchlist = pathname === "/watchlist" || pathname.startsWith("/watchlist/");
 
   return (
     <aside
@@ -562,6 +564,37 @@ export default function Sidebar({
         </svg>
         Research
       </Link>
+
+      {/* Watchlist nav button */}
+      <Link
+        href="/watchlist"
+        onClick={onNavigate}
+        className="flex items-center gap-[7px] mx-[14px] mb-[6px] px-[10px] py-[7px] text-[12px] font-medium transition-all duration-150 flex-shrink-0"
+        style={
+          isOnWatchlist
+            ? {
+                background: "var(--color-accent)",
+                color: "#fff",
+                border: "1px solid var(--color-accent)",
+                borderRadius: "4px",
+                fontWeight: 600,
+              }
+            : {
+                color: "var(--color-text-secondary)",
+                border: "1px solid var(--color-border)",
+                background: "var(--color-surface)",
+                borderRadius: "7px",
+              }
+        }
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="12 2 15 8.5 22 9.3 17 14 18.2 21 12 17.6 5.8 21 7 14 2 9.3 9 8.5 12 2" />
+        </svg>
+        Watchlist
+      </Link>
+
+      {/* Watchlist collapsible widget */}
+      <WatchlistSidebarWidget />
 
       {/* Hedge Fund nav button */}
       <Link
