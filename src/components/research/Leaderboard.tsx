@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import { SECTORS, UNIVERSE, ranked, type HorizonKey, type RankedStock, type Stock } from "@/lib/research";
+import { ranked, type HorizonKey, type RankedStock, type Stock } from "@/lib/research";
 import BoardRow from "./BoardRow";
 
 type SortKey = "rank" | "ticker" | "price" | "chg" | "marketCap" | "pe" | "avgVol" | "rvol" | "score";
@@ -21,7 +21,7 @@ function sortVal(s: RankedStock, key: SortKey): number {
 
 export default function Leaderboard({
   horizon,
-  universe = UNIVERSE,
+  universe = [],
   loading = false,
 }: {
   horizon: HorizonKey;
@@ -30,6 +30,13 @@ export default function Leaderboard({
 }) {
   const [sector, setSector] = useState("All");
   const [sort, setSort] = useState<{ key: SortKey; dir: number }>({ key: "rank", dir: 1 });
+
+  // Derive sectors from whatever universe is passed — works for both the 72-name
+  // seed fallback and the full 503-name real universe.
+  const sectors = useMemo(
+    () => Array.from(new Set(universe.map((s) => s.sector))).sort(),
+    [universe]
+  );
 
   const rows = useMemo(() => {
     let r = ranked(horizon, universe);
@@ -52,7 +59,7 @@ export default function Leaderboard({
         <div className="flex items-center" style={{ gap: 9 }}>
           <span className="mono" style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-text)" }}>LEADERBOARD</span>
           <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>
-            {rows.length} / {UNIVERSE.length} · weighted {horizon.toUpperCase()}
+            {rows.length} / {universe.length} · weighted {horizon.toUpperCase()}
           </span>
           <span className="mono board-live" style={{ fontSize: 10, letterSpacing: "0.06em", color: loading ? "var(--color-muted)" : "var(--color-bull)" }}>
             {loading ? "○ SYNCING" : "● LIVE"}
@@ -61,7 +68,7 @@ export default function Leaderboard({
         <div className="flex items-center" style={{ gap: 8 }}>
           <span className="mono" style={{ fontSize: 10, color: "var(--color-muted)", letterSpacing: "0.1em" }}>SECTOR</span>
           <select className="tsel" value={sector} onChange={(e) => setSector(e.target.value)}>
-            {["All", ...SECTORS].map((s) => (
+            {["All", ...sectors].map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>

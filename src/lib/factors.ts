@@ -229,6 +229,24 @@ function momentum(closes: DailyClose[] | undefined): MomentumRaw {
   return { ret12_1, ret6, ret3, vs200 };
 }
 
+// Real backward-looking price moves for the Board's Movers section.
+// Uses the same close history fetched for the momentum factor, so no
+// extra API calls — just a different window on the same data.
+import type { HorizonKey } from "@/lib/research";
+function computeMv(closes: DailyClose[] | undefined): Record<HorizonKey, number> {
+  if (!closes || closes.length < 2) return { week: 0, month: 0, year: 0 };
+  const c = closes.map((x) => x.c).filter((x) => x > 0);
+  const n = c.length;
+  const last = c[n - 1];
+  const ago = (d: number) => (n - 1 - d >= 0 ? c[n - 1 - d] : null);
+  const pct = (p: number | null) => (p && p > 0 ? (last / p - 1) * 100 : 0);
+  return {
+    week: pct(ago(5)),
+    month: pct(ago(21)),
+    year: pct(ago(252)),
+  };
+}
+
 // ── sector-relative percentile engine ──────────────────────────────────────────
 type Dir = 1 | -1; // 1 = higher is better, -1 = lower is better (e.g. valuation, leverage)
 
@@ -367,7 +385,7 @@ export async function computeFactorUniverse(): Promise<FactorUniverse> {
       price: p ?? 0,
       chg: snaps.get(c.ticker)?.changePct ?? 0,
       f,
-      mv: { week: 0, month: 0, year: 0 }, // backward-looking moves unused in the Tune lens
+      mv: computeMv(closeHist.get(c.ticker)), // real 5/21/252-day price moves for Movers
       live: p != null,
     };
   });

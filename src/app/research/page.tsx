@@ -1,7 +1,8 @@
 "use client";
 import { useState, useMemo } from "react";
-import { HORIZONS, topPicks, overlayLive, UNIVERSE, AS_OF, type HorizonKey } from "@/lib/research";
+import { HORIZONS, topPicks, overlayLive, UNIVERSE, type HorizonKey } from "@/lib/research";
 import { useLiveBoard } from "@/hooks/useLiveBoard";
+import { useFactorUniverse } from "@/hooks/useFactorUniverse";
 import HeroPicks from "@/components/research/HeroPicks";
 import Leaderboard from "@/components/research/Leaderboard";
 import Movers from "@/components/research/Movers";
@@ -18,16 +19,37 @@ function SectionRule({ label }: { label: string }) {
   );
 }
 
+/** Format asOf ISO string → "Jun 2, 2026 · 9:30 AM ET" */
+function fmtAsOf(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("en-US", {
+      timeZone: "America/New_York",
+      month: "short", day: "numeric", year: "numeric",
+      hour: "numeric", minute: "2-digit",
+    }) + " ET";
+  } catch {
+    return iso;
+  }
+}
+
 export default function ResearchPage() {
   const [mode, setMode] = useState<Mode>("board");
   const [horizon, setHorizon] = useState<HorizonKey>("week");
 
-  // Live market data overlaid on the seed universe — real price/% change plus
-  // market cap, P/E and volume. Scores/grades are untouched (factor-derived).
-  const tickers = useMemo(() => UNIVERSE.map((s) => s.ticker), []);
-  const { liveMap, isLoading } = useLiveBoard(tickers);
-  const universe = useMemo(() => overlayLive(UNIVERSE, liveMap), [liveMap]);
+  // Real factor universe (S&P 500, scored on real data). Falls back to the
+  // 72-name seed so the Board renders immediately while the API call settles.
+  const { universe: factorUniverse, isLoading: factorsLoading, asOf } = useFactorUniverse();
+  const baseUniverse = factorUniverse ?? UNIVERSE;
+
+  // Live market overlay — price, % change, market cap, P/E, volume.
+  // Re-keys to 503 tickers once the factor universe arrives.
+  const tickers = useMemo(() => baseUniverse.map((s) => s.ticker), [baseUniverse]);
+  const { liveMap, isLoading: pricesLoading } = useLiveBoard(tickers);
+  const universe = useMemo(() => overlayLive(baseUniverse, liveMap), [baseUniverse, liveMap]);
   const picks = useMemo(() => topPicks(universe), [universe]);
+
+  const isLoading = pricesLoading || factorsLoading;
+  const asOfLabel = asOf ? fmtAsOf(asOf) : "Loading…";
 
   return (
     <div className="research-root term flex flex-col h-full overflow-hidden">
@@ -56,7 +78,7 @@ export default function ResearchPage() {
             </>
           )}
         </div>
-        <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>{AS_OF}</span>
+        <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>{asOfLabel}</span>
       </div>
 
       {/* Scrolling body — outer scroller stays a plain block so the inner

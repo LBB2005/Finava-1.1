@@ -37,6 +37,7 @@ export function useFactorUniverse() {
   return {
     universe: data?.stocks ?? null,
     coverage: data?.coverage ?? null,
+    asOf: data?.asOf ?? null,
     error,
     isLoading,
     loaded: !!data,
