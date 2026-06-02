@@ -15,10 +15,6 @@ const QA = [
     a: "ChatGPT doesn't have access to real-time market data, SEC filings, or live financial figures. It also doesn't maintain context about your portfolio or investment style across sessions. Lucra is purpose-built for investment research: 15 domain-specific agents, real data sources, and a persistent memory of what you own and how you invest.",
   },
   {
-    q: "What is the hedge fund tab / Pro tier?",
-    a: "Pro includes a dashboard that mirrors the structure of a hedge fund trading desk — live Alpaca paper trading, order management, automated strategy execution, and Markov regime detection. It's paper trading only to start — a way to test strategies systematically before putting real money behind them.",
-  },
-  {
     q: "Can I import my existing portfolio?",
     a: "Yes. Lucra supports manual entry, CSV upload, and brokerage statement parsing. Once your holdings are in, every AI analysis is automatically contextualised to your actual positions.",
   },

@@ -726,8 +726,8 @@ export default function Sidebar({
         {/* Watchlist (expandable) */}
         <WatchlistNavItem active={isOnWatchlist} onNavigate={onNavigate} />
 
-        {/* Hedge Fund */}
-        <NavLink
+        {/* Hedge Fund — hidden for now, restore when feature is ready */}
+        {/* <NavLink
           href="/hedge-fund"
           active={isOnHedgeFund}
           onNavigate={onNavigate}
@@ -738,7 +738,7 @@ export default function Sidebar({
             </svg>
           }
           label="Hedge Fund"
-        />
+        /> */}
       </nav>
 
       {/* divider */}

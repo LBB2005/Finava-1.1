@@ -35,10 +35,6 @@ const TIERS: Tier[] = [
     features: [
       "100 multi-agent queries / month",
       "Everything in Research, plus:",
-      "Hedge fund dashboard",
-      "Alpaca paper trading integration",
-      "Automated strategy execution",
-      "Regime detection (Markov)",
       "Priority processing",
     ],
     cta: "Start with Pro",
