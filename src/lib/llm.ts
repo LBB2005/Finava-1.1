@@ -33,6 +33,7 @@ export type AgentKey =
   | "ceo" // CEO synthesis (stays on Anthropic SDK — streaming + tools; key kept for completeness)
   | "chat" // chat route main stream (stays on Anthropic SDK — SSE; key kept for completeness)
   | "aiTake"
+  | "lucraSynthesis"
   | "briefingSynthesis"
   | "portfolioStatement"
   | "risk"
@@ -62,6 +63,7 @@ const ROUTED_MODELS: Record<AgentKey, string> = {
   ceo: SONNET,
   chat: SONNET,
   aiTake: SONNET,
+  lucraSynthesis: SONNET,
   briefingSynthesis: SONNET,
   portfolioStatement: SONNET,
   risk: SONNET,

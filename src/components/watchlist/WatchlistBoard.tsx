@@ -30,7 +30,7 @@ export default function WatchlistBoard({
   }
 
   return (
-    <div style={{ border: compact ? "none" : "1px solid var(--color-border)", borderRadius: 4, overflow: "hidden", background: "var(--color-bg)" }}>
+    <div style={{ overflow: "hidden", background: "var(--color-bg)" }}>
       <table className="lad-table board-table" style={{ minWidth: compact ? undefined : 520, width: "100%" }}>
         <thead>
           <tr>

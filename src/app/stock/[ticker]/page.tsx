@@ -1,17 +1,15 @@
 "use client";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useStockBundle } from "@/hooks/useStock";
-import StockHeader from "@/components/stock/StockHeader";
-import PriceChart from "@/components/stock/PriceChart";
-import PositionCard from "@/components/stock/PositionCard";
-import AiTakePanel from "@/components/stock/AiTakePanel";
-import {
-  KeyStatsPanel,
-  AnalystPanel,
-  FundamentalsPanel,
-  InsiderPanel,
-  NewsPanel,
-} from "@/components/stock/StockPanels";
+import { useQuotes } from "@/hooks/useQuotes";
+import StockHero from "@/components/stock/StockHero";
+import { OverviewTab, FinancialsTab, AnalystsTab, NewsTab } from "@/components/stock/StockTabs";
+import { DcfTab } from "@/components/stock/DcfTab";
+import { LucraTab } from "@/components/stock/LucraTab";
+
+const TABS = ["Overview", "Financials", "Analysts", "News", "DCF", "Lucra"] as const;
+type Tab = (typeof TABS)[number];
 
 export default function StockPage() {
   const params = useParams<{ ticker: string }>();
@@ -19,6 +17,8 @@ export default function StockPage() {
   const ticker = (params?.ticker ?? "").toUpperCase();
 
   const { bundle, error, isLoading } = useStockBundle(ticker || null);
+  const { quoteMap } = useQuotes(ticker ? [ticker] : []);
+  const [tab, setTab] = useState<Tab>("Overview");
 
   /* ── Error states ─────────────────────────────────────────────────────── */
   if (error) {
@@ -35,7 +35,7 @@ export default function StockPage() {
         </p>
         <button
           onClick={() => router.push("/portfolio")}
-          className="text-[12px] px-3.5 py-[7px] rounded-[9px] mt-1"
+          className="text-[12px] px-3.5 py-[7px] rounded-[6px] mt-1"
           style={{ border: "1px solid var(--color-accent)", background: "var(--color-accent)", color: "white" }}
         >
           Back to portfolio
@@ -47,69 +47,66 @@ export default function StockPage() {
   /* ── Loading state ────────────────────────────────────────────────────── */
   if (isLoading || !bundle) {
     return (
-      <div className="flex flex-col h-full" style={{ background: "var(--color-bg)" }} aria-busy="true" aria-label={`Loading ${ticker}`}>
-        {/* Header skeleton */}
-        <div className="flex-shrink-0 px-7 py-4" style={{ borderBottom: "1px solid var(--color-border)" }}>
-          <div className="max-w-[1100px] mx-auto flex items-center gap-4">
-            <div className="w-[42px] h-[42px] rounded-[10px] skeleton" />
+      <div className="research-root h-full overflow-y-auto" style={{ background: "var(--color-bg)" }} aria-busy="true" aria-label={`Loading ${ticker}`}>
+        <div style={{ padding: "22px 36px 0", background: "linear-gradient(180deg, var(--color-accent-light), transparent 80%)" }}>
+          <div className="flex items-center gap-3.5">
+            <div className="w-[44px] h-[44px] rounded-[8px] skeleton" />
             <div className="flex flex-col gap-2">
-              <div className="h-[18px] w-[120px] skeleton" />
-              <div className="h-[12px] w-[180px] skeleton" />
-            </div>
-            <div className="ml-auto h-[34px] w-[140px] skeleton hidden sm:block" />
-          </div>
-        </div>
-
-        {/* Body skeleton — mirrors the real layout (chart + two card columns) */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-[1100px] mx-auto px-8 py-6 flex flex-col gap-[18px]">
-            <div className="h-[280px] skeleton rounded-[14px]" />
-            <div className="grid gap-[18px] items-start grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-              <div className="flex flex-col gap-[18px] min-w-0">
-                <div className="h-[150px] skeleton rounded-[14px]" />
-                <div className="h-[180px] skeleton rounded-[14px]" />
-                <div className="h-[160px] skeleton rounded-[14px]" />
-              </div>
-              <div className="flex flex-col gap-[18px] min-w-0">
-                <div className="h-[120px] skeleton rounded-[14px]" />
-                <div className="h-[140px] skeleton rounded-[14px]" />
-                <div className="h-[120px] skeleton rounded-[14px]" />
-              </div>
+              <div className="h-[20px] w-[160px] skeleton" />
+              <div className="h-[12px] w-[120px] skeleton" />
             </div>
           </div>
+          <div className="h-[46px] w-[200px] skeleton mt-4 rounded-[6px]" />
+          <div className="h-[300px] skeleton mt-3 rounded-[6px]" />
         </div>
       </div>
     );
   }
 
   /* ── Loaded ───────────────────────────────────────────────────────────── */
-  const livePrice = bundle.quote?.price ?? null;
+  const livePrice = quoteMap.get(ticker)?.price ?? bundle.quote?.price ?? null;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden fade-in" style={{ background: "var(--color-bg)" }}>
-      <StockHeader ticker={ticker} profile={bundle.profile} fallbackQuote={bundle.quote} />
+    <div className="research-root stock-page h-full overflow-y-auto" style={{ background: "var(--color-bg)" }}>
+      <StockHero
+        ticker={ticker}
+        profile={bundle.profile}
+        fallbackQuote={bundle.quote}
+        initialCandles={bundle.candles}
+        initialRange={bundle.candleRange}
+      />
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-[1100px] mx-auto px-8 py-6 flex flex-col gap-[18px]">
-          <PriceChart ticker={ticker} initialCandles={bundle.candles} initialRange={bundle.candleRange} />
+      {/* Sticky tab bar — research .tbtn vocabulary */}
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          padding: "12px 36px",
+          borderTop: "1px solid var(--color-border)",
+          borderBottom: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+          position: "sticky",
+          top: 0,
+          zIndex: 5,
+        }}
+      >
+        {TABS.map((t) => (
+          <button key={t} className={"tbtn" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>
+            {t.toUpperCase()}
+          </button>
+        ))}
+      </div>
 
-          <div className="grid gap-[18px] items-start" style={{ gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr)" }}>
-            {/* Main column */}
-            <div className="flex flex-col gap-[18px] min-w-0">
-              <AiTakePanel ticker={ticker} sentiment={bundle.sentiment} />
-              <FundamentalsPanel fundamentals={bundle.fundamentals} />
-              <NewsPanel news={bundle.news} />
-            </div>
-
-            {/* Side column */}
-            <div className="flex flex-col gap-[18px] min-w-0">
-              <PositionCard ticker={ticker} />
-              <KeyStatsPanel stats={bundle.keyStats} />
-              <AnalystPanel analysts={bundle.analysts} price={livePrice} />
-              <InsiderPanel trades={bundle.insider} />
-            </div>
-          </div>
-        </div>
+      {/* Tab content */}
+      <div style={{ padding: "22px 36px 48px" }}>
+        {tab === "Overview" && (
+          <OverviewTab ticker={ticker} profile={bundle.profile} keyStats={bundle.keyStats} sentiment={bundle.sentiment} />
+        )}
+        {tab === "Financials" && <FinancialsTab fundamentals={bundle.fundamentals} />}
+        {tab === "Analysts" && <AnalystsTab analysts={bundle.analysts} price={livePrice} />}
+        {tab === "News" && <NewsTab news={bundle.news} />}
+        {tab === "DCF" && <DcfTab ticker={ticker} />}
+        {tab === "Lucra" && <LucraTab ticker={ticker} />}
       </div>
     </div>
   );

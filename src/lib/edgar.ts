@@ -76,7 +76,14 @@ export function extractFinancialMetrics(facts: any) {
     netIncome: pickLatestAnnual(us, "NetIncomeLoss"),
     totalAssets: pickLatestAnnual(us, "Assets"),
     totalDebt: pickLatestAnnual(us, "LongTermDebt"),
-    freeCashFlow: pickLatestAnnual(us, "NetCashProvidedByUsedInOperatingActivities"),
+    cash:
+      pickLatestAnnual(us, "CashAndCashEquivalentsAtCarryingValue") ??
+      pickLatestAnnual(us, "CashCashEquivalentsAndShortTermInvestments"),
+    operatingCashFlow: pickLatestAnnual(us, "NetCashProvidedByUsedInOperatingActivities"),
+    // Capex is reported as a positive outflow under PaymentsToAcquire…; subtract it
+    // from operating cash flow to get free cash flow. Absent for many filers — the
+    // DCF route falls back to operating cash flow and flags it as a proxy.
+    capex: pickLatestAnnual(us, "PaymentsToAcquirePropertyPlantAndEquipment"),
     sharesOutstanding: pickLatestAnnual(us, "CommonStockSharesOutstanding"),
   };
 }
@@ -89,11 +96,17 @@ export interface YearlyMetric {
 }
 
 /**
- * Extract a multi-year annual time series for a single GAAP concept.
+ * Extract a multi-year annual time series, merging across the provided GAAP
+ * concepts. When several `keys` are given, the concept whose data extends to the
+ * most recent year is the base, and earlier-ending concepts only back-fill years
+ * it doesn't cover. This stitches together issuers that switched tags mid-history
+ * (e.g. Apple's `Revenues` → `RevenueFromContractWithCustomerExcludingAssessedTax`)
+ * into one continuous series, rather than returning the first — possibly stale — tag.
  * Returns entries deduplicated by fiscal year, sorted ascending.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractAnnualSeries(us: any, ...keys: string[]): YearlyMetric[] {
+  const perKey: YearlyMetric[][] = [];
   for (const key of keys) {
     const units = us[key]?.units?.USD ?? us[key]?.units?.shares ?? [];
     // Exclude quarterly-period frames (e.g. "CY2024Q4") — 10-Ks include supplemental
@@ -111,12 +124,19 @@ function extractAnnualSeries(us: any, ...keys: string[]): YearlyMetric[] {
       const year = new Date(entry.end).getFullYear();
       byYear.set(year, entry.val); // later entries overwrite earlier ones
     }
-
-    return Array.from(byYear.entries())
-      .map(([year, value]) => ({ year, value }))
-      .sort((a, b) => a.year - b.year);
+    perKey.push(Array.from(byYear, ([year, value]) => ({ year, value })));
   }
-  return [];
+  if (perKey.length === 0) return [];
+
+  // Freshest-ending concept first, so it wins on overlapping years; others back-fill.
+  perKey.sort((a, b) => Math.max(...b.map((d) => d.year)) - Math.max(...a.map((d) => d.year)));
+  const merged = new Map<number, number>();
+  for (const series of perKey) {
+    for (const { year, value } of series) {
+      if (!merged.has(year)) merged.set(year, value);
+    }
+  }
+  return Array.from(merged, ([year, value]) => ({ year, value })).sort((a, b) => a.year - b.year);
 }
 
 export interface FundamentalTimeSeries {

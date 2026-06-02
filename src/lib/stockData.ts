@@ -77,6 +77,7 @@ export interface NewsItem {
   url: string;
   datetime: number; // unix seconds
   summary: string;
+  image: string; // article thumbnail URL ("" when the provider omits one)
 }
 
 export type SentimentLabel = "positive" | "neutral" | "negative";
@@ -238,6 +239,7 @@ function extractNews(raw: unknown): NewsItem[] | null {
       url: (n.url as string) ?? "",
       datetime: (num(n.datetime) ?? 0) as number,
       summary: (n.summary as string) ?? "",
+      image: typeof n.image === "string" ? n.image : "",
     }));
 }
 

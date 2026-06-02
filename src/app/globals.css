@@ -281,6 +281,12 @@ body {
   border-color: var(--color-border);
 }
 
+/* Unified sidebar nav rows (Direction A). Active rows carry an inline
+   background, which wins over this hover rule, so only inactive rows tint. */
+.nav-row:hover {
+  background: var(--color-sidebar-hover);
+}
+
 /* Thin scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -1424,3 +1430,51 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 @media (max-width: 920px) {
   .research-root .board-table .lad-name { display: none; }
 }
+
+/* ── Chart-first stock page (/stock/[ticker]) ───────────────────────────── */
+.stock-page a.newslink { display: block; }
+.stock-page a.newslink .h { transition: color 120ms; }
+.stock-page a.newslink:hover .h { color: var(--color-accent); }
+.stock-page .ghostbtn { transition: background 120ms, border-color 120ms, color 120ms; }
+
+/* Two-column tab layouts collapse to a single column on narrow viewports so the
+   left-border + left-padding dividers don't leave the right column cramped. */
+@media (max-width: 760px) {
+  .stock-page .overview-grid,
+  .stock-page .analyst-grid { grid-template-columns: 1fr !important; }
+  .stock-page .overview-left,
+  .stock-page .analyst-left { padding-right: 0 !important; }
+  .stock-page .overview-right,
+  .stock-page .analyst-right {
+    border-left: none !important;
+    padding-left: 0 !important;
+    border-top: 1px solid var(--color-border);
+    padding-top: 18px;
+    margin-top: 18px;
+  }
+  .stock-page .news-grid { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 560px) {
+  .stock-page .fin-grid { grid-template-columns: 1fr 1fr !important; row-gap: 20px; }
+  .stock-page .fin-grid > div { border-left: none !important; padding-left: 0 !important; }
+}
+
+/* Lucra Analysis — score ring pulses while signals stream; grid stacks the left
+   score panel above the detail column on narrow viewports. */
+@keyframes lucraPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lucra-grid [style*="lucraPulse"] { animation: none !important; }
+}
+@media (max-width: 760px) {
+  .stock-page .lucra-grid { grid-template-columns: 1fr !important; gap: 18px !important; }
+  .stock-page .dcf-grid { grid-template-columns: 1fr !important; gap: 22px !important; }
+  .stock-page .dcf-right { border-left: none !important; padding-left: 0 !important; border-top: 1px solid var(--color-border); padding-top: 20px; }
+}
+
+/* DCF assumption sliders — themed range input. */
+.lucra-range { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 99px; background: var(--color-surface-2); outline: none; cursor: pointer; }
+.lucra-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--color-accent); border: 2px solid var(--color-bg); box-shadow: var(--shadow-card); cursor: pointer; }
+.lucra-range::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--color-accent); border: 2px solid var(--color-bg); cursor: pointer; }

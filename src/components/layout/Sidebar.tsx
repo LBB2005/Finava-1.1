@@ -6,15 +6,17 @@ import useSWR from "swr";
 import { useChatStore } from "@/stores/chatStore";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useQuotes } from "@/hooks/useQuotes";
+import { useWatchlists } from "@/hooks/useWatchlists";
+import { useWatchlistStore } from "@/stores/watchlistStore";
 import { useAuth } from "@/context/AuthContext";
 import ConversationList from "./ConversationList";
 import ChatSearchModal from "./ChatSearchModal";
 import PortfolioList from "./PortfolioList";
+import WatchlistBoard from "@/components/watchlist/WatchlistBoard";
 import AddHoldingModal from "@/components/portfolio/AddHoldingModal";
 import CsvUploadModal from "@/components/portfolio/CsvUploadModal";
 import StatementUploadModal from "@/components/portfolio/StatementUploadModal";
 import BriefingModal from "@/components/briefing/BriefingModal";
-import WatchlistSidebarWidget from "./WatchlistSidebarWidget";
 import type { HoldingFormData } from "@/types/portfolio";
 import { authFetch, authFetcher } from "@/lib/authFetch";
 
@@ -28,6 +30,9 @@ interface BriefingSummary {
 
 const fetcher = authFetcher;
 
+/* ============================================================
+   Briefing banner — unchanged
+   ============================================================ */
 function BriefingBanner() {
   const { data: briefings, mutate } = useSWR<BriefingSummary[]>("/api/briefing", fetcher, {
     revalidateOnFocus: false,
@@ -114,21 +119,92 @@ function BriefingBanner() {
 
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 500;
-const DEFAULT_WIDTH = 268;
+const DEFAULT_WIDTH = 276;
 
 function fmt(n: number, d = 0) {
   return n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 
-/** Allocation bar using the same oklch colour ramp as the design */
-function allocColor(i: number) {
-  const l = Math.max(0.2, 0.55 - i * 0.04);
-  const c = 0.13;
-  const h = 250 - i * 12;
-  return `oklch(${l} ${c} ${h})`;
+/* ============================================================
+   Shared nav primitives
+   ============================================================ */
+
+/** A plain destination row (Chat / Research / Hedge Fund). */
+function NavLink({
+  href,
+  active,
+  icon,
+  label,
+  trailing,
+  onNavigate,
+}: {
+  href: string;
+  active: boolean;
+  icon: React.ReactNode;
+  label: string;
+  trailing?: React.ReactNode;
+  onNavigate?: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      className="nav-row group flex items-center gap-[11px] w-full text-left px-[11px] py-2 rounded-[9px] text-[13px] transition-colors duration-100 relative"
+      style={
+        active
+          ? { background: "var(--color-accent-light)", color: "var(--color-accent)", fontWeight: 600 }
+          : { color: "var(--color-text-secondary)", fontWeight: 500 }
+      }
+    >
+      {active && (
+        <span className="absolute -left-[10px] top-2 bottom-2 w-[3px] rounded-r-[3px]" style={{ background: "var(--color-accent)" }} />
+      )}
+      <span className="flex-shrink-0 flex items-center justify-center w-4 h-4">{icon}</span>
+      <span className="flex-1">{label}</span>
+      {trailing}
+    </Link>
+  );
 }
 
-function PortfolioHero() {
+/** Chevron used on expandable rows. */
+function Chevron({ open, size = 13 }: { open: boolean; size?: number }) {
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+      className="flex-shrink-0 transition-transform duration-200"
+      style={{ color: "var(--color-muted)", transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+/** Smoothly-animating collapsible body (grid-rows 1fr↔0fr trick). */
+function Collapsible({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      className="grid transition-[grid-template-rows] duration-[260ms] ease-[cubic-bezier(.4,0,.2,1)]"
+      style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+    >
+      <div className="overflow-hidden min-h-0">{children}</div>
+    </div>
+  );
+}
+
+/* ============================================================
+   Portfolio — expandable nav item (stacked readout → holdings)
+   ============================================================ */
+function PortfolioNavItem({
+  active,
+  onAddClick,
+  onNavigate,
+}: {
+  active: boolean;
+  onAddClick: () => void;
+  onNavigate?: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const router = useRouter();
   const { holdings } = usePortfolio();
   const { quoteMap } = useQuotes(holdings.map((h) => h.ticker));
 
@@ -136,53 +212,177 @@ function PortfolioHero() {
     const p = quoteMap.get(h.ticker)?.price ?? 0;
     return sum + (p > 0 ? p * h.shares : h.avgCost * h.shares);
   }, 0);
-
   const totalCost = holdings.reduce((sum, h) => sum + h.avgCost * h.shares, 0);
   const totalGain = totalValue - totalCost;
   const totalGainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
   const isUp = totalGain >= 0;
-
-  // Weights for alloc bar
-  const weights = holdings.map((h) => {
-    const p = quoteMap.get(h.ticker)?.price ?? 0;
-    const mv = p > 0 ? p * h.shares : h.avgCost * h.shares;
-    return totalValue > 0 ? (mv / totalValue) * 100 : 0;
-  });
-
-  if (holdings.length === 0) return null;
+  const hasHoldings = holdings.length > 0;
 
   return (
-    <div
-      className="flex-shrink-0 border-t border-b border-[var(--color-border)] px-[18px] py-[10px]"
-      style={{
-        background: "linear-gradient(180deg, color-mix(in oklab, var(--color-accent) 4%, transparent), transparent)",
-      }}
-    >
-      <p
-        className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)] mb-1"
+    <div className="nav-acc">
+      <button
+        onClick={() => (hasHoldings ? setOpen((v) => !v) : router.push("/portfolio"))}
+        className="nav-row group flex items-start gap-[11px] w-full text-left px-[11px] py-[9px] rounded-[9px] transition-colors duration-100 relative"
+        style={
+          active
+            ? { background: "var(--color-accent-light)" }
+            : undefined
+        }
       >
-        Portfolio
-      </p>
+        {active && (
+          <span className="absolute -left-[10px] top-2 bottom-2 w-[3px] rounded-r-[3px]" style={{ background: "var(--color-accent)" }} />
+        )}
+        <svg className="flex-shrink-0 mt-[2px]" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke={active ? "var(--color-accent)" : "var(--color-text-secondary)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 12a9 9 0 1 1-9-9v9z" />
+          <path d="M12 3a9 9 0 0 1 9 9h-9z" />
+        </svg>
 
-      {/* Serif total */}
-      <p
-        className="text-[22px] font-bold leading-none tracking-tight text-[var(--color-text)]"
-        style={{ fontFamily: "var(--font-serif)", letterSpacing: "-0.01em" }}
-      >
-        ${fmt(totalValue)}
-      </p>
-
-      {/* Delta */}
-      <div className="flex items-center justify-between mt-1">
-        <span
-          className="text-[11.5px] font-semibold"
-          style={{ color: isUp ? "var(--color-bull)" : "var(--color-bear)" }}
-        >
-          {isUp ? "▲" : "▼"} ${fmt(Math.abs(totalGain))} · {isUp ? "+" : ""}
-          {totalGainPct.toFixed(2)}%
+        <span className="flex-1 min-w-0 flex flex-col gap-[2px]">
+          <span className="text-[9.5px] font-bold uppercase tracking-[0.16em] leading-tight" style={{ color: "var(--color-muted)" }}>
+            Portfolio
+          </span>
+          {hasHoldings ? (
+            <>
+              <span className="text-[18px] font-extrabold leading-[1.1] tracking-tight" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)", letterSpacing: "-0.01em" }}>
+                ${fmt(totalValue)}
+              </span>
+              <span className="text-[11px] font-bold leading-tight" style={{ color: isUp ? "var(--color-bull)" : "var(--color-bear)" }}>
+                {isUp ? "▲" : "▼"} ${fmt(Math.abs(totalGain))} · {isUp ? "+" : ""}{totalGainPct.toFixed(2)}%
+              </span>
+            </>
+          ) : (
+            <span className="text-[13px] font-medium leading-tight" style={{ color: "var(--color-text-secondary)" }}>
+              No holdings yet
+            </span>
+          )}
         </span>
-        <span className="text-[10px] text-[var(--color-muted)] tracking-[0.08em]">ALL-TIME</span>
-      </div>
+
+        {hasHoldings && <span className="mt-[3px]"><Chevron open={open} /></span>}
+      </button>
+
+      {hasHoldings && (
+        <Collapsible open={open}>
+          <div className="pb-1">
+            <PortfolioList compact />
+            <div className="flex items-center justify-between pl-[42px] pr-[14px] pt-1 pb-1">
+              <Link
+                href="/portfolio"
+                onClick={onNavigate}
+                className="text-[11px] font-semibold hover:underline"
+                style={{ color: "var(--color-accent)" }}
+              >
+                View full portfolio →
+              </Link>
+              <button
+                onClick={onAddClick}
+                title="Add holding"
+                className="w-[20px] h-[20px] flex items-center justify-center rounded text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors duration-150"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </Collapsible>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   Watchlist — expandable nav item (lists → stocks)
+   ============================================================ */
+function WatchlistGroup({
+  name,
+  tickers,
+  defaultOpen,
+}: {
+  name: string;
+  tickers: string[];
+  defaultOpen: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="wl-group">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 w-full text-left pl-[42px] pr-[11px] py-[6px] text-[12px] font-medium transition-colors duration-100 hover:bg-[var(--color-sidebar-hover)]"
+        style={{ color: "var(--color-text-secondary)" }}
+      >
+        <span className="flex-1 truncate">{name}</span>
+        <span className="text-[10.5px]" style={{ color: "var(--color-muted)", fontFamily: "var(--font-mono)" }}>{tickers.length}</span>
+        <Chevron open={open} size={11} />
+      </button>
+      <Collapsible open={open}>
+        <WatchlistBoard tickers={tickers} compact />
+      </Collapsible>
+    </div>
+  );
+}
+
+function WatchlistNavItem({
+  active,
+  onNavigate,
+}: {
+  active: boolean;
+  onNavigate?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const { watchlists } = useWatchlists();
+  const { activeId } = useWatchlistStore();
+
+  const hasLists = watchlists.length > 0;
+  const totalLists = watchlists.length;
+
+  return (
+    <div className="nav-acc">
+      <button
+        onClick={() => (hasLists ? setOpen((v) => !v) : router.push("/watchlist"))}
+        className="nav-row group flex items-center gap-[11px] w-full text-left px-[11px] py-2 rounded-[9px] text-[13px] transition-colors duration-100 relative"
+        style={
+          active
+            ? { background: "var(--color-accent-light)", color: "var(--color-accent)", fontWeight: 600 }
+            : { color: "var(--color-text-secondary)", fontWeight: 500 }
+        }
+      >
+        {active && (
+          <span className="absolute -left-[10px] top-2 bottom-2 w-[3px] rounded-r-[3px]" style={{ background: "var(--color-accent)" }} />
+        )}
+        <svg className="flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="12 2 15 8.5 22 9.3 17 14 18.2 21 12 17.6 5.8 21 7 14 2 9.3 9 8.5 12 2" />
+        </svg>
+        <span className="flex-1">Watchlist</span>
+        {hasLists && (
+          <span className="text-[11px] font-semibold" style={{ color: "var(--color-muted)", fontFamily: "var(--font-mono)" }}>{totalLists}</span>
+        )}
+        {hasLists && <Chevron open={open} />}
+      </button>
+
+      {hasLists && (
+        <Collapsible open={open}>
+          <div className="pt-[2px] pb-[6px]">
+            {watchlists.map((w, i) => (
+              <WatchlistGroup
+                key={w.id}
+                name={w.name}
+                tickers={w.tickers}
+                defaultOpen={activeId ? w.id === activeId : i === 0}
+              />
+            ))}
+            <Link
+              href="/watchlist"
+              onClick={onNavigate}
+              className="block pl-[42px] pr-[14px] pt-[6px] text-[11px] font-semibold hover:underline"
+              style={{ color: "var(--color-accent)" }}
+            >
+              Manage watchlists →
+            </Link>
+          </div>
+        </Collapsible>
+      )}
     </div>
   );
 }
@@ -192,6 +392,9 @@ interface UserProfile {
   plan: string;
 }
 
+/* ============================================================
+   User widget — unchanged
+   ============================================================ */
 function UserWidget() {
   const { user, signOut } = useAuth();
   const router = useRouter();
@@ -301,7 +504,6 @@ function UserWidget() {
 
   return (
     <div ref={ref} className="relative flex-shrink-0 mx-[10px] mb-3">
-      {/* Dropdown — opens above */}
       {open && (
         <div
           className="absolute bottom-full left-0 right-0 mb-1 z-50 rounded-[10px] py-1 overflow-hidden"
@@ -325,12 +527,10 @@ function UserWidget() {
         </div>
       )}
 
-      {/* Trigger button */}
       <button
         onClick={() => setOpen((v) => !v)}
         className={`user-widget-trigger${open ? " is-open" : ""} w-full flex items-center gap-2.5 px-[10px] py-[8px] rounded-[9px] transition-colors duration-150`}
       >
-        {/* Avatar */}
         {user.photoURL ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -347,7 +547,6 @@ function UserWidget() {
           </div>
         )}
 
-        {/* Name + plan */}
         <div className="flex-1 min-w-0 text-left">
           <p className="text-[12px] font-semibold leading-tight truncate" style={{ color: "var(--color-text)" }}>
             {displayName}
@@ -357,7 +556,6 @@ function UserWidget() {
           </p>
         </div>
 
-        {/* Chevron */}
         <svg
           width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
           className={`flex-shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
@@ -370,6 +568,10 @@ function UserWidget() {
   );
 }
 
+/* ============================================================
+   Sidebar — Direction A: one unified nav list. Portfolio and
+   Watchlist are expandable nav items (no duplicate sections).
+   ============================================================ */
 export default function Sidebar({
   mobile = false,
   onNavigate,
@@ -378,7 +580,6 @@ export default function Sidebar({
   onNavigate?: () => void;
 } = {}) {
   const [width, setWidth] = useState(DEFAULT_WIDTH);
-  const [portfolioOpen, setPortfolioOpen] = useState(true);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showCsv, setShowCsv] = useState(false);
@@ -443,6 +644,7 @@ export default function Sidebar({
   const isOnHedgeFund = pathname === "/hedge-fund";
   const isOnResearch = pathname === "/research";
   const isOnWatchlist = pathname === "/watchlist" || pathname.startsWith("/watchlist/");
+  const isOnChat = !isOnPortfolio && !isOnHedgeFund && !isOnResearch && !isOnWatchlist;
 
   return (
     <aside
@@ -483,217 +685,91 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Nav pill — Chat + Portfolio */}
-      <div
-        className="flex gap-1 mx-[14px] mb-[6px] p-[3px] flex-shrink-0"
-        style={{
-          background: "var(--color-surface)",
-          border: "1px solid var(--color-border)",
-          borderRadius: isOnHedgeFund ? "4px" : "10px",
-        }}
-      >
-        <Link
+      {/* Unified nav list */}
+      <nav className="flex flex-col gap-[2px] px-[10px] flex-shrink-0">
+        {/* Chat */}
+        <NavLink
           href="/chat"
-          onClick={onNavigate}
-          className="flex-1 text-center text-[12px] font-medium py-[5px] transition-all duration-150 relative"
-          style={
-            !isOnPortfolio && !isOnHedgeFund && !isOnResearch
-              ? {
-                  background: "var(--color-accent)",
-                  color: "#fff",
-                  fontWeight: 600,
-                  borderRadius: "7px",
-                }
-              : { color: "var(--color-text-secondary)", borderRadius: "7px" }
+          active={isOnChat}
+          onNavigate={onNavigate}
+          icon={
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
           }
-        >
-          Chat
-          {hasBackgroundStream && (
-            <span
-              className="absolute top-[4px] right-[10px] inline-flex w-[7px] h-[7px] rounded-full"
-              style={{ background: "var(--color-accent)", boxShadow: "0 0 0 2px color-mix(in oklab, var(--color-accent) 25%, transparent)", animation: "pulse-dot 1.4s infinite ease-in-out" }}
-            />
-          )}
-        </Link>
-        <div style={{ width: 1, background: "var(--color-border)", alignSelf: "stretch", flexShrink: 0 }} />
-        <Link
-          href="/portfolio"
-          onClick={onNavigate}
-          className="flex-1 text-center text-[12px] font-medium py-[5px] transition-all duration-150"
-          style={
-            isOnPortfolio
-              ? {
-                  background: "var(--color-accent)",
-                  color: "#fff",
-                  fontWeight: 600,
-                  borderRadius: "7px",
-                }
-              : { color: "var(--color-text-secondary)", borderRadius: "7px" }
+          label="Chat"
+          trailing={
+            hasBackgroundStream ? (
+              <span className="w-[7px] h-[7px] rounded-full" style={{ background: "var(--color-accent)", boxShadow: "0 0 0 3px color-mix(in oklab, var(--color-accent) 22%, transparent)", animation: "pulse-dot 1.4s infinite ease-in-out" }} />
+            ) : undefined
           }
-        >
-          Portfolio
-        </Link>
-      </div>
+        />
 
-      {/* Research nav button */}
-      <Link
-        href="/research"
-        onClick={onNavigate}
-        className="flex items-center gap-[7px] mx-[14px] mb-[6px] px-[10px] py-[7px] text-[12px] font-medium transition-all duration-150 flex-shrink-0"
-        style={
-          isOnResearch
-            ? {
-                background: "var(--color-accent)",
-                color: "#fff",
-                border: "1px solid var(--color-accent)",
-                borderRadius: "4px",
-                fontWeight: 600,
-              }
-            : {
-                color: "var(--color-text-secondary)",
-                border: "1px solid var(--color-border)",
-                background: "var(--color-surface)",
-                borderRadius: "7px",
-              }
-        }
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="7" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          <path d="M8 11h6M11 8v6" />
-        </svg>
-        Research
-      </Link>
+        {/* Portfolio (expandable) */}
+        <PortfolioNavItem active={isOnPortfolio} onAddClick={() => setShowAddMenu(true)} onNavigate={onNavigate} />
 
-      {/* Watchlist nav button */}
-      <Link
-        href="/watchlist"
-        onClick={onNavigate}
-        className="flex items-center gap-[7px] mx-[14px] mb-[6px] px-[10px] py-[7px] text-[12px] font-medium transition-all duration-150 flex-shrink-0"
-        style={
-          isOnWatchlist
-            ? {
-                background: "var(--color-accent)",
-                color: "#fff",
-                border: "1px solid var(--color-accent)",
-                borderRadius: "4px",
-                fontWeight: 600,
-              }
-            : {
-                color: "var(--color-text-secondary)",
-                border: "1px solid var(--color-border)",
-                background: "var(--color-surface)",
-                borderRadius: "7px",
-              }
-        }
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="12 2 15 8.5 22 9.3 17 14 18.2 21 12 17.6 5.8 21 7 14 2 9.3 9 8.5 12 2" />
-        </svg>
-        Watchlist
-      </Link>
+        {/* Research */}
+        <NavLink
+          href="/research"
+          active={isOnResearch}
+          onNavigate={onNavigate}
+          icon={
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              <path d="M8 11h6M11 8v6" />
+            </svg>
+          }
+          label="Research"
+        />
 
-      {/* Watchlist collapsible widget */}
-      <WatchlistSidebarWidget />
+        {/* Watchlist (expandable) */}
+        <WatchlistNavItem active={isOnWatchlist} onNavigate={onNavigate} />
 
-      {/* Hedge Fund nav button */}
-      <Link
-        href="/hedge-fund"
-        onClick={onNavigate}
-        className="flex items-center gap-[6px] mx-[14px] mb-3 px-[10px] py-[6px] text-[12px] font-medium transition-all duration-150 flex-shrink-0"
-        style={
-          isOnHedgeFund
-            ? {
-                background: "var(--color-accent)",
-                color: "#fff",
-                border: "1px solid var(--color-accent)",
-                borderRadius: "4px",
-                fontWeight: 600,
-              }
-            : {
-                color: "var(--color-text-secondary)",
-                border: "1px solid var(--color-border)",
-                background: "var(--color-surface)",
-                borderRadius: "7px",
-              }
-        }
-      >
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-          <polyline points="16 7 22 7 22 13" />
-        </svg>
-        Hedge Fund
-      </Link>
+        {/* Hedge Fund */}
+        <NavLink
+          href="/hedge-fund"
+          active={isOnHedgeFund}
+          onNavigate={onNavigate}
+          icon={
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+              <polyline points="16 7 22 7 22 13" />
+            </svg>
+          }
+          label="Hedge Fund"
+        />
+      </nav>
+
+      {/* divider */}
+      <div className="h-px mx-[14px] my-[6px] flex-shrink-0" style={{ background: "var(--color-border)" }} />
+
+      {/* Add-holding menu (anchored, opened from inside Portfolio item) */}
+      {showAddMenu && (
+        <div ref={addMenuRef} className="absolute left-[14px] top-[180px] z-50 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl shadow-lg py-1 w-40 overflow-hidden">
+          <button
+            onClick={() => { setShowAdd(true); setShowAddMenu(false); }}
+            className="w-full text-left px-3 py-2 text-xs text-[var(--color-text)] hover:bg-[var(--color-accent-light)] hover:text-[var(--color-accent)] transition-colors duration-100"
+          >
+            Add Stock
+          </button>
+          <button
+            onClick={() => { setShowCsv(true); setShowAddMenu(false); }}
+            className="w-full text-left px-3 py-2 text-xs text-[var(--color-text)] hover:bg-[var(--color-accent-light)] hover:text-[var(--color-accent)] transition-colors duration-100"
+          >
+            Import CSV
+          </button>
+          <button
+            onClick={() => { setShowStatement(true); setShowAddMenu(false); }}
+            className="w-full text-left px-3 py-2 text-xs text-[var(--color-text)] hover:bg-[var(--color-accent-light)] hover:text-[var(--color-accent)] transition-colors duration-100"
+          >
+            Upload Statement
+          </button>
+        </div>
+      )}
 
       {/* Weekly briefing banner */}
       <BriefingBanner />
-
-      {/* Portfolio hero */}
-      <PortfolioHero />
-
-      {/* Holdings section header */}
-      <div
-        className="flex items-center px-[18px] py-[10px] flex-shrink-0"
-        style={{ borderBottom: portfolioOpen ? "none" : "1px solid var(--color-border)" }}
-      >
-        <span className="flex-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
-          Holdings
-        </span>
-
-        {/* + dropdown */}
-        <div className="relative" ref={addMenuRef}>
-          <button
-            onClick={() => setShowAddMenu((v) => !v)}
-            className="w-[22px] h-[22px] flex items-center justify-center rounded text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors duration-150"
-            title="Add holding"
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
-          {showAddMenu && (
-            <div className="absolute right-0 top-6 z-50 bg-white border border-[var(--color-border)] rounded-xl shadow-lg py-1 w-36 overflow-hidden">
-              <button
-                onClick={() => { setShowAdd(true); setShowAddMenu(false); }}
-                className="w-full text-left px-3 py-2 text-xs text-[var(--color-text)] hover:bg-[var(--color-accent-light)] hover:text-[var(--color-accent)] transition-colors duration-100"
-              >
-                Add Stock
-              </button>
-              <button
-                onClick={() => { setShowCsv(true); setShowAddMenu(false); }}
-                className="w-full text-left px-3 py-2 text-xs text-[var(--color-text)] hover:bg-[var(--color-accent-light)] hover:text-[var(--color-accent)] transition-colors duration-100"
-              >
-                Import CSV
-              </button>
-              <button
-                onClick={() => { setShowStatement(true); setShowAddMenu(false); }}
-                className="w-full text-left px-3 py-2 text-xs text-[var(--color-text)] hover:bg-[var(--color-accent-light)] hover:text-[var(--color-accent)] transition-colors duration-100"
-              >
-                Upload Statement
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Collapse chevron */}
-        <button
-          onClick={() => setPortfolioOpen((v) => !v)}
-          className="w-[22px] h-[22px] flex items-center justify-center rounded text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors duration-150"
-        >
-          <svg
-            width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-            className={`transition-transform duration-200 ${portfolioOpen ? "rotate-180" : ""}`}
-          >
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
-      </div>
-
-      {portfolioOpen && (
-        <div className="overflow-y-auto flex-shrink-0" style={{ maxHeight: "32vh", borderBottom: "1px solid var(--color-border)" }}>
-          <PortfolioList compact />
-        </div>
-      )}
 
       {/* Recent conversations */}
       <div className="flex-1 overflow-y-auto min-h-0 py-1">
