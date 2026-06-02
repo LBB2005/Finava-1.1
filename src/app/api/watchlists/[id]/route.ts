@@ -2,19 +2,7 @@
 import { NextResponse } from "next/server";
 import { db, serializeDoc } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
-import { normalizeTickers } from "../route";
-import type { Watchlist } from "@/types/watchlist";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function toWatchlist(row: any): Watchlist {
-  return {
-    id: row.id,
-    name: row.name,
-    tickers: Array.isArray(row.tickers) ? row.tickers : [],
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
-}
+import { toWatchlist, normalizeTickers } from "@/lib/watchlist";
 
 function docFor(uid: string, id: string) {
   return db.collection("users").doc(uid).collection("watchlists").doc(id);
