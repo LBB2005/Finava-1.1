@@ -1,0 +1,238 @@
+"use client";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { FACTORS, type RankedStock, type Stock } from "@/lib/research";
+import { applyScreen, type ScreenFilter } from "@/lib/screen";
+import { authFetch } from "@/lib/authFetch";
+import type { ScreenCommentary, SuggestedScreen } from "@/lib/researchAI";
+import LadderRow from "./LadderRow";
+
+type Status = "idle" | "parsing" | "done" | "error";
+const DEFAULT_VISIBLE = 25;
+
+/** Compact digest of the tape so the suggest agent grounds its ideas. */
+function universeSummary(universe: Stock[]): string {
+  if (universe.length === 0) return "No data yet.";
+  const bySector = new Map<string, Stock[]>();
+  for (const s of universe) {
+    (bySector.get(s.sector) ?? bySector.set(s.sector, []).get(s.sector)!).push(s);
+  }
+  const sectorMom = [...bySector.entries()]
+    .map(([sec, list]) => ({ sec, mom: Math.round(list.reduce((a, s) => a + s.f.mom, 0) / list.length), val: Math.round(list.reduce((a, s) => a + s.f.value, 0) / list.length) }))
+    .sort((a, b) => b.mom - a.mom);
+  const up = universe.filter((s) => s.chg > 0).length;
+  const breadth = Math.round((up / universe.length) * 100);
+  const lead = sectorMom.slice(0, 2).map((x) => `${x.sec} (mom ${x.mom})`).join(", ");
+  const lag = sectorMom.slice(-2).map((x) => `${x.sec} (mom ${x.mom})`).join(", ");
+  const cheap = [...sectorMom].sort((a, b) => b.val - a.val)[0];
+  return `Breadth: ${breadth}% of names up today. Momentum leaders: ${lead}. Momentum laggards: ${lag}. Cheapest sector by valuation score: ${cheap?.sec}.`;
+}
+
+export default function ScreenMode({ universe, loading }: { universe: Stock[]; loading: boolean }) {
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState<Status>("idle");
+  const [filter, setFilter] = useState<ScreenFilter | null>(null);
+  const [interpretation, setInterpretation] = useState("");
+  const [commentary, setCommentary] = useState<ScreenCommentary | null>(null);
+  const [suggestions, setSuggestions] = useState<SuggestedScreen[]>([]);
+  const [showAll, setShowAll] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const suggestedRef = useRef(false);
+
+  const results: RankedStock[] | null = useMemo(
+    () => (filter && universe.length ? applyScreen(universe, filter) : null),
+    [filter, universe]
+  );
+
+  // Fetch AI-suggested screens once the universe is available.
+  useEffect(() => {
+    if (suggestedRef.current || universe.length === 0) return;
+    suggestedRef.current = true;
+    (async () => {
+      try {
+        const res = await authFetch("/api/research/screen", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "suggest", summary: universeSummary(universe) }),
+        });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.screens)) setSuggestions(data.screens);
+      } catch {
+        /* suggestions are a nicety — silent on failure */
+      }
+    })();
+  }, [universe]);
+
+  async function run(query: string) {
+    const text = query.trim();
+    if (!text || loading) return;
+    setQ(text);
+    setStatus("parsing");
+    setErr(null);
+    setCommentary(null);
+    setShowAll(false);
+    try {
+      const res = await authFetch("/api/research/screen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "parse", query: text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      const f = data.filter as ScreenFilter;
+      setFilter(f);
+      setInterpretation(data.interpretation ?? "");
+      setStatus("done");
+
+      // Fire commentary on the resulting basket (best-effort).
+      const matched = applyScreen(universe, f);
+      if (matched.length) {
+        const top = matched.slice(0, 20).map((s) => ({ ticker: s.ticker, name: s.name, sector: s.sector, score: s.score }));
+        authFetch("/api/research/screen", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "commentary", query: text, stocks: top }),
+        })
+          .then((r) => r.json())
+          .then((c) => { if (c && (c.commentary || c.standout)) setCommentary(c as ScreenCommentary); })
+          .catch(() => {});
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not run that screen.");
+      setStatus("error");
+    }
+  }
+
+  const visible = showAll ? results?.length ?? 0 : DEFAULT_VISIBLE;
+  const activeFactors = filter?.factors ? Object.keys(filter.factors) : [];
+
+  return (
+    <div className="flex" style={{ gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
+      {/* ── Query + results ─────────────────────────────────────── */}
+      <div style={{ flex: "1 1 480px", minWidth: 320, border: "1px solid var(--color-border)", borderRadius: 4, overflow: "hidden", background: "var(--color-bg)" }}>
+        <div className="flex items-center justify-between" style={{ padding: "9px 14px", borderBottom: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
+          <span className="mono" style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-text)" }}>ASK THE SCREENER</span>
+          {results && <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>{results.length} matches</span>}
+        </div>
+
+        <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <form onSubmit={(e) => { e.preventDefault(); run(q); }} style={{ display: "flex", gap: 8 }}>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={loading ? "Loading S&P 500…" : "e.g. cheap profitable tech with momentum and low debt"}
+              disabled={loading}
+              className="mono"
+              style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, color: "var(--color-text)", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 4, outline: "none" }}
+            />
+            <button
+              type="submit"
+              disabled={loading || status === "parsing" || !q.trim()}
+              className="mono"
+              style={{ padding: "0 16px", fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: "#fff", background: "var(--color-accent)", border: "1px solid var(--color-accent)", borderRadius: 4, cursor: "pointer", opacity: status === "parsing" || !q.trim() ? 0.7 : 1 }}
+            >
+              {status === "parsing" ? "…" : "RUN"}
+            </button>
+          </form>
+
+          {/* Suggested screens */}
+          {suggestions.length > 0 && (
+            <div className="flex" style={{ gap: 6, flexWrap: "wrap" }}>
+              {suggestions.map((s) => (
+                <button key={s.label} className="tbtn" title={s.rationale} onClick={() => run(s.query)} style={{ maxWidth: 240 }}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {interpretation && status === "done" && (
+            <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)", lineHeight: 1.5, padding: "8px 10px", background: "var(--color-surface)", borderRadius: 4, border: "1px solid var(--color-border)" }}>
+              <span className="mono" style={{ color: "var(--color-accent)", fontWeight: 700, fontSize: 10, letterSpacing: "0.08em" }}>READING · </span>
+              {interpretation}
+              {activeFactors.length > 0 && (
+                <span style={{ color: "var(--color-muted)" }}>{"  ·  factors: " + activeFactors.map((k) => FACTORS.find((f) => f.key === k)?.short ?? k).join(", ")}</span>
+              )}
+            </div>
+          )}
+
+          {status === "error" && (
+            <div className="flex items-center" style={{ gap: 8 }}>
+              <p style={{ fontSize: 12.5, color: "var(--color-bear)" }}>{err}</p>
+              <button className="tbtn" onClick={() => run(q)}>Retry</button>
+            </div>
+          )}
+
+          {results == null ? (
+            <div className="flex flex-col items-center justify-center" style={{ minHeight: 260, padding: 24, textAlign: "center", gap: 8 }}>
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <p className="serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)" }}>Describe what you&apos;re hunting for</p>
+              <p style={{ fontSize: 12, color: "var(--color-muted)", maxWidth: 340, lineHeight: 1.5 }}>
+                Type it in plain English — Lucra turns it into a factor screen and runs it across the whole S&amp;P 500.
+              </p>
+            </div>
+          ) : results.length === 0 ? (
+            <div className="flex flex-col items-center justify-center" style={{ minHeight: 200, padding: 24, textAlign: "center" }}>
+              <p style={{ fontSize: 13, color: "var(--color-muted)" }}>No names match that screen. Try loosening the criteria.</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto", border: "1px solid var(--color-border)", borderRadius: 4 }}>
+              <table className="lad-table" style={{ minWidth: 620, width: "100%" }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", width: 36 }}>#</th>
+                    <th style={{ textAlign: "left", width: 160 }}>Ticker</th>
+                    <th style={{ textAlign: "right", width: 68 }}>Last</th>
+                    <th style={{ textAlign: "right", width: 60 }}>Chg</th>
+                    <th style={{ textAlign: "center", width: 132 }}>Factor profile</th>
+                    <th style={{ textAlign: "left" }}>Score</th>
+                    <th style={{ textAlign: "center", width: 48 }}>Grd</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.slice(0, visible).map((s) => (
+                    <LadderRow key={s.ticker} s={s} highlight={s.rank <= 3} />
+                  ))}
+                </tbody>
+              </table>
+              {results.length > DEFAULT_VISIBLE && (
+                <div className="flex justify-center" style={{ padding: "10px 0", borderTop: "1px solid var(--color-border)" }}>
+                  <button className="tbtn" onClick={() => setShowAll((v) => !v)}>
+                    {showAll ? "Show top 25" : `Show all ${results.length} →`}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Basket read ─────────────────────────────────────────── */}
+      <div style={{ flex: "1 1 300px", minWidth: 280, maxWidth: 400, border: "1px solid var(--color-border)", borderRadius: 4, overflow: "hidden", background: "var(--color-bg)" }}>
+        <div className="flex items-center justify-between" style={{ padding: "9px 14px", borderBottom: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
+          <span className="mono" style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-text)" }}>BASKET READ</span>
+          <span className="mono" style={{ fontSize: 10, color: "var(--color-muted)", letterSpacing: "0.08em" }}>AI COLOR</span>
+        </div>
+        <div style={{ padding: 16 }}>
+          {commentary ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {commentary.commentary && <p className="serif" style={{ fontSize: 14, lineHeight: 1.55, color: "var(--color-text)" }}>{commentary.commentary}</p>}
+              {commentary.standout && <p style={{ fontSize: 12, lineHeight: 1.5, color: "var(--color-text-secondary)" }}><span className="mono" style={{ color: "var(--color-bull)", fontWeight: 700, fontSize: 10, letterSpacing: "0.08em" }}>STANDOUT · </span>{commentary.standout}</p>}
+              {commentary.watchout && <p style={{ fontSize: 12, lineHeight: 1.5, color: "var(--color-text-secondary)" }}><span className="mono" style={{ color: "var(--color-warn)", fontWeight: 700, fontSize: 10, letterSpacing: "0.08em" }}>WATCH · </span>{commentary.watchout}</p>}
+            </div>
+          ) : status === "done" && results && results.length > 0 ? (
+            <div className="flex items-center" style={{ gap: 8, minHeight: 80 }}>
+              <div className="spin" style={{ width: 18, height: 18, border: "2px solid var(--color-border)", borderTopColor: "var(--color-accent)", borderRadius: "50%" }} />
+              <p style={{ fontSize: 12, color: "var(--color-muted)" }}>Reading the basket…</p>
+            </div>
+          ) : (
+            <p style={{ fontSize: 12, color: "var(--color-muted)", lineHeight: 1.5, minHeight: 80 }}>
+              Run a screen and Lucra writes a short read on what the surviving names have in common.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

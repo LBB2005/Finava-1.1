@@ -7,8 +7,29 @@ import HeroPicks from "@/components/research/HeroPicks";
 import Leaderboard from "@/components/research/Leaderboard";
 import Movers from "@/components/research/Movers";
 import TuneMode from "@/components/research/TuneMode";
+import CompareMode from "@/components/research/CompareMode";
+import ScreenMode from "@/components/research/ScreenMode";
+import ThemesMode from "@/components/research/ThemesMode";
+import SignalsMode from "@/components/research/SignalsMode";
 
-type Mode = "board" | "tune";
+type Mode = "board" | "tune" | "compare" | "screen" | "themes" | "signals";
+
+const MODES: { key: Mode; label: string }[] = [
+  { key: "board", label: "BOARD" },
+  { key: "tune", label: "TUNE" },
+  { key: "compare", label: "COMPARE" },
+  { key: "screen", label: "SCREEN" },
+  { key: "themes", label: "THEMES" },
+  { key: "signals", label: "SIGNALS" },
+];
+
+const SECTION_RULE: Partial<Record<Mode, string>> = {
+  tune: "TUNE YOUR LENS · WEIGHT THE FACTORS, GET MATCHED",
+  compare: "COMPARE · FACTOR HEAD-TO-HEAD WITH AN AI VERDICT",
+  screen: "SCREEN · ASK IN PLAIN ENGLISH, MATCHED ON REAL FACTORS",
+  themes: "THEMES · AI-BUILT BASKETS ACROSS THE S&P 500",
+  signals: "SIGNALS · WHAT'S MOVING, NARRATED",
+};
 
 function SectionRule({ label }: { label: string }) {
   return (
@@ -60,10 +81,11 @@ export default function ResearchPage() {
           <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)", letterSpacing: "0.04em" }}>S&amp;P 500 · LUCRA SCORE ENGINE</span>
         </div>
 
-        {/* Board / Tune mode toggle */}
-        <div className="flex items-center" style={{ gap: 4, marginLeft: 6 }}>
-          <button className={"tbtn" + (mode === "board" ? " on" : "")} onClick={() => setMode("board")}>BOARD</button>
-          <button className={"tbtn" + (mode === "tune" ? " on" : "")} onClick={() => setMode("tune")}>TUNE</button>
+        {/* Lens toggle */}
+        <div className="flex items-center" style={{ gap: 4, marginLeft: 6, flexWrap: "wrap" }}>
+          {MODES.map((m) => (
+            <button key={m.key} className={"tbtn" + (mode === m.key ? " on" : "")} onClick={() => setMode(m.key)}>{m.label}</button>
+          ))}
         </div>
 
         <div className="flex items-center" style={{ gap: 7, marginLeft: "auto" }}>
@@ -85,7 +107,7 @@ export default function ResearchPage() {
           flex column grows to its content height instead of shrink-clipping. */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div style={{ padding: "16px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
-          {mode === "board" ? (
+          {mode === "board" && (
             <>
               <SectionRule label="FORWARD PICKS · FACTOR PROFILE BY HORIZON" />
               <HeroPicks picks={picks} />
@@ -95,12 +117,15 @@ export default function ResearchPage() {
               <SectionRule label="TOP PERFORMERS · BACKWARD-LOOKING" />
               <Movers window={horizon} universe={universe} />
             </>
-          ) : (
-            <>
-              <SectionRule label="TUNE YOUR LENS · WEIGHT THE FACTORS, GET MATCHED" />
-              <TuneMode />
-            </>
           )}
+
+          {mode !== "board" && SECTION_RULE[mode] && <SectionRule label={SECTION_RULE[mode]!} />}
+
+          {mode === "tune" && <TuneMode />}
+          {mode === "compare" && <CompareMode universe={universe} loading={isLoading} />}
+          {mode === "screen" && <ScreenMode universe={universe} loading={isLoading} />}
+          {mode === "themes" && <ThemesMode universe={universe} />}
+          {mode === "signals" && <SignalsMode universe={universe} loading={isLoading} />}
         </div>
       </div>
     </div>

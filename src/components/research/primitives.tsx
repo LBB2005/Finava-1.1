@@ -49,6 +49,60 @@ export function MiniBars({ f }: { f: FactorScores }) {
   );
 }
 
+/** Overlaid six-factor radar for comparing 2–5 stocks. Each series is one
+ *  coloured polygon; the axis grid is shared. */
+export function RadarOverlay({
+  series,
+  size = 240,
+  scale = 0.42,
+}: {
+  series: { ticker: string; f: FactorScores; color: string }[];
+  size?: number;
+  scale?: number;
+}) {
+  const cx = size / 2;
+  const cy = size / 2;
+  const R = size * scale;
+  const ang = (i: number) => ((-90 + i * 60) * Math.PI) / 180;
+  const pt = (val: number, i: number): [number, number] => [
+    cx + R * (val / 100) * Math.cos(ang(i)),
+    cy + R * (val / 100) * Math.sin(ang(i)),
+  ];
+  const ringPath = (k: number) => FACTORS.map((_, i) => { const [x, y] = pt(100 * k, i); return `${x},${y}`; }).join(" ");
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block" }}>
+      {[0.25, 0.5, 0.75, 1].map((k) => (
+        <polygon key={k} points={ringPath(k)} fill="none" stroke="var(--color-border)" strokeWidth="1" />
+      ))}
+      {FACTORS.map((fc, i) => {
+        const [x, y] = pt(100, i);
+        return <line key={fc.key} x1={cx} y1={cy} x2={x} y2={y} stroke="var(--color-border)" strokeWidth="1" />;
+      })}
+      {series.map((sr) => {
+        const valStr = FACTORS.map((fc, i) => { const [x, y] = pt(sr.f[fc.key], i); return `${x},${y}`; }).join(" ");
+        return (
+          <polygon
+            key={sr.ticker}
+            points={valStr}
+            fill={`color-mix(in oklab, ${sr.color} 12%, transparent)`}
+            stroke={sr.color}
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+        );
+      })}
+      {FACTORS.map((fc, i) => {
+        const [x, y] = pt(124, i);
+        return (
+          <text key={fc.key} x={x} y={y + 3} textAnchor="middle" style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", fill: "var(--color-muted)", fontFamily: "var(--font-mono)" }}>
+            {fc.short}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
 /** Hexagonal six-factor radar. */
 export function Radar({
   f,

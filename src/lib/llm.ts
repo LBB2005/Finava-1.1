@@ -38,12 +38,16 @@ export type AgentKey =
   | "portfolioStatement"
   | "risk"
   | "dcf"
+  | "compareVerdict" // Research · Compare lens — head-to-head verdict
+  | "themesGenerate" // Research · Themes lens — AI-generated baskets
   // Tier B — judgment over data → Gemini 2.5 Flash
   | "graham"
   | "comparables"
   | "competitor"
   | "analyst"
   | "macro"
+  | "screenRead" // Research · Screen lens — basket commentary
+  | "screenSuggest" // Research · Screen lens — suggested screens
   // Tier A — narrate pre-computed/fetched data → Gemini 2.5 Flash-Lite
   | "technical"
   | "earnings"
@@ -52,11 +56,13 @@ export type AgentKey =
   | "fundamentals"
   | "news"
   | "sentiment"
+  | "signalsNarrate" // Research · Signals lens — narrate cross-sectional events
   // Already-Haiku call-sites
   | "skeptic"
   | "chatFollowups"
   | "backtestParse"
-  | "backtestSummary";
+  | "backtestSummary"
+  | "screenParse"; // Research · Screen lens — NL query → filter
 
 // Per-agent model when routing is ON.
 const ROUTED_MODELS: Record<AgentKey, string> = {
@@ -68,11 +74,15 @@ const ROUTED_MODELS: Record<AgentKey, string> = {
   portfolioStatement: SONNET,
   risk: SONNET,
   dcf: SONNET,
+  compareVerdict: SONNET,
+  themesGenerate: SONNET,
   graham: GEMINI_FLASH,
   comparables: GEMINI_FLASH,
   competitor: GEMINI_FLASH,
   analyst: GEMINI_FLASH,
   macro: GEMINI_FLASH,
+  screenRead: GEMINI_FLASH,
+  screenSuggest: GEMINI_FLASH,
   technical: GEMINI_FLASH_LITE,
   earnings: GEMINI_FLASH_LITE,
   insider: GEMINI_FLASH_LITE,
@@ -80,10 +90,12 @@ const ROUTED_MODELS: Record<AgentKey, string> = {
   fundamentals: GEMINI_FLASH_LITE,
   news: GEMINI_FLASH_LITE,
   sentiment: GEMINI_FLASH_LITE,
+  signalsNarrate: GEMINI_FLASH_LITE,
   skeptic: HAIKU,
   chatFollowups: HAIKU,
   backtestParse: HAIKU,
   backtestSummary: HAIKU,
+  screenParse: HAIKU,
 };
 
 // Per-agent model when routing is OFF — the model each call-site used before this
@@ -93,6 +105,7 @@ const HAIKU_AGENTS = new Set<AgentKey>([
   "chatFollowups",
   "backtestParse",
   "backtestSummary",
+  "screenParse",
 ]);
 const FALLBACK_MODELS: Record<AgentKey, string> = Object.fromEntries(
   (Object.keys(ROUTED_MODELS) as AgentKey[]).map((k) => [
@@ -119,6 +132,7 @@ const TIER_A = new Set<AgentKey>([
   "fundamentals",
   "news",
   "sentiment",
+  "signalsNarrate",
 ]);
 const TIER_A_MAX_TOKENS = 1200;
 // Tier B judgment agents that move to Gemini — drop the (Anthropic) thinking budget.
@@ -128,6 +142,8 @@ const TIER_B_GEMINI = new Set<AgentKey>([
   "competitor",
   "analyst",
   "macro",
+  "screenRead",
+  "screenSuggest",
 ]);
 // DCF stays on Sonnet but its thinking + output budgets are cut hard (cost).
 const DCF_MAX_TOKENS = 2500;
