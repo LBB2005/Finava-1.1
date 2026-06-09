@@ -1,16 +1,18 @@
+import { NextResponse } from "next/server";
 import { anthropic, MODEL } from "@/lib/anthropic";
 import { generate } from "@/lib/llm";
-import { requireAuth } from "@/lib/requireAuth";
+import { withAuthRaw } from "@/lib/withRoute";
+import { ChatRequestSchema } from "@/lib/schemas/chat";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const { error } = await requireAuth();
-  if (error) return error;
+  const res = await withAuthRaw({ body: ChatRequestSchema })(req);
+  if (res instanceof NextResponse) return res;
 
-  const { messages, portfolioContext } = await req.json();
+  const { messages, portfolioContext } = res.body;
 
   const systemPrompt = `You are Lucra, an expert AI financial research assistant. You help users research stocks, analyze their portfolio, and make informed investment decisions.
 
