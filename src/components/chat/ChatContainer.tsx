@@ -4,6 +4,7 @@ import { authFetch } from "@/lib/authFetch";
 import { useChatStore } from "@/stores/chatStore";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useQuotes } from "@/hooks/useQuotes";
+import { useToast } from "@/hooks/useToast";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
 import ChatInput from "./ChatInput";
@@ -84,6 +85,30 @@ export default function ChatContainer() {
 
   const { holdings, cashBalance } = usePortfolio();
   const { quoteMap } = useQuotes(holdings.map((h) => h.ticker));
+  const toast = useToast();
+
+  // Hold the latest send/discover callbacks so a Retry closure can re-invoke the
+  // exact same operation (see assignment + usage below).
+  const handleSendRef = useRef<(text: string) => void>(() => {});
+  const handleDiscoverDeeperRef = useRef<(query: string) => void>(() => {});
+
+  /**
+   * Surface a chat failure as a toast with a Retry action — but ONLY when the
+   * failing operation's conversation is the one the user is currently viewing
+   * (R7). A background-stream error for conversation X must not pop a toast (or
+   * a retry that lands) while the user has navigated to conversation Y. This
+   * mirrors the `useChatStore.getState().conversationId === convId` guard the
+   * rest of this component uses before applying stream updates. Background
+   * failures keep their existing quiet logging only.
+   */
+  function notifyChatError(ownerConvId: string | null, message: string, retry: () => void) {
+    const activeConvId = useChatStore.getState().conversationId;
+    // A send that failed before its conversation was created (ownerConvId null)
+    // targeted the currently-active conversation, so it's always foreground.
+    const isActive = ownerConvId == null || ownerConvId === activeConvId;
+    if (!isActive) return;
+    toast.error(message, { action: { label: "Retry", onClick: retry } });
+  }
 
   // Fetch Markov signals for all held tickers (cache-hit, fast)
   async function fetchMarkovSignals(tickers: string[]): Promise<Record<string, string>> {
@@ -226,6 +251,9 @@ export default function ChatContainer() {
     setAgentSteps([]);
     setCeoThinking("");
 
+    // Re-run THIS agent stream with the same arguments (for an in-band error Retry).
+    const retry = () => { void runAgentMode(text, portfolioContext, convId, deepResearch, conversationHistory); };
+
     try {
       const res = await authFetch("/api/agent", {
         method: "POST",
@@ -250,7 +278,7 @@ export default function ChatContainer() {
         if (!line.startsWith("data: ")) return;
         try {
           const event = JSON.parse(line.slice(6)) as AgentEvent;
-          handleAgentEvent(event);
+          handleAgentEvent(event, { convId, retry });
           if (event.type === "final_response") finalContent = event.content;
         } catch { /* ignore */ }
       }
@@ -370,6 +398,8 @@ export default function ChatContainer() {
   ) {
     setAgentSteps([]);
     setCeoThinking("");
+    // Re-run THIS discovery pass with the same arguments (for an in-band error Retry).
+    const retry = () => { void runDiscoverMode(text, portfolioContext, convId, tier, seed); };
     try {
       let picks: ScoutPick[] = seed?.picks ?? [];
       let query = seed?.query ?? text;
@@ -385,7 +415,7 @@ export default function ChatContainer() {
         await postAgentStream(
           { discover: true, tier, userPrompt: text, portfolioContext },
           (event) => {
-            handleAgentEvent(event);
+            handleAgentEvent(event, { convId, retry });
             if (event.type === "scout_complete" || event.type === "deep_shortlist") {
               scoutPicks = event.picks;
               query = event.query;
@@ -433,7 +463,7 @@ export default function ChatContainer() {
         await postAgentStream(
           { wave: { tickers, sectors, waveIndex: w, totalWaves, valuationTickers } },
           (event) => {
-            handleAgentEvent(event);
+            handleAgentEvent(event, { convId, retry });
             if (event.type === "wave_result") waveEvidence = event.wave;
           },
           240_000
@@ -459,7 +489,7 @@ export default function ChatContainer() {
       await postAgentStream(
         { wave: { synthesize: true, query, picks, evidence } },
         (event) => {
-          handleAgentEvent(event);
+          handleAgentEvent(event, { convId, retry });
           if (event.type === "final_response") report = event.content;
         }
       );
@@ -477,8 +507,10 @@ export default function ChatContainer() {
     if (useChatStore.getState().isStreaming) return;
     setStreaming(true);
     clearStreamingContent();
+    // Owning conversation captured at failure time so the Retry/toast scopes to it (R7).
+    let convId: string | null = null;
     try {
-      const convId = await ensureConversation();
+      convId = await ensureConversation();
       setStreamingConversationId(convId);
       const markovSignals = holdings.length > 0 ? await fetchMarkovSignals(holdings.map((h) => h.ticker)) : {};
       const portfolioContext = buildPortfolioContext(holdings, cashBalance, quoteMap, markovSignals);
@@ -488,11 +520,21 @@ export default function ChatContainer() {
       setStreaming(false);
       clearStreamingContent();
       setStreamingConversationId(null);
+      notifyChatError(
+        convId,
+        "Couldn't run the deeper discovery. Please retry.",
+        () => { handleDiscoverDeeperRef.current(query); }
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [holdings, cashBalance, quoteMap]);
 
-  function handleAgentEvent(event: AgentEvent) {
+  function handleAgentEvent(
+    event: AgentEvent,
+    // The conversation that owns this stream + how to re-run it. Supplied by
+    // each streaming caller so an in-band agent error can offer a scoped Retry.
+    owner?: { convId: string; retry: () => void }
+  ) {
     switch (event.type) {
       case "agent_start": {
         const newStep: AgentStep = { agent: event.agent, status: "running" };
@@ -542,6 +584,13 @@ export default function ChatContainer() {
       case "error":
         console.error("[agent error event]", event.message);
         appendStreamChunk(`\n\n**Error:** ${event.message}`);
+        if (owner) {
+          notifyChatError(
+            owner.convId,
+            event.message || "Something went wrong while analyzing. Please retry.",
+            owner.retry
+          );
+        }
         break;
     }
   }
@@ -563,8 +612,13 @@ export default function ChatContainer() {
       setStreaming(true);
       clearStreamingContent();
 
+      // Owning conversation captured at failure time so the Retry/toast scopes
+      // to it (R7). Stays null if ensureConversation throws before assignment —
+      // that means no new conversation was created, so the send targeted the
+      // currently-active one (treated as foreground by notifyChatError).
+      let convId: string | null = null;
       try {
-        const convId = await ensureConversation();
+        convId = await ensureConversation();
         setStreamingConversationId(convId);
 
         // Fetch Markov signals (usually cached) — happens after the UI has
@@ -599,11 +653,24 @@ export default function ChatContainer() {
         setStreaming(false);
         clearStreamingContent();
         setStreamingConversationId(null);
+        notifyChatError(
+          convId,
+          "Couldn't send your message. Check your connection and retry.",
+          () => { handleSendRef.current(text); }
+        );
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [isStreaming, mode, holdings, cashBalance, conversationId, quoteMap]
   );
+
+  // Keep the latest-callback refs current so a Retry closure can re-invoke the
+  // same operation without referencing the const before its own declaration
+  // (and so it always calls the current callback).
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+    handleDiscoverDeeperRef.current = handleDiscoverDeeper;
+  }, [handleSend, handleDiscoverDeeper]);
 
   // Fire pending message routed from portfolio ask bar
   useEffect(() => {
@@ -668,17 +735,28 @@ export default function ChatContainer() {
     if (resumedRef.current.has(key)) return;
     resumedRef.current.add(key);
 
-    (async () => {
+    // Capture the owning conversation + seed so a Retry re-runs the exact same
+    // resume, and so the error is scoped to this conversation (R7): if the user
+    // has navigated away by the time it fails, notifyChatError stays quiet.
+    const resumeConvId = conversationId;
+    const resumeSeed = { picks, query, evidence, startWave: doneWaves };
+    const runResume = async () => {
       setStreaming(true);
-      setStreamingConversationId(conversationId);
+      setStreamingConversationId(resumeConvId);
       try {
-        await runDiscoverMode(query, "", conversationId, "deep", { picks, query, evidence, startWave: doneWaves });
+        await runDiscoverMode(query, "", resumeConvId, "deep", resumeSeed);
       } catch (e) {
         console.error("[discover resume] error:", e);
         setStreaming(false);
         setStreamingConversationId(null);
+        notifyChatError(
+          resumeConvId,
+          "Couldn't resume your discovery run. Please retry.",
+          () => { void runResume(); }
+        );
       }
-    })();
+    };
+    void runResume();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, conversationId, isStreaming]);
 

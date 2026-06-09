@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import Button from "@/components/ui/Button";
+import { useToast } from "@/hooks/useToast";
 
 interface Props {
   onClose: () => void;
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default function CsvUploadModal({ onClose, onUpload }: Props) {
+  const toast = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -21,7 +23,9 @@ export default function CsvUploadModal({ onClose, onUpload }: Props) {
       const r = await onUpload(file);
       setResult(r);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

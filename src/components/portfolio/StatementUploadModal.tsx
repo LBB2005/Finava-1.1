@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import { authFetch } from "@/lib/authFetch";
+import { useToast } from "@/hooks/useToast";
 
 interface ExtractedHolding {
   ticker: string;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function StatementUploadModal({ onClose, onAdd }: Props) {
+  const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [step, setStep] = useState<"upload" | "scanning" | "review" | "adding" | "error">("upload");
   const [extracted, setExtracted] = useState<ExtractedHolding[]>([]);
@@ -49,8 +51,10 @@ export default function StatementUploadModal({ onClose, onAdd }: Props) {
       setBuyingPowerInput(bp != null ? String(bp) : "");
       setStep("review");
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Scan failed");
+      const msg = err instanceof Error ? err.message : "Scan failed";
+      setErrorMsg(msg);
       setStep("error");
+      toast.error(msg);
     }
   }
 
@@ -60,8 +64,15 @@ export default function StatementUploadModal({ onClose, onAdd }: Props) {
     const bp = buyingPowerInput.trim() !== ""
       ? (parseFloat(buyingPowerInput.replace(/,/g, "")) || null)
       : buyingPower;
-    await onAdd(toAdd, bp, replaceMode);
-    onClose();
+    try {
+      await onAdd(toAdd, bp, replaceMode);
+      onClose();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Couldn't add the extracted holdings.";
+      setErrorMsg(msg);
+      setStep("error");
+      toast.error(msg);
+    }
   }
 
   function toggleRow(i: number) {

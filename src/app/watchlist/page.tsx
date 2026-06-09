@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useWatchlists } from "@/hooks/useWatchlists";
 import { useWatchlistStore } from "@/stores/watchlistStore";
+import { useToast } from "@/hooks/useToast";
 import { useLiveBoard } from "@/hooks/useLiveBoard";
 import WatchlistBoard from "@/components/watchlist/WatchlistBoard";
 import AddTickerInput from "@/components/watchlist/AddTickerInput";
@@ -55,12 +56,19 @@ function Summary({ tickers }: { tickers: string[] }) {
 }
 
 export default function WatchlistPage() {
-  const { watchlists, isLoading, createWatchlist, updateWatchlist, deleteWatchlist, addTicker, removeTicker } =
+  const { watchlists, isLoading, error, createWatchlist, updateWatchlist, deleteWatchlist, addTicker, removeTicker } =
     useWatchlists();
   const { activeId, setActiveId } = useWatchlistStore();
+  const toast = useToast();
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
   const [mutateError, setMutateError] = useState<string | null>(null);
+
+  // Surface read-path fetch errors. SWR keeps `error` referentially stable until
+  // the next success, so a `[error]` dep only re-fires on a genuinely new error.
+  useEffect(() => {
+    if (error) toast.error("Couldn't load your watchlists. Check your connection and retry.");
+  }, [error, toast]);
 
   useEffect(() => {
     if (watchlists.length === 0) {
@@ -90,8 +98,9 @@ export default function WatchlistPage() {
     try {
       const created = await createWatchlist("New watchlist");
       setActiveId(created.id);
-    } catch {
+    } catch (err) {
       setMutateError("Failed to create watchlist.");
+      toast.error(err instanceof Error ? err.message : "Failed to create watchlist.");
     }
   }
 
@@ -101,8 +110,9 @@ export default function WatchlistPage() {
     setMutateError(null);
     try {
       await deleteWatchlist(active.id);
-    } catch {
+    } catch (err) {
       setMutateError("Failed to delete watchlist.");
+      toast.error(err instanceof Error ? err.message : "Failed to delete watchlist.");
     }
   }
 

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { useToast } from "@/hooks/useToast";
 import type { HoldingFormData } from "@/types/portfolio";
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function AddHoldingModal({ onClose, onAdd }: Props) {
+  const toast = useToast();
   const [form, setForm] = useState<HoldingFormData>({
     ticker: "",
     shares: 0,
@@ -32,7 +34,9 @@ export default function AddHoldingModal({ onClose, onAdd }: Props) {
       await onAdd(form);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add holding");
+      const msg = err instanceof Error ? err.message : "Failed to add holding";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

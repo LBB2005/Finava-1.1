@@ -1,19 +1,33 @@
 "use client";
 import { useState } from "react";
 import { useWatchlists } from "@/hooks/useWatchlists";
+import { useToast } from "@/hooks/useToast";
 
 /** Popover body: choose which lists contain `ticker`, or create a new one. */
 export default function WatchlistPicker({ ticker, onClose }: { ticker: string; onClose: () => void }) {
   const { watchlists, isLoading, createWatchlist, addTicker, removeTicker } = useWatchlists();
+  const toast = useToast();
   const [newName, setNewName] = useState("");
 
   async function createAndAdd(e: React.FormEvent) {
     e.preventDefault();
     const name = newName.trim();
     if (!name) return;
-    const created = await createWatchlist(name);
-    await addTicker(created.id, ticker);
-    setNewName("");
+    try {
+      const created = await createWatchlist(name);
+      await addTicker(created.id, ticker);
+      setNewName("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't create that watchlist.");
+    }
+  }
+
+  async function toggleTicker(id: string, has: boolean) {
+    try {
+      await (has ? removeTicker(id, ticker) : addTicker(id, ticker));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Couldn't update the watchlist for ${ticker}.`);
+    }
   }
 
   return (
@@ -43,7 +57,7 @@ export default function WatchlistPicker({ ticker, onClose }: { ticker: string; o
             return (
               <button
                 key={w.id}
-                onClick={() => (has ? removeTicker(w.id, ticker) : addTicker(w.id, ticker))}
+                onClick={() => toggleTicker(w.id, has)}
                 className="flex items-center justify-between"
                 style={{ fontSize: 12.5, padding: "5px 7px", borderRadius: 5, color: "var(--color-text)", textAlign: "left" }}
               >

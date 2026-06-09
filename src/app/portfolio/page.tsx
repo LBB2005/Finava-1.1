@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useChatStore } from "@/stores/chatStore";
+import { useToast } from "@/hooks/useToast";
 import type { Holding, Quote } from "@/types/portfolio";
 import TickerSearch from "@/components/stock/TickerSearch";
 import ConnectBrokerageButton from "@/components/portfolio/ConnectBrokerageButton";
@@ -47,7 +48,8 @@ interface HoldingRow {
 
 export default function PortfolioPage() {
   const router = useRouter();
-  const { holdings, cashBalance, setCashBalance, refresh, plaidConnected, plaidInstitutions, syncPlaid } = usePortfolio();
+  const toast = useToast();
+  const { holdings, cashBalance, setCashBalance, refresh, plaidConnected, plaidInstitutions, syncPlaid, error: portfolioError } = usePortfolio();
   const [syncing, setSyncing] = useState(false);
   const institutionName = plaidInstitutions[0]?.name ?? null;
 
@@ -61,8 +63,19 @@ export default function PortfolioPage() {
       setSyncing(false);
     }
   }
-  const { quoteMap } = useQuotes(holdings.map((h) => h.ticker));
+  const { quoteMap, error: quotesError } = useQuotes(holdings.map((h) => h.ticker));
   const { setPendingMessage, reset } = useChatStore();
+
+  // Surface read-path fetch errors at the component boundary (hooks stay pure).
+  // SWR keeps `error` referentially stable until the next success, so a `[error]`
+  // dep only re-fires when a new error actually arrives.
+  useEffect(() => {
+    if (portfolioError) toast.error("Couldn't load your portfolio. Check your connection and retry.");
+  }, [portfolioError, toast]);
+
+  useEffect(() => {
+    if (quotesError) toast.error("Couldn't refresh live prices. They'll retry automatically.");
+  }, [quotesError, toast]);
   const [askText, setAskText] = useState("");
   const [hoveredTicker, setHoveredTicker] = useState<string | null>(null);
   const [editingCash, setEditingCash] = useState(false);

@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useStockBundle } from "@/hooks/useStock";
 import { useQuotes } from "@/hooks/useQuotes";
+import { useToast } from "@/hooks/useToast";
 import StockHero from "@/components/stock/StockHero";
 import { OverviewTab, FinancialsTab, AnalystsTab, NewsTab } from "@/components/stock/StockTabs";
 import { DcfTab } from "@/components/stock/DcfTab";
@@ -14,11 +15,21 @@ type Tab = (typeof TABS)[number];
 export default function StockPage() {
   const params = useParams<{ ticker: string }>();
   const router = useRouter();
+  const toast = useToast();
   const ticker = (params?.ticker ?? "").toUpperCase();
 
   const { bundle, error, isLoading } = useStockBundle(ticker || null);
   const { quoteMap } = useQuotes(ticker ? [ticker] : []);
   const [tab, setTab] = useState<Tab>("Overview");
+
+  // Surface genuine load failures via a toast in addition to the inline state.
+  // A 404 (unknown symbol) is a user-input issue already explained clearly in
+  // the full-page state, so we skip toasting for it to avoid redundant noise.
+  useEffect(() => {
+    if (error && error.status !== 404) {
+      toast.error(`Couldn't load ${ticker}. The data service may be unavailable — please retry.`);
+    }
+  }, [error, ticker, toast]);
 
   /* ── Error states ─────────────────────────────────────────────────────── */
   if (error) {
