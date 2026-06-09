@@ -64,7 +64,10 @@ export default function ToastProvider({ children }: { children: ReactNode }) {
       const id = `toast-${++toastCounter}`;
       setToasts((prev) => [...prev, { id, variant, message, action: opts?.action }]);
 
-      const duration = opts?.duration ?? DEFAULT_DURATION[variant];
+      // Actionable toasts persist by default so the action (e.g. chat "Retry")
+      // stays available; non-actionable toasts use the per-variant default.
+      const fallbackDuration = opts?.action ? 0 : DEFAULT_DURATION[variant];
+      const duration = opts?.duration ?? fallbackDuration;
       if (duration > 0) {
         const timer = setTimeout(() => dismiss(id), duration);
         timers.current.set(id, timer);
@@ -90,17 +93,27 @@ export default function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {mounted &&
         createPortal(
-          <div
-            role="status"
-            aria-live="polite"
-            aria-relevant="additions"
-            className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2"
-          >
-            <AnimatePresence initial={false}>
-              {toasts.map((toast) => (
-                <Toast key={toast.id} toast={toast} onDismiss={dismiss} />
-              ))}
-            </AnimatePresence>
+          <div className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2">
+            {/* Errors get an assertive live region so they interrupt the user. */}
+            <div role="alert" aria-live="assertive" className="flex flex-col gap-2">
+              <AnimatePresence initial={false}>
+                {toasts
+                  .filter((toast) => toast.variant === "error")
+                  .map((toast) => (
+                    <Toast key={toast.id} toast={toast} onDismiss={dismiss} />
+                  ))}
+              </AnimatePresence>
+            </div>
+            {/* Success / info are polite — announced without interrupting. */}
+            <div role="status" aria-live="polite" className="flex flex-col gap-2">
+              <AnimatePresence initial={false}>
+                {toasts
+                  .filter((toast) => toast.variant !== "error")
+                  .map((toast) => (
+                    <Toast key={toast.id} toast={toast} onDismiss={dismiss} />
+                  ))}
+              </AnimatePresence>
+            </div>
           </div>,
           document.body
         )}
