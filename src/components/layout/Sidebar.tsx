@@ -19,6 +19,8 @@ import StatementUploadModal from "@/components/portfolio/StatementUploadModal";
 import BriefingModal from "@/components/briefing/BriefingModal";
 import type { HoldingFormData } from "@/types/portfolio";
 import { authFetch, authFetcher } from "@/lib/authFetch";
+import UsageRing from "@/components/usage/UsageRing";
+import UsagePanel, { type UsageSummary } from "@/components/usage/UsagePanel";
 
 interface BriefingSummary {
   id: string;
@@ -204,7 +206,6 @@ function PortfolioNavItem({
   onNavigate?: () => void;
 }) {
   const [open, setOpen] = useState(true);
-  const router = useRouter();
   const { holdings, plaidConnected } = usePortfolio();
   const { quoteMap } = useQuotes(holdings.map((h) => h.ticker));
 
@@ -220,9 +221,8 @@ function PortfolioNavItem({
 
   return (
     <div className="nav-acc">
-      <button
-        onClick={() => (hasHoldings ? setOpen((v) => !v) : router.push("/portfolio"))}
-        className="nav-row group flex items-start gap-[11px] w-full text-left px-[11px] py-[9px] rounded-[9px] transition-colors duration-100 relative"
+      <div
+        className="nav-row group flex items-start gap-[11px] w-full px-[11px] py-[9px] rounded-[9px] transition-colors duration-100 relative cursor-pointer"
         style={
           active
             ? { background: "var(--color-accent-light)" }
@@ -232,34 +232,44 @@ function PortfolioNavItem({
         {active && (
           <span className="absolute -left-[10px] top-2 bottom-2 w-[3px] rounded-r-[3px]" style={{ background: "var(--color-accent)" }} />
         )}
-        <svg className="flex-shrink-0 mt-[2px]" width="16" height="16" viewBox="0 0 24 24" fill="none"
-          stroke={active ? "var(--color-accent)" : "var(--color-text-secondary)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 12a9 9 0 1 1-9-9v9z" />
-          <path d="M12 3a9 9 0 0 1 9 9h-9z" />
-        </svg>
+        <Link href="/portfolio" onClick={onNavigate} className="flex items-start gap-[11px] flex-1 min-w-0 text-left">
+          <svg className="flex-shrink-0 mt-[2px]" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke={active ? "var(--color-accent)" : "var(--color-text-secondary)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a9 9 0 1 1-9-9v9z" />
+            <path d="M12 3a9 9 0 0 1 9 9h-9z" />
+          </svg>
 
-        <span className="flex-1 min-w-0 flex flex-col gap-[2px]">
-          <span className="text-[9.5px] font-bold uppercase tracking-[0.16em] leading-tight" style={{ color: "var(--color-muted)" }}>
-            Portfolio
-          </span>
-          {hasHoldings ? (
-            <>
-              <span className="text-[18px] font-extrabold leading-[1.1] tracking-tight" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)", letterSpacing: "-0.01em" }}>
-                ${fmt(totalValue)}
-              </span>
-              <span className="text-[11px] font-bold leading-tight" style={{ color: isUp ? "var(--color-bull)" : "var(--color-bear)" }}>
-                {isUp ? "▲" : "▼"} ${fmt(Math.abs(totalGain))} · {isUp ? "+" : ""}{totalGainPct.toFixed(2)}%
-              </span>
-            </>
-          ) : (
-            <span className="text-[13px] font-medium leading-tight" style={{ color: "var(--color-text-secondary)" }}>
-              No holdings yet
+          <span className="flex-1 min-w-0 flex flex-col gap-[2px]">
+            <span className="text-[9.5px] font-bold uppercase tracking-[0.16em] leading-tight" style={{ color: "var(--color-muted)" }}>
+              Portfolio
             </span>
-          )}
-        </span>
+            {hasHoldings ? (
+              <>
+                <span className="text-[18px] font-extrabold leading-[1.1] tracking-tight" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)", letterSpacing: "-0.01em" }}>
+                  ${fmt(totalValue)}
+                </span>
+                <span className="text-[11px] font-bold leading-tight" style={{ color: isUp ? "var(--color-bull)" : "var(--color-bear)" }}>
+                  {isUp ? "▲" : "▼"} ${fmt(Math.abs(totalGain))} · {isUp ? "+" : ""}{totalGainPct.toFixed(2)}%
+                </span>
+              </>
+            ) : (
+              <span className="text-[13px] font-medium leading-tight" style={{ color: "var(--color-text-secondary)" }}>
+                No holdings yet
+              </span>
+            )}
+          </span>
+        </Link>
 
-        {hasHoldings && <span className="mt-[3px]"><Chevron open={open} /></span>}
-      </button>
+        {hasHoldings && (
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="mt-[3px] flex-shrink-0 p-[2px] rounded hover:bg-[var(--color-sidebar-hover)] transition-colors duration-100"
+            aria-label={open ? "Collapse portfolio" : "Expand portfolio"}
+          >
+            <Chevron open={open} />
+          </button>
+        )}
+      </div>
 
       {hasHoldings && (
         <Collapsible open={open}>
@@ -333,7 +343,6 @@ function WatchlistNavItem({
   onNavigate?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const router = useRouter();
   const { watchlists } = useWatchlists();
   const { activeId } = useWatchlistStore();
 
@@ -342,9 +351,8 @@ function WatchlistNavItem({
 
   return (
     <div className="nav-acc">
-      <button
-        onClick={() => (hasLists ? setOpen((v) => !v) : router.push("/watchlist"))}
-        className="nav-row group flex items-center gap-[11px] w-full text-left px-[11px] py-2 rounded-[9px] text-[13px] transition-colors duration-100 relative"
+      <div
+        className="nav-row group flex items-center gap-[11px] w-full px-[11px] py-2 rounded-[9px] text-[13px] transition-colors duration-100 relative cursor-pointer"
         style={
           active
             ? { background: "var(--color-accent-light)", color: "var(--color-accent)", fontWeight: 600 }
@@ -354,15 +362,25 @@ function WatchlistNavItem({
         {active && (
           <span className="absolute -left-[10px] top-2 bottom-2 w-[3px] rounded-r-[3px]" style={{ background: "var(--color-accent)" }} />
         )}
-        <svg className="flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="12 2 15 8.5 22 9.3 17 14 18.2 21 12 17.6 5.8 21 7 14 2 9.3 9 8.5 12 2" />
-        </svg>
-        <span className="flex-1">Watchlist</span>
+        <Link href="/watchlist" onClick={onNavigate} className="flex items-center gap-[11px] flex-1 min-w-0">
+          <svg className="flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 15 8.5 22 9.3 17 14 18.2 21 12 17.6 5.8 21 7 14 2 9.3 9 8.5 12 2" />
+          </svg>
+          <span className="flex-1">Watchlist</span>
+          {hasLists && (
+            <span className="text-[11px] font-semibold" style={{ color: "var(--color-muted)", fontFamily: "var(--font-mono)" }}>{totalLists}</span>
+          )}
+        </Link>
         {hasLists && (
-          <span className="text-[11px] font-semibold" style={{ color: "var(--color-muted)", fontFamily: "var(--font-mono)" }}>{totalLists}</span>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="flex-shrink-0 p-[2px] rounded hover:bg-[var(--color-sidebar-hover)] transition-colors duration-100"
+            aria-label={open ? "Collapse watchlists" : "Expand watchlists"}
+          >
+            <Chevron open={open} />
+          </button>
         )}
-        {hasLists && <Chevron open={open} />}
-      </button>
+      </div>
 
       {hasLists && (
         <Collapsible open={open}>
@@ -402,11 +420,17 @@ function UserWidget() {
   const { user, signOut } = useAuth();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const ref = useRef<HTMLDivElement>(null);
   const { data } = useSWR<UserProfile>(user ? "/api/user" : null, authFetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 120_000,
+  });
+  const { data: usage } = useSWR<UsageSummary>(user ? "/api/usage" : null, authFetcher, {
+    refreshInterval: 60_000,
+    revalidateOnFocus: true,
+    dedupingInterval: 30_000,
   });
 
   // localStorage is client-only; reading it in an effect (not render) is the
@@ -419,7 +443,10 @@ function UserWidget() {
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setUsageOpen(false);
+      }
     }
     document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
@@ -530,43 +557,90 @@ function UserWidget() {
         </div>
       )}
 
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className={`user-widget-trigger${open ? " is-open" : ""} w-full flex items-center gap-2.5 px-[10px] py-[8px] rounded-[9px] transition-colors duration-150`}
-      >
-        {user.photoURL ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={user.photoURL}
-            alt={displayName}
-            className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-          />
-        ) : (
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
-            style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
-          >
-            {initials}
-          </div>
-        )}
-
-        <div className="flex-1 min-w-0 text-left">
-          <p className="text-[12px] font-semibold leading-tight truncate" style={{ color: "var(--color-text)" }}>
-            {displayName}
-          </p>
-          <p className="text-[10.5px] leading-tight" style={{ color: "var(--color-muted)" }}>
-            {plan}
-          </p>
-        </div>
-
-        <svg
-          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-          className={`flex-shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-          style={{ color: "var(--color-muted)" }}
+      {usageOpen && usage && (
+        <div
+          className="absolute bottom-full left-0 right-0 mb-1 z-50 rounded-[11px] p-3.5"
+          style={{
+            background: "var(--color-bg)",
+            border: "1px solid var(--color-border)",
+            boxShadow: "var(--shadow-pop)",
+          }}
         >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
+          <UsagePanel
+            data={usage}
+            onSeeDetails={() => {
+              router.push("/settings?section=usage");
+              setUsageOpen(false);
+            }}
+          />
+        </div>
+      )}
+
+      <div
+        className={`user-widget-trigger${open || usageOpen ? " is-open" : ""} w-full flex items-center gap-2.5 px-[10px] py-[8px] rounded-[9px] transition-colors duration-150`}
+      >
+        <button
+          onClick={() => {
+            setOpen((v) => !v);
+            setUsageOpen(false);
+          }}
+          className="flex items-center gap-2.5 flex-1 min-w-0 text-left bg-transparent"
+        >
+          {user.photoURL ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.photoURL}
+              alt={displayName}
+              className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
+              style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
+            >
+              {initials}
+            </div>
+          )}
+
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-semibold leading-tight truncate" style={{ color: "var(--color-text)" }}>
+              {displayName}
+            </p>
+            <p className="text-[10.5px] leading-tight" style={{ color: "var(--color-muted)" }}>
+              {plan}
+            </p>
+          </div>
+        </button>
+
+        <button
+          onClick={() => {
+            setUsageOpen((v) => !v);
+            setOpen(false);
+          }}
+          aria-label="AI usage"
+          title="AI usage"
+          className="flex-shrink-0 flex items-center bg-transparent"
+        >
+          <UsageRing pct={usage?.weekly.pct ?? 0} tone={(usage?.weekly.pct ?? 0) >= 90 ? "over" : "accent"} />
+        </button>
+
+        <button
+          onClick={() => {
+            setOpen((v) => !v);
+            setUsageOpen(false);
+          }}
+          aria-label="Account menu"
+          className="flex-shrink-0 flex items-center bg-transparent"
+        >
+          <svg
+            width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+            className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            style={{ color: "var(--color-muted)" }}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }

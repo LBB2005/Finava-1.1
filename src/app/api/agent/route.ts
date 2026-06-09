@@ -1,6 +1,7 @@
 import { runCeoAgent } from "@/agents/ceo";
 import { runDiscoveryWave, runDiscoverySynthesis } from "@/agents/discovery";
 import { requireAuth } from "@/lib/requireAuth";
+import { checkUsageLimit, usageStore } from "@/lib/usage";
 import type { AgentEvent } from "@/types/chat";
 import type { WaveRequest, SynthesizeRequest } from "@/lib/scoutTypes";
 
@@ -22,49 +23,57 @@ export async function POST(req: Request) {
     wave,
   } = await req.json();
 
-  const readable = new ReadableStream({
-    async start(controller) {
-      const encoder = new TextEncoder();
+  // Hard cap: block before any model spend if the user is over their allowance.
+  const limited = await checkUsageLimit(userId);
+  if (limited) return limited;
 
-      const emit = (event: AgentEvent) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
-      };
+  // Run the whole crew inside the usage context so every sub-agent generate()
+  // call and the CEO's direct Anthropic turns are metered to this user.
+  return usageStore.run({ userId }, () => {
+    const readable = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
 
-      try {
-        if (wave && wave.synthesize) {
-          // Final discovery synthesis — one Sonnet pass, no crew.
-          await runDiscoverySynthesis(wave as SynthesizeRequest, emit);
-        } else if (wave) {
-          // One deterministic crew wave over ≤5 names.
-          await runDiscoveryWave(wave as WaveRequest, emit);
-        } else {
-          // Normal CEO turn (incl. quick discover + deep shortlist emit).
-          await runCeoAgent(userPrompt, portfolioContext ?? "", emit, {
-            deepResearch: !!deepResearch,
-            conversationHistory: conversationHistory ?? [],
-            userId,
-            holdings: Array.isArray(holdings) ? holdings : [],
-            discover: !!discover,
-            tier: tier === "deep" ? "deep" : "quick",
-          });
+        const emit = (event: AgentEvent) => {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        };
+
+        try {
+          if (wave && wave.synthesize) {
+            // Final discovery synthesis — one Sonnet pass, no crew.
+            await runDiscoverySynthesis(wave as SynthesizeRequest, emit);
+          } else if (wave) {
+            // One deterministic crew wave over ≤5 names.
+            await runDiscoveryWave(wave as WaveRequest, emit);
+          } else {
+            // Normal CEO turn (incl. quick discover + deep shortlist emit).
+            await runCeoAgent(userPrompt, portfolioContext ?? "", emit, {
+              deepResearch: !!deepResearch,
+              conversationHistory: conversationHistory ?? [],
+              userId,
+              holdings: Array.isArray(holdings) ? holdings : [],
+              discover: !!discover,
+              tier: tier === "deep" ? "deep" : "quick",
+            });
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          console.error("[agent route error]", err);
+          emit({ type: "error", message: msg });
+        } finally {
+          controller.close();
         }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Unknown error";
-        console.error("[agent route error]", err);
-        emit({ type: "error", message: msg });
-      } finally {
-        controller.close();
-      }
-    },
-  });
+      },
+    });
 
-  return new Response(readable, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      // Disable proxy/CDN buffering so SSE chunks flush immediately on Vercel.
-      "X-Accel-Buffering": "no",
-    },
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        // Disable proxy/CDN buffering so SSE chunks flush immediately on Vercel.
+        "X-Accel-Buffering": "no",
+      },
+    });
   });
 }

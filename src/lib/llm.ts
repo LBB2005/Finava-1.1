@@ -16,6 +16,7 @@
  * `generate()` below intentionally does not), and Perplexity calls are untouched.
  */
 import OpenAI from "openai";
+import { recordUsage } from "@/lib/usage";
 
 // ── Routing flag ────────────────────────────────────────────────────────────
 // Default "on". Any value other than "off" (incl. unset) enables routing.
@@ -301,8 +302,17 @@ export async function generate(opts: GenerateOptions): Promise<string> {
   const rawContent = response.choices?.[0]?.message?.content;
   const text = typeof rawContent === "string" ? rawContent : "";
 
+  const u = response.usage;
+  // Meter this call against the current user's allowance (userId comes from the
+  // route's AsyncLocalStorage context — see src/lib/usage.ts). Fire-and-forget.
+  void recordUsage({
+    agent,
+    model,
+    inputTokens: u?.prompt_tokens,
+    outputTokens: u?.completion_tokens,
+  });
+
   if (process.env.LLM_LOG === "on") {
-    const u = response.usage;
     console.log(
       `[llm] ${JSON.stringify({
         agent,

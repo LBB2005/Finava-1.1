@@ -1,5 +1,6 @@
 import { anthropic, MODEL } from "@/lib/anthropic";
 import { generate } from "@/lib/llm";
+import { recordUsage } from "@/lib/usage";
 import { allTools, scoutTool } from "./tools/index";
 import { runRiskAgent } from "./sub-agents/risk-agent";
 import { runNewsAgent } from "./sub-agents/news-agent";
@@ -166,6 +167,15 @@ ${critique}`,
           messages,
         })
         .finalMessage();
+
+      // Meter the revision pass (userId comes from the route's usage context).
+      void recordUsage({
+        agent: "ceo",
+        model: MODEL,
+        inputTokens: revision.usage?.input_tokens,
+        outputTokens: revision.usage?.output_tokens,
+        cacheRead: revision.usage?.cache_read_input_tokens,
+      });
 
       const revisedText = revision.content
         .filter((b) => b.type === "text")
@@ -370,6 +380,18 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
         messages,
       })
       .finalMessage();
+
+    // Meter this CEO turn's tokens (flushed with the other background writes).
+    pendingWrites.push(
+      recordUsage({
+        agent: "ceo",
+        model: MODEL,
+        inputTokens: response.usage?.input_tokens,
+        outputTokens: response.usage?.output_tokens,
+        cacheRead: response.usage?.cache_read_input_tokens,
+        userId,
+      })
+    );
 
     // Emit any CEO thinking/text blocks
     for (const block of response.content) {

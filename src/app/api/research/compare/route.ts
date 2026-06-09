@@ -7,6 +7,7 @@
 
 import { generate } from "@/lib/llm";
 import { requireAuth } from "@/lib/requireAuth";
+import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { FACTORS } from "@/lib/research";
 import type { CompareStock, CompareVerdict, ComparePerStock } from "@/lib/researchAI";
 
@@ -38,8 +39,11 @@ function describe(s: CompareStock): string {
 }
 
 export async function POST(req: Request) {
-  const { error: authError } = await requireAuth();
+  const { userId, error: authError } = await requireAuth();
   if (authError) return authError;
+  const limited = await checkUsageLimit(userId);
+  if (limited) return limited;
+  usageStore.enterWith({ userId });
 
   if (!process.env.OPENROUTER_API_KEY) {
     return Response.json({ error: "AI service not configured (OPENROUTER_API_KEY missing)." }, { status: 503 });

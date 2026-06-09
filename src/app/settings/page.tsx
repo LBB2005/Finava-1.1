@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { authFetcher, authFetch } from "@/lib/authFetch";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import ConnectBrokerageButton from "@/components/portfolio/ConnectBrokerageButton";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
 
 interface UserData {
   uid: string;
@@ -688,78 +689,152 @@ function StatCard({ label, value, sub }: { label: string; value: number | string
   );
 }
 
-function UsageSection({ userData }: { userData: UserData | undefined }) {
-  const stats = userData?.stats;
-  const weekly = { pct: 69, used: 690, total: 1000, resets: "Wednesday" };
-  const daily = { used: 1, total: 5 };
-  const activity = [4, 9, 6, 13, 8, 17, 11];
-  const days = ["M", "T", "W", "T", "F", "S", "S"];
-  const max = Math.max(...activity);
+interface UsageSummary {
+  plan: string;
+  daily: { used: number; limit: number; pct: number };
+  weekly: { used: number; limit: number; pct: number };
+  series: { date: string; credits: number }[];
+  resets: { daily: string; weekly: string };
+}
+
+function fmtDay(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function UsageBar({ pct, used, limit }: { pct: number; used: number; limit: number }) {
+  const over = pct >= 100;
+  return (
+    <div style={{ width: 220 }}>
+      <div className="h-[7px] rounded-full overflow-hidden" style={{ background: "var(--color-surface-2)" }}>
+        <div
+          className="h-full rounded-full transition-[width] duration-500 ease-out"
+          style={{
+            width: `${Math.min(100, pct)}%`,
+            background: over ? "var(--color-bear)" : "var(--color-accent)",
+          }}
+        />
+      </div>
+      <div className="flex justify-between text-[11px] mt-1.5" style={{ color: "var(--color-text-secondary)" }}>
+        <span>
+          {Math.round(used)} / {limit} credits
+        </span>
+        <span style={{ fontWeight: 700, color: over ? "var(--color-bear)" : "var(--color-text)" }}>{pct}%</span>
+      </div>
+    </div>
+  );
+}
+
+interface UsageTooltipProps {
+  active?: boolean;
+  payload?: { value: number; payload: { date: string } }[];
+}
+function UsageTooltip({ active, payload }: UsageTooltipProps) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0];
+  return (
+    <div
+      className="rounded-[8px] px-2.5 py-1.5 text-[11px]"
+      style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)", boxShadow: "var(--shadow-pop)" }}
+    >
+      <div style={{ color: "var(--color-muted)" }}>{fmtDay(p.payload.date)}</div>
+      <div style={{ color: "var(--color-text)", fontWeight: 700 }}>{Math.round(p.value)} credits</div>
+    </div>
+  );
+}
+
+function UsageSection() {
+  const { user } = useAuth();
+  const { data } = useSWR<UsageSummary>(user ? "/api/usage" : null, authFetcher, {
+    revalidateOnFocus: true,
+  });
+
+  const weekly = data?.weekly;
+  const daily = data?.daily;
+  const series = data?.series ?? [];
+  const hasUsage = series.some((s) => s.credits > 0);
 
   return (
     <div>
-      <Head title="Usage" description="Your activity and limits this billing period." />
+      <Head title="Usage" description="Your AI usage this period and your plan limits." />
 
       <div className="grid grid-cols-3 gap-3" style={{ margin: "4px 0 22px" }}>
-        <StatCard label="Conversations" value={stats?.conversations ?? "—"} sub="all time" />
-        <StatCard label="Briefings" value={stats?.briefings ?? "—"} sub="generated" />
-        <StatCard label="Backtests" value={19} sub="run" />
+        <StatCard label="Plan" value={data?.plan ?? "—"} sub="current" />
+        <StatCard
+          label="This week"
+          value={weekly ? `${weekly.pct}%` : "—"}
+          sub={weekly ? `${Math.round(weekly.used)} / ${weekly.limit} credits` : "of allowance"}
+        />
+        <StatCard
+          label="Today"
+          value={daily ? `${daily.pct}%` : "—"}
+          sub={daily ? `${Math.round(daily.used)} / ${daily.limit} credits` : "of allowance"}
+        />
       </div>
 
-      <Row label="Weekly model usage" description={`All models combined. Resets every ${weekly.resets}.`}>
-        <div style={{ width: 200 }}>
-          <div className="h-[7px] rounded-full overflow-hidden" style={{ background: "var(--color-surface-2)" }}>
-            <div className="h-full rounded-full" style={{ width: `${weekly.pct}%`, background: "var(--color-accent)" }} />
-          </div>
-          <div className="flex justify-between text-[11px] mt-1.5" style={{ color: "var(--color-text-secondary)" }}>
-            <span>
-              {weekly.used} / {weekly.total} credits
-            </span>
-            <span style={{ fontWeight: 700, color: "var(--color-text)" }}>{weekly.pct}%</span>
-          </div>
-        </div>
+      <Row label="Weekly allowance" description="Cost-weighted across every model. Rolling 7-day window.">
+        <UsageBar pct={weekly?.pct ?? 0} used={weekly?.used ?? 0} limit={weekly?.limit ?? 0} />
       </Row>
 
-      <Row label="Daily routine runs" description="Scheduled agent routines included in your plan.">
-        <div className="flex items-center gap-[11px]">
-          <div className="flex gap-[5px]">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <span
-                key={i}
-                className="w-[22px] h-[7px] rounded-full"
-                style={{ background: i < daily.used ? "var(--color-accent)" : "var(--color-surface-2)" }}
-              />
-            ))}
-          </div>
-          <span className="text-[12.5px] font-bold" style={{ color: "var(--color-text)" }}>
-            {daily.used} / {daily.total}
-          </span>
-        </div>
+      <Row label="Daily allowance" description="Resets at midnight UTC.">
+        <UsageBar pct={daily?.pct ?? 0} used={daily?.used ?? 0} limit={daily?.limit ?? 0} />
       </Row>
 
-      <Row label="Activity" description="Conversations started over the last 7 days.">
-        <div className="flex flex-col items-end gap-[5px]">
-          <div className="flex items-end gap-[5px]" style={{ height: 46 }}>
-            {activity.map((v, i) => (
-              <div
-                key={i}
-                className="w-[14px] rounded-t-[3px]"
-                style={{
-                  height: `${(v / max) * 100}%`,
-                  background: v === max ? "var(--color-accent)" : "var(--color-accent-medium)",
-                }}
-              />
-            ))}
-          </div>
-          <div className="flex gap-[5px]">
-            {days.map((d, i) => (
-              <span key={i} className="text-[10px] text-center" style={{ width: 14, color: "var(--color-muted)" }}>
-                {d}
-              </span>
-            ))}
-          </div>
+      <div className="mt-7">
+        <p className="text-[13.5px] font-semibold" style={{ color: "var(--color-text)" }}>
+          Usage over time
+        </p>
+        <p className="text-[12.5px] mt-[3px] mb-3" style={{ color: "var(--color-text-secondary)" }}>
+          Credits used per day over the last 30 days.
+        </p>
+        <div style={{ height: 196 }}>
+          {hasUsage ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: -16 }}>
+                <defs>
+                  <linearGradient id="settingsUsageArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.32} />
+                    <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={fmtDay}
+                  tick={{ fontSize: 10, fill: "var(--color-muted)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={32}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "var(--color-muted)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={32}
+                  allowDecimals={false}
+                />
+                <Tooltip content={<UsageTooltip />} cursor={{ stroke: "var(--color-border-strong)", strokeWidth: 1 }} />
+                <Area type="monotone" dataKey="credits" stroke="var(--color-accent)" strokeWidth={1.8} fill="url(#settingsUsageArea)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div
+              className="h-full flex items-center justify-center rounded-[12px] text-center px-6"
+              style={{ border: "1px dashed var(--color-border)", color: "var(--color-muted)", fontSize: 12.5 }}
+            >
+              No usage yet — your AI activity will chart here as you use Lucra.
+            </div>
+          )}
         </div>
-      </Row>
+      </div>
+
+      <div className="mt-7">
+        <Row label="Need more headroom?" description="Upgrade for a larger weekly allowance and more daily capacity.">
+          <Btn variant="prim">Upgrade plan</Btn>
+        </Row>
+      </div>
     </div>
   );
 }
@@ -771,6 +846,16 @@ export default function SettingsPage() {
   const [active, setActive] = useState<SectionId>("general");
   const { data: userData, mutate } = useSWR<UserData>("/api/user", authFetcher);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Deep links like /settings?section=usage (from the sidebar usage popover and
+  // the user menu) open the matching section on load.
+  useEffect(() => {
+    const sec = new URLSearchParams(window.location.search).get("section");
+    if (sec && NAV.some((g) => g.items.some((it) => it.id === sec))) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActive(sec as SectionId);
+    }
+  }, []);
 
   function exitSettings() {
     router.push("/chat");
@@ -840,7 +925,7 @@ export default function SettingsPage() {
           {active === "account" && <ProfileSection userData={userData} mutate={mutate} />}
           {active === "privacy" && <PrivacySection userData={userData} mutate={mutate} />}
           {active === "billing" && <BillingSection userData={userData} mutate={mutate} />}
-          {active === "usage" && <UsageSection userData={userData} />}
+          {active === "usage" && <UsageSection />}
         </div>
       </div>
     </div>

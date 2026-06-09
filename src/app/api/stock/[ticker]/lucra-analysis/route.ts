@@ -12,6 +12,7 @@
 
 import { generate } from "@/lib/llm";
 import { requireAuth } from "@/lib/requireAuth";
+import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { getStockBundle } from "@/lib/stockData";
 import {
   getCikByTicker,
@@ -91,8 +92,11 @@ export async function POST(
   _req: Request,
   { params }: { params: Promise<{ ticker: string }> }
 ) {
-  const { error: authError } = await requireAuth();
+  const { userId, error: authError } = await requireAuth();
   if (authError) return authError;
+  const limited = await checkUsageLimit(userId);
+  if (limited) return limited;
+  usageStore.enterWith({ userId });
 
   const { ticker } = await params;
   const symbol = (ticker ?? "").trim().toUpperCase();

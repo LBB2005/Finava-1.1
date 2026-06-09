@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { generate, type LlmContentPart } from "@/lib/llm";
 import { requireAuth } from "@/lib/requireAuth";
+import { checkUsageLimit, usageStore } from "@/lib/usage";
 
 export async function POST(req: Request) {
-  const { error } = await requireAuth();
+  const { userId, error } = await requireAuth();
   if (error) return error;
+  const limited = await checkUsageLimit(userId);
+  if (limited) return limited;
+  usageStore.enterWith({ userId });
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;

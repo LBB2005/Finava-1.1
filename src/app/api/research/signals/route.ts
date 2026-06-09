@@ -7,6 +7,7 @@
 
 import { generate } from "@/lib/llm";
 import { requireAuth } from "@/lib/requireAuth";
+import { checkUsageLimit, usageStore } from "@/lib/usage";
 import {
   SIGNAL_CATEGORY_LABEL,
   type SignalEvent,
@@ -39,8 +40,11 @@ function leanSentiment(lean: number): SignalFeedItem["sentiment"] {
 }
 
 export async function POST(req: Request) {
-  const { error: authError } = await requireAuth();
+  const { userId, error: authError } = await requireAuth();
   if (authError) return authError;
+  const limited = await checkUsageLimit(userId);
+  if (limited) return limited;
+  usageStore.enterWith({ userId });
 
   if (!process.env.OPENROUTER_API_KEY) {
     return Response.json({ error: "AI service not configured (OPENROUTER_API_KEY missing)." }, { status: 503 });

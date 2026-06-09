@@ -87,6 +87,24 @@ export default function ChatContainer() {
   const { quoteMap } = useQuotes(holdings.map((h) => h.ticker));
   const toast = useToast();
 
+  // A hard usage-cap returns HTTP 429 from the AI routes. Surface it as a clear
+  // toast that links to the usage page, rather than the generic "stream failed"
+  // error. Returns true when it was a limit hit so the caller stops.
+  async function handleUsageLimit(res: Response): Promise<boolean> {
+    if (res.status !== 429) return false;
+    const info = (await res.json().catch(() => null)) as { scope?: string } | null;
+    const scope = info?.scope === "daily" ? "daily" : "weekly";
+    toast.error(`You've reached your ${scope} AI usage limit.`, {
+      action: {
+        label: "View usage",
+        onClick: () => {
+          window.location.href = "/settings?section=usage";
+        },
+      },
+    });
+    return true;
+  }
+
   // Hold the latest send/discover callbacks so a Retry closure can re-invoke the
   // exact same operation (see assignment + usage below).
   const handleSendRef = useRef<(text: string) => void>(() => {});
@@ -198,6 +216,7 @@ export default function ChatContainer() {
         body: JSON.stringify({ messages: apiMessages, portfolioContext }),
       });
 
+      if (await handleUsageLimit(res)) return;
       if (!res.ok || !res.body) throw new Error("Stream failed");
 
       const reader = res.body.getReader();
@@ -267,6 +286,7 @@ export default function ChatContainer() {
         }),
       });
 
+      if (await handleUsageLimit(res)) return;
       if (!res.ok || !res.body) throw new Error("Agent stream failed");
 
       const reader = res.body.getReader();

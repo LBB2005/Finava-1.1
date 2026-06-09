@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
 import { generate } from "@/lib/llm";
+import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { runRiskAgent } from "@/agents/sub-agents/risk-agent";
 import { runNewsAgent } from "@/agents/sub-agents/news-agent";
 import { runMacroAgent } from "@/agents/sub-agents/macro-agent";
@@ -28,11 +29,16 @@ export async function POST(req: Request) {
     const authResult = await requireAuth();
     if (authResult.error) return authResult.error;
     userId = authResult.userId;
+    const limited = await checkUsageLimit(userId);
+    if (limited) return limited;
     return generateForUser(userId);
   }
 }
 
 async function generateForUser(userId: string): Promise<NextResponse> {
+  // Meter every model call this briefing makes to the user (works for both the
+  // interactive path and the cron path, which calls this per user).
+  usageStore.enterWith({ userId });
   try {
     const holdingsSnap = await db
       .collection("users").doc(userId).collection("holdings")

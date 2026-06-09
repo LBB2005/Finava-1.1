@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { generate } from "@/lib/llm";
 import { getStockBundle } from "@/lib/stockData";
 import { requireAuth } from "@/lib/requireAuth";
+import { checkUsageLimit, usageStore } from "@/lib/usage";
 
 function fmtNum(n: number | null | undefined, opts?: Intl.NumberFormatOptions): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return "n/a";
@@ -22,8 +23,11 @@ export async function POST(
   // This triggers a paid LLM generation — gate it behind auth like every other
   // LLM route (chat, agent, backtest, statement, briefing). The bundle GET route
   // stays public (read-only market data); only this opt-in generation requires it.
-  const { error: authError } = await requireAuth();
+  const { userId, error: authError } = await requireAuth();
   if (authError) return authError;
+  const limited = await checkUsageLimit(userId);
+  if (limited) return limited;
+  usageStore.enterWith({ userId });
 
   const { ticker } = await params;
   const symbol = (ticker ?? "").trim().toUpperCase();
