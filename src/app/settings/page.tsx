@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useAuth } from "@/context/AuthContext";
 import { authFetcher, authFetch } from "@/lib/authFetch";
+import { usePortfolio } from "@/hooks/usePortfolio";
+import ConnectBrokerageButton from "@/components/portfolio/ConnectBrokerageButton";
 
 interface UserData {
   uid: string;
@@ -289,73 +291,115 @@ function NotificationsSection() {
   );
 }
 
+function ConnectionRow({
+  logo,
+  color,
+  fg,
+  border,
+  name,
+  status,
+  live,
+  children,
+}: {
+  logo: string;
+  color: string;
+  fg: string;
+  border?: boolean;
+  name: string;
+  status: string;
+  live: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="flex items-center gap-[13px] py-[14px]"
+      style={{ borderBottom: "1px solid var(--color-border)" }}
+    >
+      <div
+        className="w-10 h-10 rounded-[10px] flex items-center justify-center font-extrabold text-[13px] flex-shrink-0"
+        style={{ background: color, color: fg, border: `1px solid ${border ? "var(--color-border-strong)" : "transparent"}` }}
+      >
+        {logo}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[13.5px] font-semibold" style={{ color: "var(--color-text)" }}>
+          {name}
+        </div>
+        <div className="text-[12px] mt-[2px] flex items-center gap-1.5" style={{ color: "var(--color-text-secondary)" }}>
+          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: live ? "var(--color-bull)" : "var(--color-muted)" }} />
+          {status}
+        </div>
+      </div>
+      <div className="flex-shrink-0">{children}</div>
+    </div>
+  );
+}
+
+function PlaidRow() {
+  const { plaidConnected, plaidInstitutions, disconnectPlaid, refresh } = usePortfolio();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const inst = plaidInstitutions[0];
+
+  async function handleDisconnect() {
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      await disconnectPlaid();
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  }
+
+  const status = plaidConnected
+    ? `Connected · ${inst?.name ?? "Brokerage"}${inst?.lastSyncedAt ? ` · synced ${new Date(inst.lastSyncedAt).toLocaleDateString()}` : ""}`
+    : "Not connected";
+
+  return (
+    <ConnectionRow logo="◉" color="#111c2e" fg="#fff" name="Plaid" status={status} live={plaidConnected}>
+      {plaidConnected ? (
+        <Btn variant={confirming ? "danger" : "soft"} onClick={handleDisconnect} disabled={busy}>
+          {busy ? "Disconnecting…" : confirming ? "Confirm disconnect" : "Disconnect"}
+        </Btn>
+      ) : (
+        <ConnectBrokerageButton
+          className="inline-flex items-center gap-1.5 px-[13px] py-[7px] text-[12.5px] font-semibold rounded-[8px] bg-[var(--color-accent)] text-white transition-colors duration-150"
+          label="Connect"
+          onLinked={refresh}
+        />
+      )}
+    </ConnectionRow>
+  );
+}
+
 function ConnectionsSection({ userData }: { userData: UserData | undefined }) {
-  const rows = [
-    {
-      logo: "AL",
-      color: "#ffd400",
-      fg: "#0d1626",
-      border: false,
-      nm: "Alpaca",
-      st: "Connected · Paper trading",
-      live: true,
-      btn: "Manage",
-    },
-    {
-      logo: "G",
-      color: "#fff",
-      fg: "#1a4b8f",
-      border: true,
-      nm: "Google",
-      st: userData?.email ? `Linked · ${userData.email}` : "Linked",
-      live: true,
-      btn: "Manage",
-    },
-    {
-      logo: "▦",
-      color: "var(--color-surface-2)",
-      fg: "var(--color-muted)",
-      border: false,
-      nm: "Plaid",
-      st: "Not connected",
-      live: false,
-      btn: "Connect",
-    },
-  ];
   return (
     <div>
       <Head title="Connections" description="Brokerages and services linked to your Lucra account." />
-      {rows.map((r) => (
-        <div
-          key={r.nm}
-          className="flex items-center gap-[13px] py-[14px]"
-          style={{ borderBottom: "1px solid var(--color-border)" }}
-        >
-          <div
-            className="w-10 h-10 rounded-[10px] flex items-center justify-center font-extrabold text-[13px] flex-shrink-0"
-            style={{
-              background: r.color,
-              color: r.fg,
-              border: `1px solid ${r.border ? "var(--color-border-strong)" : "transparent"}`,
-            }}
-          >
-            {r.logo}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[13.5px] font-semibold" style={{ color: "var(--color-text)" }}>
-              {r.nm}
-            </div>
-            <div className="text-[12px] mt-[2px] flex items-center gap-1.5" style={{ color: "var(--color-text-secondary)" }}>
-              <span
-                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                style={{ background: r.live ? "var(--color-bull)" : "var(--color-muted)" }}
-              />
-              {r.st}
-            </div>
-          </div>
-          <Btn variant={r.live ? "soft" : "prim"}>{r.btn}</Btn>
-        </div>
-      ))}
+      <ConnectionRow logo="AL" color="#ffd400" fg="#0d1626" name="Alpaca" status="Connected · Paper trading" live>
+        <Btn variant="soft">Manage</Btn>
+      </ConnectionRow>
+      <ConnectionRow
+        logo="G"
+        color="#fff"
+        fg="#1a4b8f"
+        border
+        name="Google"
+        status={userData?.email ? `Linked · ${userData.email}` : "Linked"}
+        live
+      >
+        <Btn variant="soft">Manage</Btn>
+      </ConnectionRow>
+      <PlaidRow />
+      {/* When connected, manual portfolio entry is disabled — Plaid is the source of truth. */}
+      <p className="text-[11.5px] mt-3 leading-relaxed" style={{ color: "var(--color-muted)" }}>
+        Connecting a brokerage replaces your portfolio with the synced holdings and turns off
+        manual entry. Disconnecting keeps those holdings as editable manual positions.
+      </p>
     </div>
   );
 }

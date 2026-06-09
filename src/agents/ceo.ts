@@ -1,6 +1,6 @@
 import { anthropic, MODEL } from "@/lib/anthropic";
 import { generate } from "@/lib/llm";
-import { agentTools } from "./tools/index";
+import { allTools, scoutTool } from "./tools/index";
 import { runRiskAgent } from "./sub-agents/risk-agent";
 import { runNewsAgent } from "./sub-agents/news-agent";
 import { runMacroAgent } from "./sub-agents/macro-agent";
@@ -16,6 +16,7 @@ import { runGrahamAgent } from "./sub-agents/graham-agent";
 import { runAnalystAgent } from "./sub-agents/analyst-agent";
 import { runHypeAgent } from "./sub-agents/hype-agent";
 import { runFundamentalsAgent } from "./sub-agents/fundamentals-agent";
+import { runScoutAgent } from "./sub-agents/scout-agent";
 import { checkCache, saveCache, extractTickers, getTickerMemory, saveTickerMemory } from "@/lib/agentMemory";
 import { getUserPreference, buildStylePrompt, updateStyleFromConversation } from "@/lib/userPreference";
 import type { AgentEvent, AgentName } from "@/types/chat";
@@ -44,7 +45,7 @@ const AGENT_TIMEOUT_MS: Record<string, number> = {
   run_risk_agent:  120_000, // portfolio-wide beta/correlation analysis
 };
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) =>
@@ -53,7 +54,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
-const agentDispatch: Record<string, (input: unknown) => Promise<string>> = {
+/** The wall-clock cap for an agent — per-agent override, else deep/standard default. */
+export function agentTimeoutMs(name: string): number {
+  return (
+    AGENT_TIMEOUT_MS[name] ??
+    (DEEP_AGENTS.has(name) ? DEEP_AGENT_TIMEOUT_MS : STANDARD_TIMEOUT_MS)
+  );
+}
+
+export const agentDispatch: Record<string, (input: unknown) => Promise<string>> = {
   run_risk_agent: runRiskAgent,
   run_news_agent: runNewsAgent,
   run_macro_agent: runMacroAgent,
@@ -71,21 +80,145 @@ const agentDispatch: Record<string, (input: unknown) => Promise<string>> = {
   run_fundamentals_agent: runFundamentalsAgent,
 };
 
+/**
+ * Skeptic review → revision pass. A skeptic critiques the draft, then the model
+ * rewrites the full report to address it. Extracted from the CEO loop so the
+ * discovery synthesis pass reuses the same self-correction. Best-effort: on any
+ * failure the draft is returned unchanged.
+ */
+export async function critiqueAndRevise(params: {
+  draft: string;
+  draftAssistantBlocks: MessageParam["content"];
+  agentOutputs: Map<string, string>;
+  messages: MessageParam[];
+  systemPrompt: string;
+  maxTokens: number;
+  initialTruncated?: boolean;
+  emit: EventEmitter;
+}): Promise<{ finalResponse: string; truncated: boolean }> {
+  const { draft, draftAssistantBlocks, agentOutputs, messages, systemPrompt, maxTokens, emit } = params;
+  let finalResponse = draft;
+  let truncated = params.initialTruncated ?? false;
+
+  emit({ type: "skeptic_start" });
+
+  const agentSummaryLines = Array.from(agentOutputs.entries())
+    .map(([name, output]) => `### ${name}\n${output.slice(0, 800)}${output.length > 800 ? "…" : ""}`)
+    .join("\n\n");
+
+  let critique = "";
+  try {
+    critique = await generate({
+      agent: "skeptic",
+      maxTokens: 600,
+      prompt: `You are a skeptical financial analyst reviewing another analyst's research report. Your job is to identify weaknesses, flag overconfidence, and note any contradictions or missing context.
+
+## Report
+${draft.slice(0, 3000)}${draft.length > 3000 ? "\n[truncated]" : ""}
+
+## Sub-Agent Raw Outputs
+${agentSummaryLines || "No sub-agent data collected."}
+
+## Your Task
+Write a concise second-opinion critique (3–5 bullet points, max 150 words). Focus on:
+- Any claims that lack data support or are over-stated
+- **Data masking**: did the report make confident price-based calls (trim/hold, position sizing, cost-basis comparisons) despite a sub-agent reporting no live price data? Call this out explicitly.
+- Contradictions between sub-agents (e.g. bullish sentiment vs negative technicals)
+- Key risks or bearish factors the main report downplayed
+- Data gaps that would change the conclusion
+
+Be direct and constructive. Start with "**Skeptic Review:**"`,
+    });
+  } catch {
+    critique = "";
+  }
+
+  emit({ type: "skeptic_complete", critique });
+
+  if (critique) {
+    emit({ type: "ceo_compiling" });
+    try {
+      messages.push({ role: "assistant", content: draftAssistantBlocks });
+      messages.push({
+        role: "user",
+        content: `A skeptical reviewer critiqued your draft report. Output a COMPLETE revised report that fixes every valid point — it replaces the draft entirely. Do not mention the reviewer, this instruction, or that a revision happened.
+
+Apply these corrections:
+- Remove or explicitly caveat any specific figure (price, RSI, SMA, beta, weight, target) that no sub-agent actually reported, or that another agent flagged as unavailable. When agents disagree on whether data exists, state the disagreement and lower confidence — don't adopt the convenient number.
+- For every contradiction between agents, add an explicit "⚖️ Conflicting Signals" reconciliation: both sides + your net stance. Don't just pick the bullish read.
+- Any "portfolio loss in an X% drawdown" figure must use the Risk Agent's weighted portfolio beta and position weights — never a single holding's beta applied to the whole book. If weights are absent, give a range and say so.
+- Give material single-name risks (antitrust, litigation, regulation) a brief scenario with rough magnitude, not a one-liner.
+- End with a "🎯 Triggers & Guardrails" section: concrete rebalance thresholds, sell signals, and stop-loss / trim levels.
+
+Reviewer critique:
+${critique}`,
+      });
+
+      const revision = await anthropic.messages
+        .stream({
+          model: MODEL,
+          max_tokens: maxTokens,
+          system: [
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } } as any,
+          ],
+          // No tools on the revision pass — we want a written report, not more agent calls.
+          messages,
+        })
+        .finalMessage();
+
+      const revisedText = revision.content
+        .filter((b) => b.type === "text")
+        .map((b) => (b as { type: string; text: string }).text)
+        .join("\n\n");
+
+      if (revisedText.trim()) {
+        finalResponse = revisedText;
+        truncated = revision.stop_reason === "max_tokens";
+      }
+    } catch (e) {
+      // Revision is best-effort — keep the draft if it fails.
+      console.error("[revision pass error]", e);
+    }
+  }
+
+  return { finalResponse, truncated };
+}
+
+export interface CeoOptions {
+  deepResearch?: boolean;
+  conversationHistory?: { role: "user" | "assistant"; content: string }[];
+  userId?: string;
+  holdings?: { ticker: string; shares: number }[];
+  /** Discovery mode — force the scout as the first action. */
+  discover?: boolean;
+  /** Which discovery tier the scout should run (quick = narrative, deep = shortlist). */
+  tier?: "quick" | "deep";
+}
+
 export async function runCeoAgent(
   userPrompt: string,
   portfolioContext: string,
   emit: EventEmitter,
-  deepResearch = false,
-  conversationHistory: { role: "user" | "assistant"; content: string }[] = [],
-  userId?: string,
-  holdings: { ticker: string; shares: number }[] = []
+  opts: CeoOptions = {}
 ) {
+  const {
+    deepResearch = false,
+    conversationHistory = [],
+    userId,
+    holdings = [],
+    discover = false,
+    tier = "quick",
+  } = opts;
+  // Discovery is GENERIC — never feed the portfolio to the model (no "already in
+  // your portfolio" / cash-based picks). Held names are tagged client-side instead.
+  const portfolioForPrompt = discover ? "" : portfolioContext;
   const systemPrompt = `You are Lucra's CEO Research Agent — an expert AI financial analyst managing a team of specialized sub-agents. Your job is to:
 1. Understand what the user wants
 2. Deploy the right sub-agents to gather comprehensive data
 3. Synthesize their findings into clear, actionable investment insights
 
-${portfolioContext ? `## User's Portfolio\n${portfolioContext}` : "The user has no portfolio holdings yet."}
+${portfolioForPrompt ? `## User's Portfolio\n${portfolioForPrompt}` : "The user has no portfolio holdings yet."}
 
 ## Your Sub-Agent Team
 - **Risk Agent**: Portfolio concentration, beta, volatility analysis
@@ -112,6 +245,11 @@ ${portfolioContext ? `## User's Portfolio\n${portfolioContext}` : "The user has 
 - Always provide specific, actionable recommendations backed by the data
 - End with a clear "Summary & Recommendation" section
 - Note this is not financial advice
+
+## Discovery (finding new ideas)
+- If the user asks you to FIND / DISCOVER / SUGGEST stocks WITHOUT naming specific tickers (e.g. "what should I buy", "good energy names right now", "ideas for a growth portfolio"), call \`scout_universe\` with tier="quick" instead of the per-ticker analyst agents — it scans the whole S&P 500 — then write a narrative over its returned picks.
+- Only the explicit Discover mode uses tier="deep". Never pick tier="deep" on your own.
+- When the user names specific tickers to analyze, ignore the scout and use the normal crew.
 
 ## Data Quality Rules — NON-NEGOTIABLE
 - If the Technical Agent reports "DATA UNAVAILABLE" or "No data available" for a ticker, you MUST NOT make any trim/hold/buy calls that depend on current price for that ticker. Instead write: "⚠️ Technical data unavailable for [TICKER] — price-based calls withheld."
@@ -154,7 +292,8 @@ Use charts liberally:
   const mentionedTickers = [
     ...new Set([
       ...extractTickers(userPrompt),
-      ...extractTickers(portfolioContext),
+      // Discovery is generic — don't pull in (or persist memory for) portfolio names.
+      ...(discover ? [] : extractTickers(portfolioContext)),
     ]),
   ];
   const memoryBlock = await getTickerMemory(mentionedTickers);
@@ -171,9 +310,20 @@ You are running in Deep Research mode. This means:
 - Your final report should be 50% longer than normal, with additional sections on risks, catalysts, and alternative scenarios
 - Label your response with "🔬 Deep Research" at the top` : "";
 
+  const discoverAddendum = discover ? `
+
+## Discovery Mode — ACTIVE
+The user wants you to DISCOVER stocks, not analyze named tickers. Your FIRST and ONLY action:
+- Call \`scout_universe\` with tier="${tier}" and \`query\` set to the user's request.
+${tier === "quick"
+    ? '- When it returns, write the narrative + chart using ONLY the exact tickers scout_universe returned. You MUST NOT mention, recommend, rank, or chart ANY ticker that is not in the returned list — not even famous names like NVDA/MSFT/META. Do NOT reference the user\'s portfolio, holdings, or cash. Do NOT call any other tools.'
+    : '- When it returns, write ONE framing sentence — you may name 2–3 tickers but ONLY ones from the returned shortlist (never a ticker that isn\'t in it). Then STOP. The client runs the analyst crew. Do NOT reference the user\'s portfolio. Do NOT call any other tools.'}
+The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do not substitute your own ideas.` : "";
+
   const fullSystemPrompt = [
     systemPrompt,
     deepResearchAddendum,
+    discoverAddendum,
     memoryBlock,
     stylePrompt,
   ].filter(Boolean).join("\n\n");
@@ -213,7 +363,10 @@ You are running in Deep Research mode. This means:
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           { type: "text", text: fullSystemPrompt, cache_control: { type: "ephemeral" } } as any,
         ],
-        tools: agentTools,
+        // In Discover mode the CEO may ONLY call the scout — never the crew. This
+        // hard-stops the model from "validating" picks with DCF/hype agents (which
+        // made quick slow and crew-driven). The client runs the crew for deep.
+        tools: discover ? [scoutTool] : allTools,
         messages,
       })
       .finalMessage();
@@ -250,8 +403,10 @@ You are running in Deep Research mode. This means:
     // Extract all tool_use blocks and dispatch in parallel
     const toolUseBlocks = response.content.filter((b) => b.type === "tool_use");
 
-    // Emit starts for all agents in this batch
+    // Emit starts for all agents in this batch. The scout is orchestration, not a
+    // crew member — it emits its own discovery events, so don't show it as an agent.
     for (const block of toolUseBlocks) {
+      if (block.name === "scout_universe") continue;
       emit({ type: "agent_start", agent: block.name as AgentName });
     }
 
@@ -262,6 +417,18 @@ You are running in Deep Research mode. This means:
         }
         const agentName = block.name as AgentName;
         try {
+          // Discovery scout — runs its own LLM selection over the whole universe and
+          // emits its own discovery events. Bypass the crew cache + agentOutputs so
+          // the skeptic→revision tail (which only fires when crew agents produced
+          // output) stays OFF for quick discovery, keeping it instant.
+          if (block.name === "scout_universe") {
+            const scoutResult = await runScoutAgent(block.input, emit);
+            return {
+              type: "tool_result" as const,
+              tool_use_id: block.id,
+              content: scoutResult,
+            };
+          }
           // Risk agent gets real position sizes so weights/drawdown math is grounded.
           const handler =
             block.name === "run_risk_agent"
@@ -333,90 +500,19 @@ You are running in Deep Research mode. This means:
     // we finalize. The critique is still surfaced to the user for transparency,
     // but the report they read has already been corrected.
     const canRevise = draftAssistantBlocks !== null && agentOutputs.size > 0;
-    let critique = "";
-
     if (canRevise) {
-      emit({ type: "skeptic_start" });
-
-      const agentSummaryLines = Array.from(agentOutputs.entries())
-        .map(([name, output]) => `### ${name}\n${output.slice(0, 800)}${output.length > 800 ? "…" : ""}`)
-        .join("\n\n");
-
-      try {
-        critique = await generate({
-          agent: "skeptic",
-          maxTokens: 600,
-          prompt: `You are a skeptical financial analyst reviewing another analyst's research report. Your job is to identify weaknesses, flag overconfidence, and note any contradictions or missing context.
-
-## CEO Report
-${finalResponse.slice(0, 3000)}${finalResponse.length > 3000 ? "\n[truncated]" : ""}
-
-## Sub-Agent Raw Outputs
-${agentSummaryLines || "No sub-agent data collected."}
-
-## Your Task
-Write a concise second-opinion critique (3–5 bullet points, max 150 words). Focus on:
-- Any claims that lack data support or are over-stated
-- **Data masking**: did the report make confident price-based calls (trim/hold, position sizing, cost-basis comparisons) despite a sub-agent reporting no live price data? Call this out explicitly.
-- Contradictions between sub-agents (e.g. bullish sentiment vs negative technicals)
-- Key risks or bearish factors the main report downplayed
-- Data gaps that would change the conclusion
-
-Be direct and constructive. Start with "**Skeptic Review:**"`,
-        });
-      } catch {
-        critique = "";
-      }
-
-      emit({ type: "skeptic_complete", critique });
-
-      // ── Revision pass: CEO rewrites the full report to address the critique ──
-      if (critique && draftAssistantBlocks) {
-        emit({ type: "ceo_compiling" });
-        try {
-          messages.push({ role: "assistant", content: draftAssistantBlocks });
-          messages.push({
-            role: "user",
-            content: `A skeptical reviewer critiqued your draft report. Output a COMPLETE revised report that fixes every valid point — it replaces the draft entirely. Do not mention the reviewer, this instruction, or that a revision happened.
-
-Apply these corrections:
-- Remove or explicitly caveat any specific figure (price, RSI, SMA, beta, weight, target) that no sub-agent actually reported, or that another agent flagged as unavailable. When agents disagree on whether data exists, state the disagreement and lower confidence — don't adopt the convenient number.
-- For every contradiction between agents, add an explicit "⚖️ Conflicting Signals" reconciliation: both sides + your net stance. Don't just pick the bullish read.
-- Any "portfolio loss in an X% drawdown" figure must use the Risk Agent's weighted portfolio beta and position weights — never a single holding's beta applied to the whole book. If weights are absent, give a range and say so.
-- Give material single-name risks (antitrust, litigation, regulation) a brief scenario with rough magnitude, not a one-liner.
-- End with a "🎯 Triggers & Guardrails" section: concrete rebalance thresholds, sell signals, and stop-loss / trim levels.
-
-Reviewer critique:
-${critique}`,
-          });
-
-          const revision = await anthropic.messages
-            .stream({
-              model: MODEL,
-              max_tokens: SYNTH_MAX_TOKENS,
-              system: [
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                { type: "text", text: fullSystemPrompt, cache_control: { type: "ephemeral" } } as any,
-              ],
-              // No tools on the revision pass — we want a written report, not more agent calls.
-              messages,
-            })
-            .finalMessage();
-
-          const revisedText = revision.content
-            .filter((b) => b.type === "text")
-            .map((b) => (b as { type: string; text: string }).text)
-            .join("\n\n");
-
-          if (revisedText.trim()) {
-            finalResponse = revisedText;
-            truncated = revision.stop_reason === "max_tokens";
-          }
-        } catch (e) {
-          // Revision is best-effort — keep the draft if it fails.
-          console.error("[ceo] revision pass error:", e);
-        }
-      }
+      const revised = await critiqueAndRevise({
+        draft: finalResponse,
+        draftAssistantBlocks: draftAssistantBlocks!,
+        agentOutputs,
+        messages,
+        systemPrompt: fullSystemPrompt,
+        maxTokens: SYNTH_MAX_TOKENS,
+        initialTruncated: truncated,
+        emit,
+      });
+      finalResponse = revised.finalResponse;
+      truncated = revised.truncated;
     }
 
     if (truncated) {

@@ -6,6 +6,7 @@ import { useQuotes } from "@/hooks/useQuotes";
 import { useChatStore } from "@/stores/chatStore";
 import type { Holding, Quote } from "@/types/portfolio";
 import TickerSearch from "@/components/stock/TickerSearch";
+import ConnectBrokerageButton from "@/components/portfolio/ConnectBrokerageButton";
 
 function segColor(i: number) {
   return `oklch(${0.55 - i * 0.04} 0.135 ${252 - i * 14})`;
@@ -46,7 +47,20 @@ interface HoldingRow {
 
 export default function PortfolioPage() {
   const router = useRouter();
-  const { holdings, cashBalance, setCashBalance } = usePortfolio();
+  const { holdings, cashBalance, setCashBalance, refresh, plaidConnected, plaidInstitutions, syncPlaid } = usePortfolio();
+  const [syncing, setSyncing] = useState(false);
+  const institutionName = plaidInstitutions[0]?.name ?? null;
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      await syncPlaid();
+    } catch {
+      /* surfaced via SWR; keep the topbar quiet */
+    } finally {
+      setSyncing(false);
+    }
+  }
   const { quoteMap } = useQuotes(holdings.map((h) => h.ticker));
   const { setPendingMessage, reset } = useChatStore();
   const [askText, setAskText] = useState("");
@@ -134,26 +148,49 @@ export default function PortfolioPage() {
         </div>
         <div className="flex items-center" style={{ gap: 6, marginLeft: "auto" }}>
           <TickerSearch />
-          <button
-            onClick={startEditCash}
-            className="tbtn"
-            title="Update buying power"
-          >
-            {editingCash ? (
-              <input
-                ref={cashInputRef}
-                value={cashInput}
-                onChange={(e) => setCashInput(e.target.value)}
-                onBlur={commitCash}
-                onKeyDown={(e) => { if (e.key === "Enter") commitCash(); if (e.key === "Escape") setEditingCash(false); }}
-                className="w-24 bg-transparent border-b border-[var(--color-accent)] focus:outline-none text-right"
-                style={{ fontSize: 11 }}
-                placeholder="0.00"
-              />
-            ) : (
-              <span>{cashBalance > 0 ? `$${fmt(cashBalance, 0)} CASH` : "ADD CASH"}</span>
-            )}
-          </button>
+          {plaidConnected ? (
+            <>
+              {/* Synced book — cash is read-only, refresh re-pulls from the brokerage. */}
+              <span className="tbtn" style={{ cursor: "default", opacity: 0.85 }} title="Synced from your brokerage">
+                {cashBalance > 0 ? `$${fmt(cashBalance, 0)} CASH` : "—"}
+              </span>
+              <button
+                onClick={handleSync}
+                className="tbtn"
+                disabled={syncing}
+                title={`Synced via ${institutionName ?? "your brokerage"}${plaidInstitutions[0]?.lastSyncedAt ? ` · last ${new Date(plaidInstitutions[0].lastSyncedAt).toLocaleString()}` : ""}`}
+              >
+                <span className="inline-flex items-center" style={{ gap: 5 }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--color-bull)" }} />
+                  {syncing ? "SYNCING…" : `${institutionName ? institutionName.toUpperCase() : "SYNCED"} · REFRESH`}
+                </span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={startEditCash}
+                className="tbtn"
+                title="Update buying power"
+              >
+                {editingCash ? (
+                  <input
+                    ref={cashInputRef}
+                    value={cashInput}
+                    onChange={(e) => setCashInput(e.target.value)}
+                    onBlur={commitCash}
+                    onKeyDown={(e) => { if (e.key === "Enter") commitCash(); if (e.key === "Escape") setEditingCash(false); }}
+                    className="w-24 bg-transparent border-b border-[var(--color-accent)] focus:outline-none text-right"
+                    style={{ fontSize: 11 }}
+                    placeholder="0.00"
+                  />
+                ) : (
+                  <span>{cashBalance > 0 ? `$${fmt(cashBalance, 0)} CASH` : "ADD CASH"}</span>
+                )}
+              </button>
+              <ConnectBrokerageButton className="tbtn" onLinked={refresh} />
+            </>
+          )}
           <button
             className="tbtn on"
             onClick={() => { reset(); setPendingMessage("Give me a full portfolio analysis"); router.push("/chat"); }}
@@ -223,17 +260,17 @@ export default function PortfolioPage() {
               <p className="text-[12px] mt-1 text-[var(--color-muted)]">Invested</p>
             </div>
 
-            {/* Buying power */}
+            {/* Buying power — editable only when not synced from a brokerage */}
             <div
-              className="cursor-pointer"
-              onClick={startEditCash}
-              title="Click to update"
+              className={plaidConnected ? "" : "cursor-pointer"}
+              onClick={plaidConnected ? undefined : startEditCash}
+              title={plaidConnected ? "Synced from your brokerage" : "Click to update"}
             >
               <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)] mb-1.5">Buying Power</p>
               <p className="text-[19px] font-semibold tabular-nums text-[var(--color-text)]">
                 {cashBalance > 0 ? `$${fmt(cashBalance, 0)}` : "—"}
               </p>
-              <p className="text-[12px] mt-1 text-[var(--color-muted)]">Available cash</p>
+              <p className="text-[12px] mt-1 text-[var(--color-muted)]">{plaidConnected ? "Synced cash" : "Available cash"}</p>
             </div>
 
             {/* vs S&P 500 */}
@@ -275,8 +312,26 @@ export default function PortfolioPage() {
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {holdings.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-[var(--color-muted)] text-sm">
-            No holdings yet — add one from the sidebar
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
+            {plaidConnected ? (
+              <>
+                <p className="text-[var(--color-muted)] text-sm">
+                  Connected to {institutionName ?? "your brokerage"}, but no positions were found.
+                  <br />Refresh to re-pull, or confirm the account holds investments.
+                </p>
+                <button onClick={handleSync} className="tbtn on" disabled={syncing}>
+                  {syncing ? "SYNCING…" : "REFRESH"}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-[var(--color-muted)] text-sm">
+                  No holdings yet — connect a brokerage to import them automatically,
+                  <br />or add one manually from the sidebar.
+                </p>
+                <ConnectBrokerageButton className="tbtn on" onLinked={refresh} />
+              </>
+            )}
           </div>
         ) : (
           <div className="max-w-[1100px] mx-auto px-8 py-6 flex flex-col gap-6">

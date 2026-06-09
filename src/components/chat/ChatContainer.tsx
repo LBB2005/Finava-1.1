@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { authFetch } from "@/lib/authFetch";
 import { useChatStore } from "@/stores/chatStore";
 import { usePortfolio } from "@/hooks/usePortfolio";
@@ -9,6 +9,15 @@ import MessageList from "./MessageList";
 import ChatInput from "./ChatInput";
 import type { ChatMessage, AgentEvent, AgentStep } from "@/types/chat";
 import type { Quote } from "@/types/portfolio";
+import {
+  WAVE_SIZE,
+  VALUATION_PER_WAVE,
+  emptyEvidence,
+  type ScoutPick,
+  type DiscoverEvidence,
+  type WaveEvidence,
+  type DiscoverMessageContent,
+} from "@/lib/scoutTypes";
 
 function buildPortfolioContext(
   holdings: ReturnType<typeof usePortfolio>["holdings"],
@@ -66,6 +75,7 @@ export default function ChatContainer() {
     setCeoThinking,
     setConversationId,
     setStreamingConversationId,
+    setDiscoverProgress,
     pendingMessage,
     setPendingMessage,
     setPendingCritique,
@@ -284,6 +294,204 @@ export default function ChatContainer() {
     }
   }
 
+  // ── Discovery funnel ────────────────────────────────────────────────────────
+
+  /** POST to /api/agent and pump its SSE events. Soft-aborts after timeoutMs
+   *  (proceed with partial evidence) rather than hanging a wave forever. */
+  async function postAgentStream(
+    body: object,
+    onEvent: (e: AgentEvent) => void,
+    timeoutMs?: number
+  ) {
+    const controller = new AbortController();
+    const timer = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      const res = await authFetch("/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) throw new Error("Discovery stream failed");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      const handle = (line: string) => {
+        if (!line.startsWith("data: ")) return;
+        try { onEvent(JSON.parse(line.slice(6)) as AgentEvent); } catch { /* ignore */ }
+      };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const l of lines) handle(l);
+      }
+      if (buf) handle(buf);
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") throw e;
+      // Soft abort — caller proceeds with whatever evidence arrived.
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  /** Append + persist one discover message (JSON-in-content, mode "discover"). */
+  async function pushDiscover(content: string, convId: string, extra?: Partial<ChatMessage>) {
+    const msg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content,
+      mode: "discover",
+      createdAt: new Date().toISOString(),
+      ...extra,
+    };
+    if (useChatStore.getState().conversationId === convId) addMessage(msg);
+    await saveMessage(convId, "assistant", content).catch((e) =>
+      console.warn("[discover] saveMessage failed:", e)
+    );
+  }
+
+  /**
+   * The client-sequenced discovery funnel.
+   *  - quick: one scout POST → 5 picks + streamed narrative (no crew).
+   *  - deep:  scout POST → ~20-name shortlist, then one POST per 5-name wave
+   *           (deterministic crew), then a final synthesis POST. Each wave is
+   *           persisted so a refresh can resume (see the resume effect).
+   * `seed` re-enters the deep loop mid-way (resume) without re-scouting.
+   */
+  async function runDiscoverMode(
+    text: string,
+    portfolioContext: string,
+    convId: string,
+    tier: "quick" | "deep",
+    seed?: { picks: ScoutPick[]; query: string; evidence: DiscoverEvidence; startWave: number }
+  ) {
+    setAgentSteps([]);
+    setCeoThinking("");
+    try {
+      let picks: ScoutPick[] = seed?.picks ?? [];
+      let query = seed?.query ?? text;
+      const evidence: DiscoverEvidence = seed?.evidence ?? emptyEvidence();
+
+      // Phase 1 — scout (skipped on resume).
+      if (!seed) {
+        clearStreamingContent();
+        setCeoThinking("Scanning all 500 S&P names…");
+        let framing = "";
+        let clarify: { question: string; chips: string[] } | null = null;
+        let scoutPicks: ScoutPick[] = [];
+        await postAgentStream(
+          { discover: true, tier, userPrompt: text, portfolioContext },
+          (event) => {
+            handleAgentEvent(event);
+            if (event.type === "scout_complete" || event.type === "deep_shortlist") {
+              scoutPicks = event.picks;
+              query = event.query;
+            }
+            if (event.type === "discover_clarify") clarify = { question: event.question, chips: event.chips };
+            if (event.type === "final_response") framing = event.content;
+          }
+        );
+
+        if (clarify) {
+          const c = clarify as { question: string; chips: string[] };
+          await pushDiscover(
+            JSON.stringify({ kind: "final", report: framing || c.question } as DiscoverMessageContent),
+            convId,
+            { followups: c.chips }
+          );
+          return;
+        }
+        picks = scoutPicks;
+        if (!picks.length) {
+          if (framing) await pushDiscover(JSON.stringify({ kind: "final", report: framing } as DiscoverMessageContent), convId);
+          return;
+        }
+        await pushDiscover(
+          JSON.stringify({ kind: "shortlist", tier, query, framing, picks } as DiscoverMessageContent),
+          convId,
+          { scoutPicks: picks, tier }
+        );
+
+        // Quick stops here — the narrative + a "Go deeper" button are enough.
+        if (tier === "quick") return;
+      }
+
+      // Phase 2 — deterministic crew waves (deep only).
+      const totalWaves = Math.ceil(picks.length / WAVE_SIZE);
+      const startWave = seed?.startWave ?? 0;
+      for (let w = startWave; w < totalWaves; w++) {
+        const wavePicks = picks.slice(w * WAVE_SIZE, (w + 1) * WAVE_SIZE);
+        const tickers = wavePicks.map((p) => p.ticker);
+        const valuationTickers = wavePicks.slice(0, VALUATION_PER_WAVE).map((p) => p.ticker);
+        const sectors = [...new Set(wavePicks.map((p) => p.sector))];
+        setDiscoverProgress({ current: w + 1, total: totalWaves });
+        clearStreamingContent();
+        let waveEvidence: WaveEvidence | null = null;
+        await postAgentStream(
+          { wave: { tickers, sectors, waveIndex: w, totalWaves, valuationTickers } },
+          (event) => {
+            handleAgentEvent(event);
+            if (event.type === "wave_result") waveEvidence = event.wave;
+          },
+          240_000
+        );
+        if (waveEvidence) {
+          const we = waveEvidence as WaveEvidence;
+          evidence.waves.push(we);
+          for (const [t, byAgent] of Object.entries(we.valuation)) {
+            evidence.valuation[t] = { ...(evidence.valuation[t] ?? {}), ...byAgent };
+          }
+          await pushDiscover(
+            JSON.stringify({ kind: "wave", wave: we, totalWaves } as DiscoverMessageContent),
+            convId
+          );
+        }
+      }
+      setDiscoverProgress(null);
+
+      // Phase 3 — single synthesis pass (query + evidence re-rank).
+      clearStreamingContent();
+      setCeoThinking("Ranking the shortlist on the crew's evidence…");
+      let report = "";
+      await postAgentStream(
+        { wave: { synthesize: true, query, picks, evidence } },
+        (event) => {
+          handleAgentEvent(event);
+          if (event.type === "final_response") report = event.content;
+        }
+      );
+      if (report) await pushDiscover(JSON.stringify({ kind: "final", report } as DiscoverMessageContent), convId);
+    } finally {
+      setStreaming(false);
+      clearStreamingContent();
+      setStreamingConversationId(null);
+      setDiscoverProgress(null);
+    }
+  }
+
+  /** "Go deeper" — escalate a quick result to the full deep funnel on the same query. */
+  const handleDiscoverDeeper = useCallback(async (query: string) => {
+    if (useChatStore.getState().isStreaming) return;
+    setStreaming(true);
+    clearStreamingContent();
+    try {
+      const convId = await ensureConversation();
+      setStreamingConversationId(convId);
+      const markovSignals = holdings.length > 0 ? await fetchMarkovSignals(holdings.map((h) => h.ticker)) : {};
+      const portfolioContext = buildPortfolioContext(holdings, cashBalance, quoteMap, markovSignals);
+      await runDiscoverMode(query, portfolioContext, convId, "deep");
+    } catch (err) {
+      console.error("[discover deeper] error:", err);
+      setStreaming(false);
+      clearStreamingContent();
+      setStreamingConversationId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holdings, cashBalance, quoteMap]);
+
   function handleAgentEvent(event: AgentEvent) {
     switch (event.type) {
       case "agent_start": {
@@ -323,6 +531,13 @@ export default function ChatContainer() {
         break;
       case "followups":
         setPendingFollowups(event.questions);
+        break;
+      // ── Discovery funnel (data captured in runDiscoverMode; these drive UI feedback) ──
+      case "deep_shortlist":
+        setCeoThinking("Shortlist ready — running the analyst crew…");
+        break;
+      case "wave_start":
+        setCeoThinking(`Analyzing ${event.tickers.join(", ")} (wave ${event.waveIndex + 1} of ${event.totalWaves})…`);
         break;
       case "error":
         console.error("[agent error event]", event.message);
@@ -372,6 +587,8 @@ export default function ChatContainer() {
           await runBacktest(text, convId);
         } else if (mode === "simple") {
           await runSimpleChat(text, portfolioContext, convId);
+        } else if (mode === "discover") {
+          await runDiscoverMode(text, portfolioContext, convId, "quick");
         } else if (mode === "deep_research") {
           await runAgentMode(text, portfolioContext, convId, true, agentHistory);
         } else {
@@ -396,6 +613,75 @@ export default function ChatContainer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingMessage]);
 
+  // ── Resume an interrupted deep discovery run ────────────────────────────────
+  // Wave messages persist their evidence in content, so on reload we reconstruct
+  // the accumulator + remaining waves from the saved messages (no extra schema).
+  const resumedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (isStreaming || !conversationId) return;
+    const discoverMsgs = messages.filter((m) => m.mode === "discover");
+    if (!discoverMsgs.length) return;
+
+    let last: DiscoverMessageContent | null = null;
+    try { last = JSON.parse(discoverMsgs[discoverMsgs.length - 1].content) as DiscoverMessageContent; } catch { return; }
+    if (!last) return;
+    // Complete (final), a quick result, or a clarify prompt → nothing to resume.
+    if (last.kind === "final") return;
+    if (last.kind === "shortlist" && last.tier === "quick") return;
+
+    // Find the deep shortlist this run started from.
+    let shortlistIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].mode !== "discover") continue;
+      try {
+        const c = JSON.parse(messages[i].content) as DiscoverMessageContent;
+        if (c.kind === "shortlist" && c.tier === "deep") { shortlistIdx = i; break; }
+      } catch { /* ignore */ }
+    }
+    if (shortlistIdx < 0) return;
+
+    let picks: ScoutPick[] = [];
+    let query = "";
+    try {
+      const c = JSON.parse(messages[shortlistIdx].content) as DiscoverMessageContent;
+      if (c.kind === "shortlist") { picks = c.picks; query = c.query; }
+    } catch { return; }
+    if (!picks.length) return;
+
+    const evidence = emptyEvidence();
+    let doneWaves = 0;
+    for (let i = shortlistIdx + 1; i < messages.length; i++) {
+      if (messages[i].mode !== "discover") continue;
+      try {
+        const c = JSON.parse(messages[i].content) as DiscoverMessageContent;
+        if (c.kind === "wave") {
+          evidence.waves.push(c.wave);
+          for (const [t, b] of Object.entries(c.wave.valuation)) {
+            evidence.valuation[t] = { ...(evidence.valuation[t] ?? {}), ...b };
+          }
+          doneWaves = Math.max(doneWaves, c.wave.waveIndex + 1);
+        }
+      } catch { /* ignore */ }
+    }
+
+    const key = `${conversationId}:${messages[shortlistIdx].id}:${doneWaves}`;
+    if (resumedRef.current.has(key)) return;
+    resumedRef.current.add(key);
+
+    (async () => {
+      setStreaming(true);
+      setStreamingConversationId(conversationId);
+      try {
+        await runDiscoverMode(query, "", conversationId, "deep", { picks, query, evidence, startWave: doneWaves });
+      } catch (e) {
+        console.error("[discover resume] error:", e);
+        setStreaming(false);
+        setStreamingConversationId(null);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, conversationId, isStreaming]);
+
   // suppress unused import warning
   void setMessages;
 
@@ -409,6 +695,7 @@ export default function ChatContainer() {
         streamingContent={streamingContent}
         mode={mode}
         onSuggestion={handleSend}
+        onDiscoverDeeper={handleDiscoverDeeper}
         agentSteps={agentSteps}
         ceoThinking={ceoThinking}
       />

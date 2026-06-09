@@ -1,4 +1,6 @@
-export type ChatMode = "simple" | "agent" | "deep_research" | "backtest";
+import type { ScoutPick, DiscoverTier, WaveEvidence } from "@/lib/scoutTypes";
+
+export type ChatMode = "simple" | "agent" | "deep_research" | "backtest" | "discover";
 
 export { AGENT_COUNT } from "@/agents/tools/index";
 
@@ -20,6 +22,10 @@ export interface ChatMessage {
   agentTrace?: AgentStep[];
   critique?: string;
   followups?: string[];
+  /** Discovery: the scout's picks, kept so the "Go deeper" button can re-seed a deep run. */
+  scoutPicks?: ScoutPick[];
+  /** Discovery: which tier produced this message. */
+  tier?: DiscoverTier;
 }
 
 export type AgentName =
@@ -79,5 +85,12 @@ export type AgentEvent =
   | { type: "skeptic_complete"; critique: string }
   | { type: "followups"; questions: string[] }
   | { type: "text_delta"; content: string }
+  // ── Discovery funnel ──
+  | { type: "discover_clarify"; question: string; chips: string[] }
+  | { type: "scout_complete"; tier: DiscoverTier; query: string; interpretation: string; picks: ScoutPick[] }
+  | { type: "deep_shortlist"; query: string; interpretation: string; picks: ScoutPick[] }
+  | { type: "wave_start"; waveIndex: number; totalWaves: number; tickers: string[] }
+  | { type: "wave_result"; wave: WaveEvidence; totalWaves: number }
+  | { type: "discover_done" }
   | { type: "done" }
   | { type: "error"; message: string };

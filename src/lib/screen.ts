@@ -24,6 +24,9 @@ export interface ScreenFilter {
   sectors?: string[];
   maxPe?: number;
   minPe?: number;
+  /** Per-share price bounds (e.g. maxPrice 50 = "under $50 a share"). */
+  maxPrice?: number;
+  minPrice?: number;
   /** Absolute USD market-cap floor (e.g. 1e10 = $10B). */
   minMarketCap?: number;
   maxMarketCap?: number;
@@ -70,6 +73,9 @@ export function applyScreen(universe: Stock[], filter: ScreenFilter): RankedStoc
     const pe = s.pe;
     if (filter.maxPe != null && (pe == null || pe <= 0 || pe > filter.maxPe)) return false;
     if (filter.minPe != null && (pe == null || pe < filter.minPe)) return false;
+
+    if (filter.maxPrice != null && !(s.price > 0 && s.price <= filter.maxPrice)) return false;
+    if (filter.minPrice != null && !(s.price >= filter.minPrice)) return false;
 
     const cap = s.marketCap;
     if (filter.minMarketCap != null && (cap == null || cap < filter.minMarketCap)) return false;
@@ -125,6 +131,8 @@ export function coerceFilter(raw: unknown): ScreenFilter {
   }
   out.maxPe = numOrU(o.maxPe);
   out.minPe = numOrU(o.minPe);
+  out.maxPrice = numOrU(o.maxPrice);
+  out.minPrice = numOrU(o.minPrice);
   out.minMarketCap = numOrU(o.minMarketCap);
   out.maxMarketCap = numOrU(o.maxMarketCap);
   out.minChg = numOrU(o.minChg);

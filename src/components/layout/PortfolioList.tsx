@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default function PortfolioList({ compact = false }: Props) {
-  const { holdings, isLoading, removeHolding } = usePortfolio();
+  const { holdings, isLoading, removeHolding, plaidConnected } = usePortfolio();
   const tickers = holdings.map((h) => h.ticker);
   const { quoteMap } = useQuotes(tickers);
 
@@ -45,6 +45,7 @@ export default function PortfolioList({ compact = false }: Props) {
               portfolioPct={pct}
               onRemove={removeHolding}
               compact={compact}
+              readOnly={plaidConnected}
             />
           );
         })}

@@ -2,6 +2,13 @@
 import { useRef, useEffect, useState, useCallback, type KeyboardEvent } from "react";
 import type { ChatMode } from "@/types/chat";
 import { AGENT_COUNT, PROMPT_TEMPLATES } from "@/types/chat";
+import { useWatchlists } from "@/hooks/useWatchlists";
+
+interface WatchlistRef {
+  id: string;
+  name: string;
+  tickers: string[];
+}
 
 export interface Attachment {
   name: string;
@@ -25,6 +32,17 @@ const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: 
     icon: (
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
         <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+      </svg>
+    ),
+  },
+  discover: {
+    label: "Discover",
+    pill: "Discover",
+    description: "Scan all 500 S&P names for ideas",
+    color: "var(--color-discover)",
+    icon: (
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="9" /><polygon points="16 8 10.5 10.5 8 16 13.5 13.5 16 8" />
       </svg>
     ),
   },
@@ -64,7 +82,7 @@ const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: 
   },
 };
 
-const MODE_ORDER: ChatMode[] = ["agent", "deep_research", "backtest", "simple"];
+const MODE_ORDER: ChatMode[] = ["agent", "discover", "deep_research", "backtest", "simple"];
 
 export default function ChatInput({ onSend, disabled, mode, onModeChange }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -77,9 +95,12 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
   const [modeOpen, setModeOpen] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [tickers, setTickers] = useState<string[]>([]);
+  const [watchlistRefs, setWatchlistRefs] = useState<WatchlistRef[]>([]);
   const [tickerInput, setTickerInput] = useState("");
   const [hasText, setHasText] = useState(false);
   const [launching, setLaunching] = useState(false);
+
+  const { watchlists } = useWatchlists();
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
@@ -121,13 +142,19 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
     setLaunching(true);
     setTimeout(() => setLaunching(false), 360);
     const tickerPrefix = tickers.length > 0 ? `[Focus: ${tickers.join(", ")}] ` : "";
+    const watchlistPrefix = watchlistRefs.length > 0
+      ? watchlistRefs
+          .map((w) => `[Watchlist "${w.name}": ${w.tickers.length > 0 ? w.tickers.join(", ") : "empty"}]`)
+          .join(" ") + " "
+      : "";
     const attachSuffix = attachments.length > 0
       ? `\n\n[Attached files: ${attachments.map((a) => a.name).join(", ")}]` : "";
-    onSend(tickerPrefix + val + attachSuffix, attachments.length > 0 ? attachments : undefined);
+    onSend(watchlistPrefix + tickerPrefix + val + attachSuffix, attachments.length > 0 ? attachments : undefined);
     if (textareaRef.current) { textareaRef.current.value = ""; textareaRef.current.style.height = "auto"; }
     setHasText(false);
     setAttachments([]);
     setTickers([]);
+    setWatchlistRefs([]);
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -151,6 +178,14 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
     setTickerInput("");
   }
 
+  function toggleWatchlist(w: WatchlistRef) {
+    setWatchlistRefs((prev) =>
+      prev.some((x) => x.id === w.id)
+        ? prev.filter((x) => x.id !== w.id)
+        : [...prev, { id: w.id, name: w.name, tickers: w.tickers }]
+    );
+  }
+
   const applyTemplate = useCallback((template: string) => {
     if (textareaRef.current) { textareaRef.current.value = template; textareaRef.current.focus(); resize(); }
     setHasText(!!template.trim());
@@ -162,11 +197,13 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
   const placeholder =
     mode === "deep_research" ? "Deep research — ask anything…"
     : mode === "agent" ? "Ask a research question…"
+    : mode === "discover" ? "Describe the kind of stocks to find…"
     : mode === "backtest" ? "Describe a strategy to backtest…"
     : "Ask about a stock or your portfolio…";
 
   const sendBgColor =
     mode === "deep_research" ? "var(--color-deep-research)"
+    : mode === "discover" ? "var(--color-discover)"
     : mode === "backtest" ? "var(--color-backtest)"
     : "var(--color-accent)";
 
@@ -179,8 +216,20 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
     >
       <div className="mx-auto max-w-[720px]">
         {/* Chips row */}
-        {(attachments.length > 0 || tickers.length > 0) && (
+        {(attachments.length > 0 || tickers.length > 0 || watchlistRefs.length > 0) && (
           <div className="flex flex-wrap gap-1.5 mb-2 px-1">
+            {watchlistRefs.map((w) => (
+              <span key={w.id} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
+                  <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                </svg>
+                {w.name}
+                <span style={{ opacity: 0.6 }}>·{w.tickers.length}</span>
+                <button onClick={() => toggleWatchlist(w)} className="hover:opacity-60">×</button>
+              </span>
+            ))}
             {tickers.map((t) => (
               <span key={t} className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md"
                 style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}>
@@ -354,6 +403,39 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
                     style={{ background: "var(--color-accent)", color: "white" }}>Add</button>
                 </div>
               </div>
+
+              {/* WATCHLISTS */}
+              {watchlists.length > 0 && (
+                <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--color-border)" }}>
+                  <p className="eyebrow-label mb-2" style={{ color: "var(--color-muted)" }}>Reference Watchlist</p>
+                  <div className="flex flex-col gap-0.5 max-h-[148px] overflow-y-auto">
+                    {watchlists.map((w) => {
+                      const selected = watchlistRefs.some((x) => x.id === w.id);
+                      return (
+                        <button key={w.id} onClick={() => toggleWatchlist(w)}
+                          className="template-btn w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[7px] text-left transition-colors duration-100"
+                          style={selected ? { background: "var(--color-accent-light)" } : undefined}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                            style={{ color: selected ? "var(--color-accent)" : "var(--color-muted)", flexShrink: 0 }}>
+                            <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
+                            <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                          </svg>
+                          <span className="flex-1 min-w-0 truncate text-[12.5px]"
+                            style={{ color: selected ? "var(--color-accent)" : "var(--color-text-secondary)", fontWeight: selected ? 600 : 400 }}>
+                            {w.name}
+                          </span>
+                          <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>{w.tickers.length}</span>
+                          {selected && (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-accent)", flexShrink: 0 }}>
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* TEMPLATES */}
               <div className="px-4 pt-2.5 pb-3">

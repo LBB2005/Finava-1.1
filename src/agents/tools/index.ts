@@ -201,3 +201,29 @@ export const agentTools: Anthropic.Tool[] = [
 ];
 
 export const AGENT_COUNT = agentTools.length;
+
+// Discovery orchestration tool — scans the whole universe and hands the CEO a
+// shortlist. It is NOT a specialist crew member, so it stays out of `agentTools`
+// (AGENT_COUNT, and the "N-agent system" UI, are unaffected). The CEO stream is
+// given `allTools` so the model can actually call it.
+export const scoutTool: Anthropic.Tool = {
+  name: "scout_universe",
+  description:
+    "Scans the ENTIRE S&P 500 and returns a ranked shortlist of stocks that fit a discovery request. Use this — NOT the per-ticker analyst agents — whenever the user wants to FIND / DISCOVER / SUGGEST stocks rather than analyze named tickers (e.g. 'what should I buy', 'find me cheap energy names', 'best momentum stocks right now', 'ideas for a growth portfolio'). tier:'quick' returns ~5 picks for a fast narrative; tier:'deep' returns ~20 for a full crew deep-dive. Do NOT use it when the user named specific tickers to analyze.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      query: { type: "string", description: "The user's discovery request, verbatim or lightly cleaned." },
+      tier: {
+        type: "string",
+        enum: ["quick", "deep"],
+        description: "quick = ~5 picks + an instant narrative; deep = ~20 picks handed to the client for a crew deep-dive.",
+      },
+      sector: { type: "string", description: "Optional GICS sector to constrain the scan to." },
+      limit: { type: "number", description: "Optional override for how many names to return." },
+    },
+    required: ["query", "tier"],
+  },
+};
+
+export const allTools: Anthropic.Tool[] = [...agentTools, scoutTool];

@@ -14,6 +14,10 @@ interface ChatState {
   // ID of the conversation whose stream is currently running (survives navigation)
   streamingConversationId: string | null;
 
+  // Discovery funnel wave progress (drives the "wave X of N" indicator).
+  discoverProgress: { current: number; total: number } | null;
+  setDiscoverProgress: (p: { current: number; total: number } | null) => void;
+
   pendingMessage: string;
   pendingFollowups: string[];
   setPendingMessage: (msg: string) => void;
@@ -35,6 +39,8 @@ interface ChatState {
 }
 
 export const useChatStore = create<ChatState>((set) => ({
+  discoverProgress: null,
+  setDiscoverProgress: (p) => set({ discoverProgress: p }),
   pendingMessage: "",
   pendingFollowups: [],
   pendingCritique: "",
@@ -78,5 +84,6 @@ export const useChatStore = create<ChatState>((set) => ({
       ceoThinking: "",
       pendingCritique: "",
       pendingFollowups: [],
+      discoverProgress: null,
     }),
 }));

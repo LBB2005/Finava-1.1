@@ -205,7 +205,7 @@ function PortfolioNavItem({
 }) {
   const [open, setOpen] = useState(true);
   const router = useRouter();
-  const { holdings } = usePortfolio();
+  const { holdings, plaidConnected } = usePortfolio();
   const { quoteMap } = useQuotes(holdings.map((h) => h.ticker));
 
   const totalValue = holdings.reduce((sum, h) => {
@@ -274,15 +274,18 @@ function PortfolioNavItem({
               >
                 View full portfolio →
               </Link>
-              <button
-                onClick={onAddClick}
-                title="Add holding"
-                className="w-[20px] h-[20px] flex items-center justify-center rounded text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors duration-150"
-              >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-              </button>
+              {/* Manual add is hidden when a brokerage is linked — Plaid is the source of truth. */}
+              {!plaidConnected && (
+                <button
+                  onClick={onAddClick}
+                  title="Add holding"
+                  className="w-[20px] h-[20px] flex items-center justify-center rounded text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors duration-150"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         </Collapsible>

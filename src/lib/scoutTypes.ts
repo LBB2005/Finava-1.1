@@ -38,8 +38,31 @@ export interface ScoutResult {
   picks: ScoutPick[];
 }
 
-/** Per-ticker crew evidence: ticker → (agent name → its summary string). */
-export type DiscoverEvidence = Record<string, Record<string, string>>;
+/**
+ * One wave's crew evidence. Batch agents (risk/news/technical/…) each return a
+ * single output covering all of the wave's tickers → stored once under `batch`.
+ * Valuation agents (dcf/graham/…) are single-name → stored per ticker.
+ */
+export interface WaveEvidence {
+  waveIndex: number;
+  tickers: string[];
+  valuationTickers: string[];
+  /** Batch-agent outputs covering this wave: agentName → output (may be an error string). */
+  batch: Record<string, string>;
+  /** Per-ticker single-name valuation: ticker → agentName → output. */
+  valuation: Record<string, Record<string, string>>;
+}
+
+/** Accumulated evidence across all waves, handed to the synthesis pass. */
+export interface DiscoverEvidence {
+  waves: WaveEvidence[];
+  /** Merged per-ticker valuation across waves (convenience for synthesis). */
+  valuation: Record<string, Record<string, string>>;
+}
+
+export function emptyEvidence(): DiscoverEvidence {
+  return { waves: [], valuation: {} };
+}
 
 /** Body the client POSTs to run one deterministic crew wave. */
 export interface WaveRequest {
@@ -65,14 +88,7 @@ export interface SynthesizeRequest {
  */
 export type DiscoverMessageContent =
   | { kind: "shortlist"; tier: DiscoverTier; query: string; framing?: string; picks: ScoutPick[] }
-  | {
-      kind: "wave";
-      waveIndex: number;
-      totalWaves: number;
-      tickers: string[];
-      valuationTickers: string[];
-      evidence: DiscoverEvidence;
-    }
+  | { kind: "wave"; wave: WaveEvidence; totalWaves: number }
   | { kind: "final"; report: string };
 
 /** Chunk the shortlist into waves of ≤5 (the news-agent hard cap). */

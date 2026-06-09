@@ -401,6 +401,7 @@ interface Props {
   streamingContent: string;
   mode: ChatMode;
   onSuggestion?: (text: string) => void;
+  onDiscoverDeeper?: (query: string) => void;
   agentSteps?: AgentStep[];
   ceoThinking?: string;
 }
@@ -411,6 +412,7 @@ export default function MessageList({
   streamingContent,
   mode,
   onSuggestion,
+  onDiscoverDeeper,
   agentSteps = [],
   ceoThinking,
 }: Props) {
@@ -435,7 +437,7 @@ export default function MessageList({
     <div className="flex-1 overflow-y-auto">
       <div className="mx-auto max-w-[720px] px-4 py-8 flex flex-col gap-7">
         {messages.map((msg) => (
-          <Message key={msg.id} message={msg} onSuggestion={onSuggestion} />
+          <Message key={msg.id} message={msg} onSuggestion={onSuggestion} onDiscoverDeeper={onDiscoverDeeper} />
         ))}
 
         {/* Agent activity panel */}
@@ -458,6 +460,11 @@ export default function MessageList({
         {/* Simple mode waiting — Calm Orb thinking indicator */}
         {mode === "simple" && isStreaming && !streamingContent && (
           <TypingIndicator label="Thinking it through" />
+        )}
+
+        {/* Discover mode waiting — scanning / wave progress */}
+        {mode === "discover" && isStreaming && !streamingContent && (
+          <TypingIndicator label={ceoThinking || "Scanning the S&P 500…"} />
         )}
 
         <div ref={bottomRef} />

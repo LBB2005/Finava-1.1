@@ -77,6 +77,7 @@ const ROUTED_MODELS: Record<AgentKey, string> = {
   dcf: SONNET,
   compareVerdict: SONNET,
   themesGenerate: SONNET,
+  scoutSelect: SONNET,
   graham: GEMINI_FLASH,
   comparables: GEMINI_FLASH,
   competitor: GEMINI_FLASH,

@@ -3,22 +3,26 @@ import useSWR from "swr";
 import type { Holding } from "@/types/portfolio";
 import { authFetch, authFetcher } from "@/lib/authFetch";
 import { useAuth } from "@/context/AuthContext";
+import { usePlaidStatus } from "@/hooks/usePlaidStatus";
 import { DEV_HOLDINGS, DEV_CASH } from "@/lib/devPortfolio";
 
 export function usePortfolio() {
-  // The dev auth bypass user has no Firebase token, so the Firestore-backed
-  // portfolio API returns 401. Serve a mock book instead of fetching.
+  // Under the dev auth bypass the "dev-bypass" sentinel still authenticates
+  // server-side (requireAuth maps it to uid "dev-user" outside production), so
+  // we CAN read the real Firestore book. We fetch it and fall back to the seeded
+  // mock only when that book is empty — this keeps the default design-time DX
+  // (mock shows) while letting Plaid-synced holdings appear once imported.
   const { devBypass } = useAuth();
-  const isDevMock = devBypass;
+  const { plaidConnected, plaidInstitutions, mutatePlaidStatus } = usePlaidStatus();
 
   const { data, error, isLoading, mutate } = useSWR<Holding[]>(
-    isDevMock ? null : "/api/portfolio",
+    "/api/portfolio",
     authFetcher,
     { revalidateOnFocus: false }
   );
 
   const { data: settingsData, mutate: mutateSettings } = useSWR<{ cashBalance: number }>(
-    isDevMock ? null : "/api/portfolio/settings",
+    "/api/portfolio/settings",
     authFetcher,
     { revalidateOnFocus: false }
   );
@@ -58,15 +62,45 @@ export function usePortfolio() {
     return data;
   }
 
+  /** Revalidate holdings, cash, and connection status — e.g. after a Plaid sync. */
+  async function refresh() {
+    await Promise.all([mutate(), mutateSettings(), mutatePlaidStatus()]);
+  }
+
+  /** Re-pull the linked brokerage(s) and rebuild the book. */
+  async function syncPlaid() {
+    const res = await authFetch("/api/plaid/sync", { method: "POST" });
+    if (!res.ok) throw new Error("Failed to sync");
+    await refresh();
+  }
+
+  /** Disconnect Plaid — keeps holdings but converts them to editable manual entries. */
+  async function disconnectPlaid() {
+    const res = await authFetch("/api/plaid/disconnect", { method: "POST" });
+    if (!res.ok) throw new Error("Failed to disconnect");
+    await refresh();
+  }
+
+  const realHoldings = Array.isArray(data) ? data : [];
+  const useMockHoldings = devBypass && realHoldings.length === 0;
+
   return {
-    holdings: isDevMock ? DEV_HOLDINGS : (Array.isArray(data) ? data : []),
-    cashBalance: isDevMock ? DEV_CASH : (settingsData?.cashBalance ?? 0),
+    holdings: useMockHoldings ? DEV_HOLDINGS : realHoldings,
+    cashBalance: useMockHoldings && settingsData?.cashBalance == null
+      ? DEV_CASH
+      : (settingsData?.cashBalance ?? 0),
     error,
     isLoading,
     mutate,
+    refresh,
     addHolding,
     removeHolding,
     uploadCsv,
     setCashBalance,
+    // Plaid
+    plaidConnected,
+    plaidInstitutions,
+    syncPlaid,
+    disconnectPlaid,
   };
 }

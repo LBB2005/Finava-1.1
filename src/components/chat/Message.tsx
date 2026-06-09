@@ -29,6 +29,8 @@ import { AGENT_LABELS } from "@/types/chat";
 import type { ChatMessage, AgentStep } from "@/types/chat";
 import BacktestResult from "./BacktestResult";
 import type { BacktestResult as BacktestResultType } from "@/app/api/backtest/route";
+import DiscoverResult from "./DiscoverResult";
+import type { DiscoverMessageContent } from "@/lib/scoutTypes";
 
 /* ── Agent focus blurbs (mirrors MessageList) ────────────────────────── */
 const AGENT_FOCUS: Record<string, string> = {
@@ -543,12 +545,40 @@ function LucraAvatar() {
 function MessageInner({
   message,
   onSuggestion,
+  onDiscoverDeeper,
 }: {
   message: ChatMessage;
   onSuggestion?: (text: string) => void;
+  onDiscoverDeeper?: (query: string) => void;
 }) {
   if (message.role === "user") {
     return <PromptBubble message={message} />;
+  }
+
+  // Discovery mode: JSON-in-content with a `kind` discriminator (shortlist/wave/final).
+  if (message.mode === "discover") {
+    let dc: DiscoverMessageContent | null = null;
+    try {
+      dc = JSON.parse(message.content) as DiscoverMessageContent;
+    } catch { /* fall through to markdown */ }
+    if (dc) {
+      return (
+        <DiscoverResult
+          content={dc}
+          message={message}
+          onSuggestion={onSuggestion}
+          onDiscoverDeeper={onDiscoverDeeper}
+        />
+      );
+    }
+    return (
+      <div style={{ display: "flex", gap: 14 }}>
+        <LucraAvatar />
+        <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
+          <Markdown>{message.content}</Markdown>
+        </div>
+      </div>
+    );
   }
 
   // Backtest mode: parse JSON result and render chart + stats
@@ -655,7 +685,11 @@ function MessageInner({
   );
 }
 
-export default function Message(props: { message: ChatMessage; onSuggestion?: (text: string) => void }) {
+export default function Message(props: {
+  message: ChatMessage;
+  onSuggestion?: (text: string) => void;
+  onDiscoverDeeper?: (query: string) => void;
+}) {
   return (
     <MessageErrorBoundary>
       <MessageInner {...props} />

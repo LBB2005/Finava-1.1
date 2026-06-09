@@ -10,6 +10,8 @@ interface Props {
   onRemove: (id: string) => void;
   /** Compact = sidebar holding row (ticker chip + name + pct, no expand) */
   compact?: boolean;
+  /** When true (e.g. Plaid-synced book), the remove control is hidden. */
+  readOnly?: boolean;
 }
 
 function fmt(n: number, decimals = 2) {
@@ -25,7 +27,7 @@ function Stat({ label, value, color, span }: { label: string; value: string; col
   );
 }
 
-export default function HoldingCard({ holding, quote, portfolioPct, onRemove, compact = false }: Props) {
+export default function HoldingCard({ holding, quote, portfolioPct, onRemove, compact = false, readOnly = false }: Props) {
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
 
@@ -98,14 +100,16 @@ export default function HoldingCard({ holding, quote, portfolioPct, onRemove, co
           >
             {price > 0 ? `${isUp ? "+" : ""}${fmt(gainLossPct, 1)}%` : "—"}
           </span>
-          <button
-            onClick={(e) => { e.stopPropagation(); onRemove(holding.id); }}
-            className="opacity-0 group-hover:opacity-100 text-[var(--color-muted)] hover:text-red-500 transition-opacity duration-150 p-0.5"
-          >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
+          {!readOnly && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRemove(holding.id); }}
+              className="opacity-0 group-hover:opacity-100 text-[var(--color-muted)] hover:text-red-500 transition-opacity duration-150 p-0.5"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
