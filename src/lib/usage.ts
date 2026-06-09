@@ -22,6 +22,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import * as admin from "firebase-admin";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase-admin";
+import { resolvePlan } from "@/lib/entitlements";
+import { jsonLimit, nextPaidPlan, TRIAL_DEEP_RESEARCH_CAP } from "@/lib/plans";
 
 // ── Request-scoped user context ──────────────────────────────────────────────
 // recordUsage() reads userId from here when the caller doesn't pass one.
@@ -87,33 +89,35 @@ export function creditsFor(
   return Math.round((usd / CREDIT_USD) * 100) / 100;
 }
 
-// ── Plan allowances (in credits) ─────────────────────────────────────────────
-// Hard caps: a request is blocked when EITHER the daily or weekly figure is
-// already at/over the limit. TUNE these to real product tiers.
-export type PlanName = "Free" | "Pro";
-interface Limits {
-  daily: number;
-  weekly: number;
-}
-export const PLAN_LIMITS: Record<PlanName, Limits> = {
-  Free: { daily: 150, weekly: 500 },
-  Pro: { daily: 1200, weekly: 5000 },
-};
-function limitsForPlan(plan: string | undefined): Limits {
-  return PLAN_LIMITS[(plan as PlanName) ?? "Pro"] ?? PLAN_LIMITS.Pro;
-}
+// ── Plan allowances ──────────────────────────────────────────────────────────
+// Credit caps (daily / weekly / monthly) and Deep Research caps now live in the
+// single source of truth `@/lib/plans` and are resolved per-user through
+// `resolvePlan()` (which honors subscription, trial, and admin/dev access).
 
-// ── Date helpers (UTC day buckets) ───────────────────────────────────────────
+// ── Date helpers (UTC buckets) ───────────────────────────────────────────────
 const MS_PER_DAY = 86_400_000;
 /** UTC date key, e.g. "2026-06-09". */
 function dayKey(d: Date = new Date()): string {
   return d.toISOString().slice(0, 10);
+}
+/** UTC month key, e.g. "2026-06". */
+function monthKey(d: Date = new Date()): string {
+  return d.toISOString().slice(0, 7);
 }
 function sumLastNDays(days: Record<string, number>, n: number): number {
   const now = Date.now();
   let sum = 0;
   for (let i = 0; i < n; i++) {
     sum += days[dayKey(new Date(now - i * MS_PER_DAY))] ?? 0;
+  }
+  return Math.round(sum * 100) / 100;
+}
+/** Sum credits for the current calendar month from the day-keyed map. */
+function sumCurrentMonth(days: Record<string, number>): number {
+  const mk = monthKey();
+  let sum = 0;
+  for (const [k, v] of Object.entries(days)) {
+    if (k.startsWith(mk)) sum += v;
   }
   return Math.round(sum * 100) / 100;
 }
@@ -124,6 +128,10 @@ interface UsageDoc {
   totalInputTokens?: number;
   totalOutputTokens?: number;
   updatedAt?: string;
+  /** Month-keyed Deep Research run counts, e.g. { "2026-06": 12 }. */
+  deepRuns?: Record<string, number>;
+  /** Lifetime Deep Research runs consumed during the no-card trial. */
+  trialDeepRuns?: number;
 }
 
 // ── Recording ────────────────────────────────────────────────────────────────
@@ -137,6 +145,12 @@ export interface RecordUsageInput {
   cacheRead?: number | null;
   /** Explicit userId; falls back to the AsyncLocalStorage store when omitted. */
   userId?: string;
+  /**
+   * Fixed credit amount to charge, bypassing the token→credit math. Use for
+   * providers that don't return token counts (e.g. Perplexity/Sonar), where we
+   * record an estimated per-call cost instead.
+   */
+  flatCredits?: number | null;
 }
 
 /**
@@ -152,9 +166,13 @@ export function recordUsage(input: RecordUsageInput): Promise<void> {
   const inputTokens = input.inputTokens ?? 0;
   const outputTokens = input.outputTokens ?? 0;
   const cacheRead = input.cacheRead ?? 0;
-  if (inputTokens <= 0 && outputTokens <= 0) return Promise.resolve();
+  const flat = input.flatCredits ?? 0;
+  if (inputTokens <= 0 && outputTokens <= 0 && flat <= 0) return Promise.resolve();
 
-  const credits = creditsFor(input.model, inputTokens, outputTokens, cacheRead);
+  const credits =
+    flat > 0
+      ? flat
+      : creditsFor(input.model, inputTokens, outputTokens, cacheRead);
   const key = dayKey();
   const inc = admin.firestore.FieldValue.increment;
 
@@ -186,14 +204,14 @@ export function recordUsage(input: RecordUsageInput): Promise<void> {
 export async function checkUsageLimit(
   userId: string
 ): Promise<NextResponse | null> {
-  let plan = "Pro";
+  const ent = await resolvePlan(userId);
+  // Fail OPEN on a degraded read: a Firestore blip must not lock users out.
+  if (ent.degraded) return null;
+  const limits = ent.config;
+
   let days: Record<string, number> = {};
   try {
-    const [usageSnap, settingsSnap] = await Promise.all([
-      db.collection("userUsage").doc(userId).get(),
-      db.collection("userSettings").doc(userId).get(),
-    ]);
-    plan = (settingsSnap.data()?.plan as string) ?? "Pro";
+    const usageSnap = await db.collection("userUsage").doc(userId).get();
     days = ((usageSnap.data() as UsageDoc | undefined)?.days ?? {}) as Record<
       string,
       number
@@ -204,15 +222,17 @@ export async function checkUsageLimit(
     return null;
   }
 
-  const limits = limitsForPlan(plan);
   const today = days[dayKey()] ?? 0;
   const week = sumLastNDays(days, 7);
+  const month = sumCurrentMonth(days);
 
   const over =
     today >= limits.daily
       ? { scope: "daily" as const, limit: limits.daily, used: today }
       : week >= limits.weekly
       ? { scope: "weekly" as const, limit: limits.weekly, used: week }
+      : month >= limits.monthly
+      ? { scope: "monthly" as const, limit: limits.monthly, used: month }
       : null;
   if (!over) return null;
 
@@ -222,8 +242,14 @@ export async function checkUsageLimit(
       scope: over.scope,
       used: over.used,
       limit: over.limit,
-      plan,
-      resetsAt: over.scope === "daily" ? nextUtcMidnight() : "rolling",
+      plan: ent.plan,
+      upgradeTo: nextPaidPlan(ent.plan),
+      resetsAt:
+        over.scope === "daily"
+          ? nextUtcMidnight()
+          : over.scope === "monthly"
+          ? nextUtcMonthStart()
+          : "rolling",
     },
     { status: 429 }
   );
@@ -236,33 +262,143 @@ function nextUtcMidnight(): string {
   ).toISOString();
 }
 
+function nextUtcMonthStart(): string {
+  const d = new Date();
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)
+  ).toISOString();
+}
+
+// ── Deep Research run enforcement ─────────────────────────────────────────────
+// Deep Research is the one explicitly-counted expensive op. Beyond the credit
+// caps above, each plan has a monthly RUN allowance; the no-card trial has its
+// own lifetime cap.
+
+/**
+ * Returns a 429 when the user has exhausted their Deep Research run allowance for
+ * the period, or null when a run is permitted. Fails OPEN on a degraded read.
+ */
+export async function checkDeepResearchAllowed(
+  userId: string
+): Promise<NextResponse | null> {
+  const ent = await resolvePlan(userId);
+  if (ent.degraded) return null;
+
+  let doc: UsageDoc | undefined;
+  try {
+    doc = (await db.collection("userUsage").doc(userId).get()).data() as
+      | UsageDoc
+      | undefined;
+  } catch (e) {
+    console.error("[usage] deep-research check failed (allowing):", e);
+    return null;
+  }
+
+  // Trial: a single lifetime cap across the whole 3-day window.
+  if (ent.source === "trial") {
+    const used = doc?.trialDeepRuns ?? 0;
+    if (used < TRIAL_DEEP_RESEARCH_CAP) return null;
+    return NextResponse.json(
+      {
+        error: "deep_research_limit",
+        scope: "trial",
+        used,
+        limit: TRIAL_DEEP_RESEARCH_CAP,
+        plan: ent.plan,
+        upgradeTo: nextPaidPlan(ent.plan),
+      },
+      { status: 429 }
+    );
+  }
+
+  const limit = ent.config.deepResearchPerMonth;
+  if (!Number.isFinite(limit)) return null; // fair-use unlimited
+
+  const used = doc?.deepRuns?.[monthKey()] ?? 0;
+  if (used < limit) return null;
+
+  return NextResponse.json(
+    {
+      error: "deep_research_limit",
+      scope: "monthly",
+      used,
+      limit,
+      plan: ent.plan,
+      upgradeTo: nextPaidPlan(ent.plan),
+      resetsAt: nextUtcMonthStart(),
+    },
+    { status: 429 }
+  );
+}
+
+/**
+ * Record one Deep Research run. Fire-and-forget; never throws. Increments the
+ * month bucket, and the trial lifetime counter when the run is trial-sourced.
+ */
+export async function recordDeepResearchRun(userId: string): Promise<void> {
+  const inc = admin.firestore.FieldValue.increment;
+  let isTrial = false;
+  try {
+    const ent = await resolvePlan(userId);
+    isTrial = ent.source === "trial";
+  } catch {
+    // If we can't tell, just count the monthly bucket.
+  }
+  const patch: Record<string, unknown> = {
+    deepRuns: { [monthKey()]: inc(1) },
+    updatedAt: new Date().toISOString(),
+  };
+  if (isTrial) patch.trialDeepRuns = inc(1);
+
+  return db
+    .collection("userUsage")
+    .doc(userId)
+    .set(patch, { merge: true })
+    .then(() => undefined)
+    .catch((e) => console.error("[usage] deep-run record failed:", e));
+}
+
 // ── Summary for the UI ───────────────────────────────────────────────────────
 export interface UsageSummary {
   plan: string;
-  daily: { used: number; limit: number; pct: number };
-  weekly: { used: number; limit: number; pct: number };
+  /** Where the effective plan comes from — lets the UI show a trial badge. */
+  source: string;
+  trialEndsAt: string | null;
+  /** `limit: null` means unlimited ("fair use"). */
+  daily: { used: number; limit: number | null; pct: number };
+  weekly: { used: number; limit: number | null; pct: number };
+  monthly: { used: number; limit: number | null; pct: number };
+  /** Deep Research runs used vs allowed this period (limit null = unlimited). */
+  deepResearch: { used: number; limit: number | null };
   /** Last 30 UTC days, ascending — drives the sparkline + Settings chart. */
   series: { date: string; credits: number }[];
-  resets: { daily: string; weekly: string };
+  resets: { daily: string; weekly: string; monthly: string };
 }
 
 function pct(used: number, limit: number): number {
-  if (limit <= 0) return 0;
+  if (!Number.isFinite(limit) || limit <= 0) return 0;
   return Math.min(100, Math.round((used / limit) * 100));
 }
 
 export async function getUsageSummary(userId: string): Promise<UsageSummary> {
-  const [usageSnap, settingsSnap] = await Promise.all([
-    db.collection("userUsage").doc(userId).get(),
-    db.collection("userSettings").doc(userId).get(),
-  ]);
-  const plan = (settingsSnap.data()?.plan as string) ?? "Pro";
+  const ent = await resolvePlan(userId);
+  const limits = ent.config;
+
+  const usageSnap = await db.collection("userUsage").doc(userId).get();
   const data = usageSnap.data() as UsageDoc | undefined;
   const days = (data?.days ?? {}) as Record<string, number>;
-  const limits = limitsForPlan(plan);
 
   const today = Math.round((days[dayKey()] ?? 0) * 100) / 100;
   const week = sumLastNDays(days, 7);
+  const month = sumCurrentMonth(days);
+
+  // Deep Research usage for the current period (trial → lifetime trial counter).
+  const deepUsed =
+    ent.source === "trial"
+      ? data?.trialDeepRuns ?? 0
+      : data?.deepRuns?.[monthKey()] ?? 0;
+  const deepLimit =
+    ent.source === "trial" ? TRIAL_DEEP_RESEARCH_CAP : limits.deepResearchPerMonth;
 
   const now = Date.now();
   const series: { date: string; credits: number }[] = [];
@@ -275,11 +411,19 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
   void pruneOldDays(userId, days, now);
 
   return {
-    plan,
-    daily: { used: today, limit: limits.daily, pct: pct(today, limits.daily) },
-    weekly: { used: week, limit: limits.weekly, pct: pct(week, limits.weekly) },
+    plan: ent.plan,
+    source: ent.source,
+    trialEndsAt: ent.trialEndsAt,
+    daily: { used: today, limit: jsonLimit(limits.daily), pct: pct(today, limits.daily) },
+    weekly: { used: week, limit: jsonLimit(limits.weekly), pct: pct(week, limits.weekly) },
+    monthly: { used: month, limit: jsonLimit(limits.monthly), pct: pct(month, limits.monthly) },
+    deepResearch: { used: deepUsed, limit: jsonLimit(deepLimit) },
     series,
-    resets: { daily: nextUtcMidnight(), weekly: "rolling" },
+    resets: {
+      daily: nextUtcMidnight(),
+      weekly: "rolling",
+      monthly: nextUtcMonthStart(),
+    },
   };
 }
 

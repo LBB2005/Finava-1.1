@@ -3,6 +3,8 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { db } from "@/lib/firebase-admin";
 import { parseMarkovOutput, isMarkovDataValid, type MarkovData } from "@/lib/markov";
+import { requireAuth } from "@/lib/requireAuth";
+import { requireEntitlement } from "@/lib/entitlements";
 import os from "os";
 import path from "path";
 
@@ -40,6 +42,11 @@ async function runMarkov(ticker: string, years: number): Promise<MarkovData> {
 
 // GET /api/markov?tickers=SPY,QQQ,DIA&years=5&force=1
 export async function GET(request: Request) {
+  const { userId, error } = await requireAuth();
+  if (error) return error;
+  const gate = await requireEntitlement(userId, "quantSuite");
+  if (gate) return gate;
+
   const { searchParams } = new URL(request.url);
   const tickersParam = searchParams.get("tickers") ?? "SPY,QQQ,DIA";
   const years = parseInt(searchParams.get("years") ?? "5");

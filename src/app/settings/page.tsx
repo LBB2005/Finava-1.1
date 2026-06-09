@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useAuth } from "@/context/AuthContext";
 import { authFetcher, authFetch } from "@/lib/authFetch";
+import { PLANS, PLAN_ORDER, type PlanName, type BillingCadence } from "@/lib/plans";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import ConnectBrokerageButton from "@/components/portfolio/ConnectBrokerageButton";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
@@ -15,6 +16,12 @@ interface UserData {
   photoURL: string | null;
   createdAt: string | null;
   plan: string;
+  planSource?: string;
+  subscriptionStatus?: string | null;
+  trialEndsAt?: string | null;
+  currentPeriodEnd?: string | null;
+  cancelAtPeriodEnd?: boolean;
+  capabilities?: Record<string, boolean>;
   allowDataTraining: boolean;
   locationMetadata: boolean;
   stats: { conversations: number; briefings: number };
@@ -575,23 +582,101 @@ function PrivacySection({ userData, mutate }: { userData: UserData | undefined; 
   );
 }
 
-function BillingSection({ userData, mutate }: { userData: UserData | undefined; mutate: () => void }) {
-  const plan = userData?.plan ?? "Pro";
-  const feats = [
-    "Unlimited research chats",
-    "5 daily agent routines",
-    "Multi-agent deep research",
-    "Backtesting & paper trading",
-  ];
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
-  async function setPlan(p: string) {
-    await authFetch("/api/user", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan: p }),
-    });
-    mutate();
+function daysLeft(iso: string | null | undefined): number {
+  if (!iso) return 0;
+  return Math.max(0, Math.ceil((Date.parse(iso) - Date.now()) / 86_400_000));
+}
+
+/** A short human feature list derived from the plan config. */
+function planFeatures(plan: PlanName): string[] {
+  const c = PLANS[plan];
+  const dr =
+    c.deepResearchPerMonth === Infinity
+      ? "Unlimited Deep Research"
+      : `${c.deepResearchPerMonth} Deep Research / mo`;
+  const feats = [dr];
+  if (c.capabilities.plaidLinking) feats.push("Live brokerage sync");
+  if (c.capabilities.weeklyBriefings) feats.push("Weekly AI briefings");
+  if (c.capabilities.priorityProcessing) feats.push("Priority processing");
+  if (c.capabilities.quantSuite) feats.push("Hedge-fund suite");
+  feats.push(
+    c.watchlistLimit === Infinity ? "Unlimited watchlists" : `${c.watchlistLimit} watchlist`
+  );
+  return feats;
+}
+
+function BillingSection({ userData }: { userData: UserData | undefined; mutate: () => void }) {
+  const plan = (userData?.plan as PlanName) ?? "Free";
+  const source = userData?.planSource;
+  const status = userData?.subscriptionStatus;
+  const isSubscribed = !!status && ["active", "trialing", "past_due"].includes(status);
+
+  const [cadence, setCadence] = useState<BillingCadence>("monthly");
+  const [picking, setPicking] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function startCheckout(target: PlanName) {
+    setBusy(target);
+    try {
+      const res = await authFetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: target, cadence }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) {
+        window.location.href = data.url as string;
+        return;
+      }
+      alert(data.error === "plan_not_purchasable"
+        ? "That plan isn't available yet."
+        : "Could not start checkout. Please try again.");
+    } finally {
+      setBusy(null);
+    }
   }
+
+  async function openPortal() {
+    setBusy("portal");
+    try {
+      const res = await authFetch("/api/stripe/portal", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) {
+        window.location.href = data.url as string;
+        return;
+      }
+      // No Stripe customer yet → send them to pick a plan instead.
+      if (res.status === 404) setPicking(true);
+      else alert("Could not open the billing portal. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Status line under the plan title.
+  let statusLine: string;
+  if (source === "trial") {
+    statusLine = `Trial — ${daysLeft(userData?.trialEndsAt)} day${daysLeft(userData?.trialEndsAt) === 1 ? "" : "s"} left · then Free`;
+  } else if (isSubscribed && userData?.currentPeriodEnd) {
+    statusLine = userData?.cancelAtPeriodEnd
+      ? `Cancels ${fmtDate(userData.currentPeriodEnd)}`
+      : `Renews ${fmtDate(userData.currentPeriodEnd)}`;
+  } else if (plan === "Free") {
+    statusLine = "Free plan";
+  } else {
+    statusLine = PLANS[plan].price.monthly + "/mo";
+  }
+
+  const purchasable = PLAN_ORDER.filter((p) => PLANS[p].stripe.purchasable);
 
   return (
     <div>
@@ -618,7 +703,8 @@ function BillingSection({ userData, mutate }: { userData: UserData | undefined; 
               Lucra {plan}
             </div>
             <div className="text-[12.5px] mt-[3px]" style={{ color: "var(--color-text-secondary)" }}>
-              {plan === "Pro" ? "$29/mo · renews April 14, 2026" : "Free plan"}
+              {statusLine}
+              {status === "past_due" && " · payment failed"}
             </div>
           </div>
           <span
@@ -633,7 +719,7 @@ function BillingSection({ userData, mutate }: { userData: UserData | undefined; 
           </span>
         </div>
         <div className="grid grid-cols-2 gap-x-5 mt-4">
-          {feats.map((f) => (
+          {planFeatures(plan).map((f) => (
             <div key={f} className="flex items-center gap-[9px] text-[12.5px] py-[5px]" style={{ color: "var(--color-text-secondary)" }}>
               <span style={{ color: "var(--color-bull)" }} className="flex-shrink-0">
                 <Icon name="check" size={14} stroke={2.6} />
@@ -644,21 +730,98 @@ function BillingSection({ userData, mutate }: { userData: UserData | undefined; 
         </div>
       </div>
 
-      <Row label="Plan" description="Upgrade, downgrade, or compare plans.">
-        <Btn variant="soft" onClick={() => setPlan(plan === "Pro" ? "Free" : "Pro")}>
-          Change plan
-        </Btn>
+      {picking && (
+        <div
+          className="rounded-[14px] p-5 mb-5"
+          style={{ border: "1px solid var(--color-border)", background: "var(--color-bg)" }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[14px] font-bold" style={{ color: "var(--color-text)" }}>
+              Choose a plan
+            </p>
+            {/* Monthly / annual toggle */}
+            <div
+              className="inline-flex gap-[3px] p-[3px] rounded-[8px]"
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+            >
+              {(["monthly", "annual"] as const).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCadence(c)}
+                  className="px-3 py-[5px] text-[12px] font-medium rounded-[5px] capitalize transition-all duration-150"
+                  style={
+                    cadence === c
+                      ? { background: "var(--color-bg)", color: "var(--color-accent)", fontWeight: 600 }
+                      : { color: "var(--color-text-secondary)" }
+                  }
+                >
+                  {c === "annual" ? "Annual · save 2 mo" : "Monthly"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {purchasable.map((p) => {
+              const c = PLANS[p];
+              const isCurrent = p === plan && isSubscribed;
+              return (
+                <div
+                  key={p}
+                  className="rounded-[12px] p-4 flex flex-col"
+                  style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}
+                >
+                  <div className="text-[15px] font-bold" style={{ color: "var(--color-text)" }}>
+                    Lucra {c.label}
+                  </div>
+                  <div className="text-[20px] font-bold mt-1" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)" }}>
+                    {cadence === "monthly" ? c.price.monthly : c.price.annual}
+                    <span className="text-[12px] font-normal" style={{ color: "var(--color-text-secondary)" }}>
+                      {cadence === "monthly" ? " / mo" : " / yr"}
+                    </span>
+                  </div>
+                  <div className="mt-3 mb-4 flex-1 space-y-1.5">
+                    {planFeatures(p).map((f) => (
+                      <div key={f} className="flex items-center gap-1.5 text-[11.5px]" style={{ color: "var(--color-text-secondary)" }}>
+                        <span style={{ color: "var(--color-bull)" }}><Icon name="check" size={12} stroke={2.6} /></span>
+                        {f}
+                      </div>
+                    ))}
+                  </div>
+                  <Btn
+                    variant={isCurrent ? "soft" : "prim"}
+                    disabled={isCurrent || busy !== null}
+                    onClick={() => startCheckout(p)}
+                  >
+                    {isCurrent ? "Current plan" : busy === p ? "Redirecting…" : `Choose ${c.label}`}
+                  </Btn>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 text-[11.5px]" style={{ color: "var(--color-muted)" }}>
+            Lucra Quant ($100/mo · hedge-fund suite) is coming soon.
+          </div>
+        </div>
+      )}
+
+      <Row label="Plan" description={isSubscribed ? "Upgrade, downgrade, or switch billing period." : "Upgrade to unlock more."}>
+        {isSubscribed ? (
+          <Btn variant="soft" onClick={openPortal} disabled={busy !== null}>
+            {busy === "portal" ? "Opening…" : "Change plan"}
+          </Btn>
+        ) : (
+          <Btn variant="prim" onClick={() => setPicking((v) => !v)}>
+            {picking ? "Hide plans" : "Upgrade"}
+          </Btn>
+        )}
       </Row>
-      <Row label="Payment method" description="Visa ending 4242 · managed via Stripe.">
-        <Btn variant="soft">
+      <Row label="Payment method" description="Managed securely via Stripe.">
+        <Btn variant="soft" onClick={openPortal} disabled={busy !== null}>
           <Icon name="card" size={14} /> Manage billing
         </Btn>
       </Row>
-      <Row label="Auto-reload" description="Automatically add credits when your balance runs low.">
-        <Btn variant="soft">Configure</Btn>
-      </Row>
       <Row label="Invoices" description="Download past receipts and invoices.">
-        <Btn variant="soft">View history</Btn>
+        <Btn variant="soft" onClick={openPortal} disabled={busy !== null}>View history</Btn>
       </Row>
     </div>
   );
@@ -689,12 +852,21 @@ function StatCard({ label, value, sub }: { label: string; value: number | string
   );
 }
 
+interface UsageMeter {
+  used: number;
+  limit: number | null;
+  pct: number;
+}
 interface UsageSummary {
   plan: string;
-  daily: { used: number; limit: number; pct: number };
-  weekly: { used: number; limit: number; pct: number };
+  source?: string;
+  trialEndsAt?: string | null;
+  daily: UsageMeter;
+  weekly: UsageMeter;
+  monthly: UsageMeter;
+  deepResearch: { used: number; limit: number | null };
   series: { date: string; credits: number }[];
-  resets: { daily: string; weekly: string };
+  resets: { daily: string; weekly: string; monthly: string };
 }
 
 function fmtDay(iso: string): string {
@@ -705,24 +877,28 @@ function fmtDay(iso: string): string {
   });
 }
 
-function UsageBar({ pct, used, limit }: { pct: number; used: number; limit: number }) {
-  const over = pct >= 100;
+function UsageBar({ pct, used, limit }: { pct: number; used: number; limit: number | null }) {
+  const unlimited = limit === null;
+  const over = !unlimited && pct >= 100;
   return (
     <div style={{ width: 220 }}>
       <div className="h-[7px] rounded-full overflow-hidden" style={{ background: "var(--color-surface-2)" }}>
         <div
           className="h-full rounded-full transition-[width] duration-500 ease-out"
           style={{
-            width: `${Math.min(100, pct)}%`,
+            width: unlimited ? "100%" : `${Math.min(100, pct)}%`,
             background: over ? "var(--color-bear)" : "var(--color-accent)",
+            opacity: unlimited ? 0.25 : 1,
           }}
         />
       </div>
       <div className="flex justify-between text-[11px] mt-1.5" style={{ color: "var(--color-text-secondary)" }}>
         <span>
-          {Math.round(used)} / {limit} credits
+          {unlimited ? `${Math.round(used)} credits` : `${Math.round(used)} / ${limit} credits`}
         </span>
-        <span style={{ fontWeight: 700, color: over ? "var(--color-bear)" : "var(--color-text)" }}>{pct}%</span>
+        <span style={{ fontWeight: 700, color: over ? "var(--color-bear)" : "var(--color-text)" }}>
+          {unlimited ? "Unlimited" : `${pct}%`}
+        </span>
       </div>
     </div>
   );
@@ -746,7 +922,13 @@ function UsageTooltip({ active, payload }: UsageTooltipProps) {
   );
 }
 
-function UsageSection() {
+function meterSub(m: UsageMeter | undefined): string {
+  if (!m) return "of allowance";
+  if (m.limit === null) return `${Math.round(m.used)} credits · unlimited`;
+  return `${Math.round(m.used)} / ${m.limit} credits`;
+}
+
+function UsageSection({ onUpgrade }: { onUpgrade: () => void }) {
   const { user } = useAuth();
   const { data } = useSWR<UsageSummary>(user ? "/api/usage" : null, authFetcher, {
     revalidateOnFocus: true,
@@ -754,6 +936,8 @@ function UsageSection() {
 
   const weekly = data?.weekly;
   const daily = data?.daily;
+  const monthly = data?.monthly;
+  const deep = data?.deepResearch;
   const series = data?.series ?? [];
   const hasUsage = series.some((s) => s.credits > 0);
 
@@ -762,24 +946,32 @@ function UsageSection() {
       <Head title="Usage" description="Your AI usage this period and your plan limits." />
 
       <div className="grid grid-cols-3 gap-3" style={{ margin: "4px 0 22px" }}>
-        <StatCard label="Plan" value={data?.plan ?? "—"} sub="current" />
         <StatCard
-          label="This week"
-          value={weekly ? `${weekly.pct}%` : "—"}
-          sub={weekly ? `${Math.round(weekly.used)} / ${weekly.limit} credits` : "of allowance"}
+          label="Plan"
+          value={data?.plan ?? "—"}
+          sub={data?.source === "trial" ? "trial" : "current"}
         />
         <StatCard
-          label="Today"
-          value={daily ? `${daily.pct}%` : "—"}
-          sub={daily ? `${Math.round(daily.used)} / ${daily.limit} credits` : "of allowance"}
+          label="This month"
+          value={monthly ? (monthly.limit === null ? "—" : `${monthly.pct}%`) : "—"}
+          sub={meterSub(monthly)}
+        />
+        <StatCard
+          label="Deep Research"
+          value={deep ? (deep.limit === null ? `${deep.used}` : `${deep.used}/${deep.limit}`) : "—"}
+          sub={deep?.limit === null ? "unlimited · fair use" : "runs this period"}
         />
       </div>
 
-      <Row label="Weekly allowance" description="Cost-weighted across every model. Rolling 7-day window.">
+      <Row label="Monthly allowance" description="Cost-weighted across every model. Resets on the 1st (UTC).">
+        <UsageBar pct={monthly?.pct ?? 0} used={monthly?.used ?? 0} limit={monthly?.limit ?? 0} />
+      </Row>
+
+      <Row label="Weekly allowance" description="Rolling 7-day window.">
         <UsageBar pct={weekly?.pct ?? 0} used={weekly?.used ?? 0} limit={weekly?.limit ?? 0} />
       </Row>
 
-      <Row label="Daily allowance" description="Resets at midnight UTC.">
+      <Row label="Daily allowance" description="Anti-abuse ceiling. Resets at midnight UTC.">
         <UsageBar pct={daily?.pct ?? 0} used={daily?.used ?? 0} limit={daily?.limit ?? 0} />
       </Row>
 
@@ -831,8 +1023,8 @@ function UsageSection() {
       </div>
 
       <div className="mt-7">
-        <Row label="Need more headroom?" description="Upgrade for a larger weekly allowance and more daily capacity.">
-          <Btn variant="prim">Upgrade plan</Btn>
+        <Row label="Need more headroom?" description="Upgrade for a larger monthly allowance and more Deep Research.">
+          <Btn variant="prim" onClick={onUpgrade}>Upgrade plan</Btn>
         </Row>
       </div>
     </div>
@@ -844,18 +1036,36 @@ function UsageSection() {
 export default function SettingsPage() {
   const router = useRouter();
   const [active, setActive] = useState<SectionId>("general");
+  const [checkoutNotice, setCheckoutNotice] = useState<"success" | "cancel" | null>(null);
   const { data: userData, mutate } = useSWR<UserData>("/api/user", authFetcher);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Deep links like /settings?section=usage (from the sidebar usage popover and
   // the user menu) open the matching section on load.
   useEffect(() => {
-    const sec = new URLSearchParams(window.location.search).get("section");
+    const params = new URLSearchParams(window.location.search);
+    const sec = params.get("section");
     if (sec && NAV.some((g) => g.items.some((it) => it.id === sec))) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setActive(sec as SectionId);
     }
-  }, []);
+
+    // Returning from Stripe Checkout. The webhook grants the plan, and may land
+    // a beat after the browser redirect — so poll-revalidate /api/user briefly.
+    const checkout = params.get("checkout");
+    if (checkout === "success" || checkout === "cancel") {
+      setCheckoutNotice(checkout);
+      if (checkout === "success") {
+        let n = 0;
+        const t = setInterval(() => {
+          mutate();
+          if (++n >= 5) clearInterval(t);
+        }, 1500);
+      }
+      // Strip the query so a refresh doesn't re-trigger the notice.
+      window.history.replaceState({}, "", "/settings?section=billing");
+    }
+  }, [mutate]);
 
   function exitSettings() {
     router.push("/chat");
@@ -919,13 +1129,36 @@ export default function SettingsPage() {
       {/* Content */}
       <div ref={contentRef} className="flex-1 overflow-y-auto">
         <div style={{ maxWidth: 624, margin: "0 auto", padding: "40px 44px 64px" }}>
+          {checkoutNotice && (
+            <div
+              className="mb-5 rounded-[10px] px-4 py-3 text-[13px] flex items-center justify-between"
+              style={{
+                border: `1px solid ${checkoutNotice === "success" ? "var(--color-bull)" : "var(--color-border-strong)"}`,
+                background: "var(--color-surface)",
+                color: "var(--color-text)",
+              }}
+            >
+              <span>
+                {checkoutNotice === "success"
+                  ? "Payment received — finalizing your subscription…"
+                  : "Checkout canceled. No charge was made."}
+              </span>
+              <button
+                onClick={() => setCheckoutNotice(null)}
+                className="text-[12px] font-semibold"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           {active === "general" && <GeneralSection />}
           {active === "notifications" && <NotificationsSection />}
           {active === "connections" && <ConnectionsSection userData={userData} />}
           {active === "account" && <ProfileSection userData={userData} mutate={mutate} />}
           {active === "privacy" && <PrivacySection userData={userData} mutate={mutate} />}
           {active === "billing" && <BillingSection userData={userData} mutate={mutate} />}
-          {active === "usage" && <UsageSection />}
+          {active === "usage" && <UsageSection onUpgrade={() => nav("billing")} />}
         </div>
       </div>
     </div>

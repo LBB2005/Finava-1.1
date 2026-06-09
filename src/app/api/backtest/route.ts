@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { generate } from "@/lib/llm";
 import { getCandles } from "@/lib/finnhub";
 import { requireAuth } from "@/lib/requireAuth";
+import { requireEntitlement } from "@/lib/entitlements";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { db } from "@/lib/firebase-admin";
 
@@ -36,6 +37,8 @@ export interface BacktestResult {
 export async function POST(req: Request) {
   const { userId, error } = await requireAuth();
   if (error) return error;
+  const gate = await requireEntitlement(userId, "quantSuite");
+  if (gate) return gate;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;
   usageStore.enterWith({ userId });

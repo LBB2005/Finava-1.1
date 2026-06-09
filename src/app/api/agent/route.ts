@@ -1,7 +1,12 @@
 import { runCeoAgent } from "@/agents/ceo";
 import { runDiscoveryWave, runDiscoverySynthesis } from "@/agents/discovery";
 import { requireAuth } from "@/lib/requireAuth";
-import { checkUsageLimit, usageStore } from "@/lib/usage";
+import {
+  checkUsageLimit,
+  checkDeepResearchAllowed,
+  recordDeepResearchRun,
+  usageStore,
+} from "@/lib/usage";
 import type { AgentEvent } from "@/types/chat";
 import type { WaveRequest, SynthesizeRequest } from "@/lib/scoutTypes";
 
@@ -26,6 +31,20 @@ export async function POST(req: Request) {
   // Hard cap: block before any model spend if the user is over their allowance.
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;
+
+  // Deep Research is the one explicitly-counted op. Count a run only on the
+  // initiating CEO turn — the follow-up `wave`/`synthesize` calls are
+  // continuations of an already-counted run and must not be re-charged or
+  // stranded mid-session by the cap.
+  const isDeepInitiation = !wave && (!!deepResearch || tier === "deep");
+  if (isDeepInitiation) {
+    const deepLimited = await checkDeepResearchAllowed(userId);
+    if (deepLimited) return deepLimited;
+    // Increment at run START (not completion) so a burst of concurrent runs
+    // can't all slip past the pre-check. A failed run still counts — an
+    // accepted anti-abuse trade-off.
+    void recordDeepResearchRun(userId);
+  }
 
   // Run the whole crew inside the usage context so every sub-agent generate()
   // call and the CEO's direct Anthropic turns are metered to this user.

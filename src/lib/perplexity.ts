@@ -1,5 +1,14 @@
+import { recordUsage } from "@/lib/usage";
+
 const BASE = "https://api.perplexity.ai";
 const KEY = process.env.PERPLEXITY_API_KEY;
+
+// Perplexity doesn't return token counts, so we meter a flat estimated cost per
+// call (1 credit = $0.001). sonar-pro is the pricier model. TUNE to live rates.
+const PERPLEXITY_FLAT_CREDITS: Record<string, number> = {
+  "sonar-pro": 150, // ≈ $0.15
+  sonar: 80, // ≈ $0.08
+};
 
 export async function perplexitySearch(
   prompt: string,
@@ -30,5 +39,11 @@ export async function perplexitySearch(
 
   if (!res.ok) throw new Error(`Perplexity ${res.status}`);
   const data = await res.json();
+  // Meter the call against the ambient user's usage (no-op outside a user context).
+  void recordUsage({
+    agent: "perplexity",
+    model: `perplexity/${model}`,
+    flatCredits: PERPLEXITY_FLAT_CREDITS[model] ?? 100,
+  });
   return data.choices?.[0]?.message?.content ?? "No response";
 }

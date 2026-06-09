@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, serializeDoc } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
+import { requireEntitlement } from "@/lib/entitlements";
 import type { Strategy } from "@/components/hedge-fund/types";
 
 // ── Research & config for the Markov Regime strategy ─────────────────────────
@@ -308,6 +309,8 @@ function strategiesCol(uid: string) {
 export async function GET() {
   const { userId, error } = await requireAuth();
   if (error) return error;
+  const gate = await requireEntitlement(userId, "quantSuite");
+  if (gate) return gate;
   try {
     let snap = await strategiesCol(userId).orderBy("createdAt", "asc").get();
 
@@ -332,6 +335,8 @@ export async function GET() {
 export async function POST(req: Request) {
   const { userId, error } = await requireAuth();
   if (error) return error;
+  const gate = await requireEntitlement(userId, "quantSuite");
+  if (gate) return gate;
   try {
     const body = await req.json();
     const now = new Date().toISOString();

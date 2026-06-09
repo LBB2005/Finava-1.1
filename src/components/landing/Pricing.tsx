@@ -7,51 +7,66 @@ type Tier = {
   features: string[];
   cta: string;
   featured?: boolean;
+  comingSoon?: boolean;
 };
 
 const TIERS: Tier[] = [
   {
-    name: "Research",
-    price: "$25",
+    name: "Free",
+    price: "$0",
+    cadence: "",
+    blurb: "A real taste of Lucra.",
+    features: [
+      "2 Deep Research runs / month",
+      "15 chats + 5 research lenses / month",
+      "2 Lucra Analyses / month",
+      "1 watchlist",
+    ],
+    cta: "Get started",
+  },
+  {
+    name: "Analyst",
+    price: "$20",
     cadence: "/ month",
-    annual: "or $240/year — save $60",
+    annual: "or $200/year — save $40",
     blurb: "Everything you need to research any stock.",
     features: [
-      "30 multi-agent queries / month",
-      "Full 15-agent analysis on any ticker",
-      "Portfolio tracker with live P&L",
-      "Backtesting engine (3 strategy types)",
-      "Conversational chat (unlimited)",
-      "Weekly AI market briefing",
+      "30 Deep Research runs / month",
+      "Unlimited chat, lenses & analysis",
+      "Live brokerage sync (Plaid)",
+      "Weekly AI market briefings",
+      "Unlimited watchlists",
     ],
-    cta: "Start with Research",
+    cta: "Start with Analyst",
   },
   {
     name: "Pro",
-    price: "$59",
+    price: "$60",
     cadence: "/ month",
-    annual: "or $564/year — save $144",
-    blurb: "For investors who want to go further.",
+    annual: "or $600/year — save $120",
+    blurb: "For investors who want headroom.",
     features: [
-      "100 multi-agent queries / month",
-      "Everything in Research, plus:",
+      "Unlimited Deep Research (fair use)",
+      "Everything in Analyst, plus:",
       "Priority processing",
     ],
     cta: "Start with Pro",
     featured: true,
   },
   {
-    name: "Power",
-    price: "Usage-based",
-    blurb: "For serious investors who run deep research daily.",
+    name: "Quant",
+    price: "$100",
+    cadence: "/ month",
+    annual: "or $1,000/year",
+    blurb: "The systematic trading suite.",
     features: [
-      "Unlimited multi-agent queries",
-      "All Pro features",
-      "API access",
+      "Everything in Pro, plus:",
+      "Trading bot & live execution",
+      "Backtesting & Markov regimes",
       "Custom strategy configuration",
-      "Dedicated support",
     ],
-    cta: "Contact us",
+    cta: "Join waitlist",
+    comingSoon: true,
   },
 ];
 
@@ -73,11 +88,11 @@ export default function Pricing() {
         </h2>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3 items-start">
+      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 items-start">
         {TIERS.map((t) => (
           <div
             key={t.name}
-            className={`rounded-2xl p-7 relative ${
+            className={`rounded-2xl p-6 relative ${
               t.featured
                 ? "border-2 border-[var(--lp-accent)] bg-[var(--lp-surface)] shadow-[0_24px_60px_-30px_rgba(77,156,248,0.6)] lg:-mt-3 lg:mb-3"
                 : "lp-card"
@@ -88,11 +103,16 @@ export default function Pricing() {
                 Most popular
               </span>
             )}
+            {t.comingSoon && (
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[11px] font-bold uppercase tracking-wider text-[var(--lp-text-secondary)] bg-[var(--lp-surface-2)] border border-[var(--lp-border-strong)] px-3 py-1 rounded-full">
+                Coming soon
+              </span>
+            )}
             <h3 className="text-[15px] font-semibold text-[var(--lp-text-secondary)] uppercase tracking-wide">
               {t.name}
             </h3>
             <div className="mt-3 flex items-baseline gap-1.5">
-              <span className="lp-display text-[2.4rem] font-black text-[var(--lp-text)]">
+              <span className="lp-display text-[2.1rem] font-black text-[var(--lp-text)]">
                 {t.price}
               </span>
               {t.cadence && (
@@ -130,7 +150,7 @@ export default function Pricing() {
       </div>
 
       <p className="mt-10 text-center text-[13px] text-[var(--lp-muted)]">
-        All plans include a 14-day free trial. No credit card required to join the waitlist.
+        Every account starts with a 3-day Pro trial — no credit card required.
       </p>
       <p className="mt-2 text-center text-[12px] text-[var(--lp-muted)] italic max-w-2xl mx-auto">
         Lucra is a research tool, not a financial advisor. All outputs are for informational

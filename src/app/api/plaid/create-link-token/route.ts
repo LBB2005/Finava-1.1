@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { CountryCode, Products } from "plaid";
 import { plaidClient, plaidConfigured } from "@/lib/plaid";
 import { requireAuth } from "@/lib/requireAuth";
+import { requireEntitlement } from "@/lib/entitlements";
 
 /**
  * Creates a short-lived Plaid Link token scoped to the Investments product.
@@ -10,6 +11,8 @@ import { requireAuth } from "@/lib/requireAuth";
 export async function POST() {
   const { userId, error } = await requireAuth();
   if (error) return error;
+  const gate = await requireEntitlement(userId, "plaidLinking");
+  if (gate) return gate;
 
   if (!plaidConfigured()) {
     return NextResponse.json(

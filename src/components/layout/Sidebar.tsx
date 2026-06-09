@@ -275,17 +275,9 @@ function PortfolioNavItem({
         <Collapsible open={open}>
           <div className="pb-1">
             <PortfolioList compact />
-            <div className="flex items-center justify-between pl-[42px] pr-[14px] pt-1 pb-1">
-              <Link
-                href="/portfolio"
-                onClick={onNavigate}
-                className="text-[11px] font-semibold hover:underline"
-                style={{ color: "var(--color-accent)" }}
-              >
-                View full portfolio →
-              </Link>
-              {/* Manual add is hidden when a brokerage is linked — Plaid is the source of truth. */}
-              {!plaidConnected && (
+            {/* Manual add is hidden when a brokerage is linked — Plaid is the source of truth. */}
+            {!plaidConnected && (
+              <div className="flex justify-end pl-[42px] pr-[14px] pt-1 pb-1">
                 <button
                   onClick={onAddClick}
                   title="Add holding"
@@ -295,8 +287,8 @@ function PortfolioNavItem({
                     <path d="M12 5v14M5 12h14" />
                   </svg>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </Collapsible>
       )}
@@ -393,14 +385,6 @@ function WatchlistNavItem({
                 defaultOpen={activeId ? w.id === activeId : i === 0}
               />
             ))}
-            <Link
-              href="/watchlist"
-              onClick={onNavigate}
-              className="block pl-[42px] pr-[14px] pt-[6px] text-[11px] font-semibold hover:underline"
-              style={{ color: "var(--color-accent)" }}
-            >
-              Manage watchlists →
-            </Link>
           </div>
         </Collapsible>
       )}
@@ -467,7 +451,7 @@ function UserWidget() {
   if (!user) return null;
 
   const displayName = data?.name ?? user.displayName ?? user.email ?? "User";
-  const plan = data?.plan ?? "Pro";
+  const plan = data?.plan ?? "Free";
   const initials = displayName
     .split(" ")
     .map((w: string) => w[0])
@@ -533,7 +517,7 @@ function UserWidget() {
   ];
 
   return (
-    <div ref={ref} className="relative flex-shrink-0 mx-[10px] mb-3">
+    <div ref={ref} className="relative flex-shrink-0">
       {open && (
         <div
           className="absolute bottom-full left-0 right-0 mb-1 z-50 rounded-[10px] py-1 overflow-hidden"
@@ -577,7 +561,7 @@ function UserWidget() {
       )}
 
       <div
-        className={`user-widget-trigger${open || usageOpen ? " is-open" : ""} w-full flex items-center gap-2.5 px-[10px] py-[8px] rounded-[9px] transition-colors duration-150`}
+        className={`user-widget-trigger${open || usageOpen ? " is-open" : ""} w-full flex items-center gap-2.5 px-[10px] py-[8px] transition-colors duration-150`}
       >
         <button
           onClick={() => {

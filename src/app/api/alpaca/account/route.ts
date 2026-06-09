@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/requireAuth";
+import { requireEntitlement } from "@/lib/entitlements";
 
 const KEY    = process.env.ALPACA_API_KEY    ?? "";
 const SECRET = process.env.ALPACA_API_SECRET ?? "";
@@ -26,7 +28,12 @@ export type AlpacaAccount =
     }
   | { live: false; error: string };
 
-export async function GET(): Promise<NextResponse<AlpacaAccount>> {
+export async function GET(): Promise<NextResponse> {
+  const { userId, error } = await requireAuth();
+  if (error) return error;
+  const gate = await requireEntitlement(userId, "quantSuite");
+  if (gate) return gate;
+
   if (!KEY || !SECRET) {
     return NextResponse.json({ live: false, error: "Alpaca credentials not configured." });
   }

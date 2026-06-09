@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
+import { requireEntitlement } from "@/lib/entitlements";
 import { generate } from "@/lib/llm";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { runRiskAgent } from "@/agents/sub-agents/risk-agent";
@@ -29,6 +30,8 @@ export async function POST(req: Request) {
     const authResult = await requireAuth();
     if (authResult.error) return authResult.error;
     userId = authResult.userId;
+    const gate = await requireEntitlement(userId, "weeklyBriefings");
+    if (gate) return gate;
     const limited = await checkUsageLimit(userId);
     if (limited) return limited;
     return generateForUser(userId);

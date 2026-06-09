@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { db, serializeDoc } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
+import { assertWatchlistQuota } from "@/lib/entitlements";
 import { toWatchlist, normalizeTickers } from "@/lib/watchlist";
 
 function watchlistsCol(uid: string) {
@@ -26,6 +27,11 @@ export async function POST(req: Request) {
   const { userId, error } = await requireAuth();
   if (error) return error;
   try {
+    // Enforce the per-plan watchlist cap (Free = 1).
+    const existing = await watchlistsCol(userId).count().get();
+    const quota = await assertWatchlistQuota(userId, existing.data().count);
+    if (quota) return quota;
+
     const body = await req.json();
     const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : "New watchlist";
     const now = new Date().toISOString();

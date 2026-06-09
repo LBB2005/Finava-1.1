@@ -1,6 +1,32 @@
 import { NextResponse } from "next/server";
 import { adminAuth, db } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
+import { resolvePlan, capabilitiesFor } from "@/lib/entitlements";
+import { TRIAL_DAYS } from "@/lib/plans";
+
+const PAID_STATUSES = new Set(["active", "trialing", "past_due"]);
+
+/**
+ * Stamp a 3-day no-card trial on first authenticated read, exactly once. Guarded
+ * by `trialInitialized` so it can't be re-farmed by deleting `trialEndsAt`, and
+ * skipped entirely for users who already have a paid subscription.
+ */
+async function ensureTrial(
+  userId: string,
+  settings: FirebaseFirestore.DocumentData | undefined
+): Promise<void> {
+  if (settings?.trialInitialized === true) return;
+  const plan = settings?.plan as string | undefined;
+  const status = settings?.subscriptionStatus as string | undefined;
+  const hasPaid = plan && plan !== "Free" && status && PAID_STATUSES.has(status);
+  if (hasPaid) return;
+
+  const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 86_400_000).toISOString();
+  await db
+    .collection("userSettings")
+    .doc(userId)
+    .set({ trialEndsAt, trialInitialized: true }, { merge: true });
+}
 
 export async function GET() {
   const { userId, error } = await requireAuth();
@@ -15,13 +41,25 @@ export async function GET() {
 
     const settings = settingsDoc.exists ? settingsDoc.data() : {};
 
+    // First-touch trial provisioning, then resolve the effective entitlement.
+    await ensureTrial(userId, settings);
+    const ent = await resolvePlan(userId);
+
     return NextResponse.json({
       uid: userId,
       name: firebaseUser.displayName ?? null,
       email: firebaseUser.email ?? null,
       photoURL: firebaseUser.photoURL ?? null,
       createdAt: firebaseUser.metadata.creationTime ?? null,
-      plan: (settings?.plan as string) ?? "Pro",
+      // Server-authoritative plan + billing state (only the Stripe webhook and
+      // the trial stamp above ever write these).
+      plan: ent.plan,
+      planSource: ent.source,
+      subscriptionStatus: ent.subscriptionStatus,
+      trialEndsAt: ent.trialEndsAt,
+      currentPeriodEnd: (settings?.currentPeriodEnd as string | undefined) ?? null,
+      cancelAtPeriodEnd: (settings?.cancelAtPeriodEnd as boolean | undefined) ?? false,
+      capabilities: capabilitiesFor(ent.plan),
       allowDataTraining: (settings?.allowDataTraining as boolean) ?? true,
       locationMetadata: (settings?.locationMetadata as boolean) ?? true,
       stats: {
@@ -42,7 +80,10 @@ export async function PATCH(request: Request) {
     const body = await request.json() as Record<string, unknown>;
     const settingsUpdate: Record<string, unknown> = {};
 
-    for (const key of ["plan", "allowDataTraining", "locationMetadata"]) {
+    // NOTE: `plan` is deliberately NOT client-writable — it is server-authoritative
+    // and only the Stripe webhook (+ trial stamp) may set it. Otherwise a user
+    // could self-upgrade to a paid tier with a PATCH.
+    for (const key of ["allowDataTraining", "locationMetadata"]) {
       if (key in body) settingsUpdate[key] = body[key];
     }
 

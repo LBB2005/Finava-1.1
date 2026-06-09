@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Fill, OrderSide } from "@/components/hedge-fund/types";
+import { requireAuth } from "@/lib/requireAuth";
+import { requireEntitlement } from "@/lib/entitlements";
 
 const KEY    = process.env.ALPACA_API_KEY    ?? "";
 const SECRET = process.env.ALPACA_API_SECRET ?? "";
@@ -9,7 +11,12 @@ const HEADERS = {
   "APCA-API-SECRET-KEY": SECRET,
 };
 
-export async function GET(): Promise<NextResponse<Fill[] | { error: string }>> {
+export async function GET(): Promise<NextResponse> {
+  const { userId, error } = await requireAuth();
+  if (error) return error;
+  const gate = await requireEntitlement(userId, "quantSuite");
+  if (gate) return gate;
+
   if (!KEY || !SECRET) return NextResponse.json([]);
 
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD

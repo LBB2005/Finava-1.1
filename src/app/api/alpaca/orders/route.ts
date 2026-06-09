@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Order, OrderSide, OrderStatus } from "@/components/hedge-fund/types";
+import { requireAuth } from "@/lib/requireAuth";
+import { requireEntitlement } from "@/lib/entitlements";
 
 const KEY    = process.env.ALPACA_API_KEY    ?? "";
 const SECRET = process.env.ALPACA_API_SECRET ?? "";
@@ -36,7 +38,12 @@ function mapTif(t: string): string {
   }
 }
 
-export async function GET(): Promise<NextResponse<Order[] | { error: string }>> {
+export async function GET(): Promise<NextResponse> {
+  const { userId, error } = await requireAuth();
+  if (error) return error;
+  const gate = await requireEntitlement(userId, "quantSuite");
+  if (gate) return gate;
+
   if (!KEY || !SECRET) return NextResponse.json([]);
 
   try {
@@ -72,6 +79,11 @@ export async function GET(): Promise<NextResponse<Order[] | { error: string }>> 
 }
 
 export async function DELETE(req: Request): Promise<NextResponse> {
+  const { userId, error } = await requireAuth();
+  if (error) return error;
+  const gate = await requireEntitlement(userId, "quantSuite");
+  if (gate) return gate;
+
   if (!KEY || !SECRET) {
     return NextResponse.json({ error: "Alpaca not configured" }, { status: 400 });
   }

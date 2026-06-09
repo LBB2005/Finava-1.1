@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { plaidClient, plaidConfigured } from "@/lib/plaid";
 import { requireAuth } from "@/lib/requireAuth";
+import { requireEntitlement } from "@/lib/entitlements";
 import { db } from "@/lib/firebase-admin";
 import { rebuildHoldings } from "@/lib/plaidSync";
 
@@ -13,6 +14,8 @@ import { rebuildHoldings } from "@/lib/plaidSync";
 export async function POST(req: Request) {
   const { userId, error } = await requireAuth();
   if (error) return error;
+  const gate = await requireEntitlement(userId, "plaidLinking");
+  if (gate) return gate;
 
   if (!plaidConfigured()) {
     return NextResponse.json(

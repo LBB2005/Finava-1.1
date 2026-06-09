@@ -9,6 +9,7 @@
  */
 
 import { generate } from "@/lib/llm";
+import { recordUsage } from "@/lib/usage";
 import { getSkillsPrompt } from "@/agents/skills";
 
 const PERPLEXITY_API = "https://api.perplexity.ai/chat/completions";
@@ -101,6 +102,12 @@ Format your response with a clear section for each ticker.`;
     }
 
     const data = await res.json();
+    // Flat-rate meter (Perplexity returns no token counts) against the ambient user.
+    void recordUsage({
+      agent: "sentiment-perplexity",
+      model: "perplexity/sonar-pro",
+      flatCredits: 150,
+    });
     const content = data.choices?.[0]?.message?.content ?? "";
     const citations: string[] = data.citations ?? [];
     const citationBlock =
