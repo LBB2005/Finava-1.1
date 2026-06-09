@@ -2,16 +2,54 @@
 import { useEffect, useState } from "react";
 import { useWatchlists } from "@/hooks/useWatchlists";
 import { useWatchlistStore } from "@/stores/watchlistStore";
+import { useLiveBoard } from "@/hooks/useLiveBoard";
 import WatchlistBoard from "@/components/watchlist/WatchlistBoard";
 import AddTickerInput from "@/components/watchlist/AddTickerInput";
 
-function SectionRule({ label }: { label: string }) {
+function Kpi({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="flex items-center" style={{ gap: 8 }}>
-      <span className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "var(--color-muted)" }}>
-        {label}
-      </span>
-      <div style={{ flex: 1, height: 1, background: "var(--color-border)" }} />
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)] mb-1.5">{label}</p>
+      <p
+        className="text-[22px] font-bold leading-none tabular-nums"
+        style={{ fontFamily: "var(--font-serif)", letterSpacing: "-0.015em", color: color ?? "var(--color-text)" }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function Summary({ tickers }: { tickers: string[] }) {
+  const { liveMap } = useLiveBoard(tickers);
+  const changes = tickers
+    .map((t) => liveMap.get(t)?.changePct)
+    .filter((c): c is number => c != null);
+  const gainers = changes.filter((c) => c >= 0).length;
+  const decliners = changes.filter((c) => c < 0).length;
+  const avg = changes.length ? changes.reduce((s, c) => s + c, 0) / changes.length : null;
+
+  return (
+    <div
+      className="rounded-[var(--radius-lg)] px-6 py-4"
+      style={{
+        border: "1px solid var(--color-border)",
+        background: "var(--color-bg)",
+        boxShadow: "var(--shadow-card)",
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 1fr 1fr",
+        gap: 24,
+        alignItems: "center",
+      }}
+    >
+      <Kpi label="Tracked" value={`${tickers.length}`} />
+      <Kpi label="Gainers" value={`${gainers}`} color={gainers ? "var(--color-bull)" : undefined} />
+      <Kpi label="Decliners" value={`${decliners}`} color={decliners ? "var(--color-bear)" : undefined} />
+      <Kpi
+        label="Avg Day"
+        value={avg === null ? "—" : `${avg >= 0 ? "+" : ""}${avg.toFixed(2)}%`}
+        color={avg === null ? undefined : avg >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
+      />
     </div>
   );
 }
@@ -134,7 +172,7 @@ export default function WatchlistPage() {
 
       {/* Scrolling body */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div style={{ padding: "16px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="max-w-[1100px] mx-auto" style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
           {mutateError && (
             <p style={{ fontSize: 12, color: "var(--color-bear)" }}>{mutateError}</p>
           )}
@@ -142,9 +180,15 @@ export default function WatchlistPage() {
           {isLoading ? (
             <p style={{ fontSize: 12, color: "var(--color-muted)" }}>Loading…</p>
           ) : watchlists.length === 0 ? (
-            <div style={{ paddingTop: 32 }}>
-              <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 12 }}>
-                No watchlists yet. Create one to start tracking stocks.
+            <div
+              className="flex flex-col items-center justify-center text-center rounded-[var(--radius-lg)]"
+              style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)", padding: "48px 20px", gap: 12 }}
+            >
+              <p style={{ fontSize: 14, color: "var(--color-text)", fontFamily: "var(--font-serif)", fontWeight: 700 }}>
+                No watchlists yet
+              </p>
+              <p style={{ fontSize: 12.5, color: "var(--color-text-secondary)" }}>
+                Create a list to start tracking stocks you care about.
               </p>
               <button className="tbtn on" onClick={handleCreate}>
                 ＋ Create watchlist
@@ -152,11 +196,24 @@ export default function WatchlistPage() {
             </div>
           ) : active ? (
             <>
-              <SectionRule
-                label={`${active.name.toUpperCase()} · ${n} TICKER${n !== 1 ? "S" : ""}`}
-              />
-              <AddTickerInput onAdd={(t) => addTicker(active.id, t)} />
-              <WatchlistBoard tickers={active.tickers} onRemove={(t) => removeTicker(active.id, t)} />
+              {n > 0 && <Summary tickers={active.tickers} />}
+
+              {/* Board card */}
+              <div
+                className="overflow-hidden"
+                style={{ borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)" }}
+              >
+                <div
+                  className="flex items-center justify-between flex-wrap gap-3 px-5 py-3"
+                  style={{ background: "var(--color-surface)", borderBottom: "1px solid var(--color-border)" }}
+                >
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+                    {active.name} · {n} stock{n !== 1 ? "s" : ""}
+                  </p>
+                  <AddTickerInput onAdd={(t) => addTicker(active.id, t)} />
+                </div>
+                <WatchlistBoard tickers={active.tickers} onRemove={(t) => removeTicker(active.id, t)} />
+              </div>
             </>
           ) : null}
         </div>

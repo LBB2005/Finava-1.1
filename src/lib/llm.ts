@@ -40,6 +40,7 @@ export type AgentKey =
   | "dcf"
   | "compareVerdict" // Research · Compare lens — head-to-head verdict
   | "themesGenerate" // Research · Themes lens — AI-generated baskets
+  | "scoutSelect" // Chat · Discovery scout — fit-rank the 503-name universe to a shortlist
   // Tier B — judgment over data → Gemini 2.5 Flash
   | "graham"
   | "comparables"

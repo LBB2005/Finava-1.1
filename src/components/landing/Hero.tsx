@@ -1,25 +1,11 @@
-const AGENTS = [
-  "Fundamentals",
-  "DCF",
-  "Technical",
-  "Insider",
-  "Earnings",
-  "Sentiment",
-  "Hype",
-  "Macro",
-  "Options",
-  "Risk",
-  "Analyst",
-  "Comparables",
-  "Graham",
-  "News",
-  "Competitor",
-];
+import AgentGridCompress from "./AgentGridCompress";
+import HoneycombBackdrop from "./HoneycombBackdrop";
 
 export default function Hero() {
   return (
-    <section className="lp-hero">
-      <div className="max-w-[1140px] mx-auto px-5 sm:px-8 pt-20 pb-24 md:pt-28 md:pb-32 relative">
+    <section className="lp-hero relative overflow-hidden">
+      <HoneycombBackdrop />
+      <div className="max-w-[1140px] mx-auto px-5 sm:px-8 pt-20 pb-24 md:pt-28 md:pb-32 relative z-10">
         <div className="max-w-2xl">
           <span className="lp-eyebrow inline-flex items-center gap-2 text-[var(--lp-accent-2)]">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--lp-accent)] animate-pulse" />
@@ -60,24 +46,8 @@ export default function Hero() {
           </p>
         </div>
 
-        {/* Agent pill cloud */}
-        <div className="mt-16 md:mt-20">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="lp-eyebrow text-[var(--lp-muted)]">15 specialists, every query</span>
-            <span className="flex-1 lp-divider" />
-          </div>
-          <div className="flex flex-wrap gap-2.5">
-            {AGENTS.map((a, i) => (
-              <span
-                key={a}
-                className="lp-agent-pill text-[12.5px] font-medium text-[var(--lp-text-secondary)] px-3.5 py-2 rounded-full"
-                style={{ animationDelay: `${(i % 8) * 0.22}s` }}
-              >
-                {a}
-              </span>
-            ))}
-          </div>
-        </div>
+        {/* 15 specialists → one verdict */}
+        <AgentGridCompress />
       </div>
     </section>
   );

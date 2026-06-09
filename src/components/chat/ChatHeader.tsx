@@ -4,12 +4,14 @@ import { AGENT_COUNT } from "@/types/chat";
 
 interface Props {
   mode: ChatMode;
-  onModeChange: (mode: ChatMode) => void;
 }
 
-export default function ChatHeader({ mode, onModeChange }: Props) {
+export default function ChatHeader({ mode }: Props) {
   const isAgentLike = mode === "agent" || mode === "deep_research";
 
+  // Subtitle reflects the active mode, which is now switched from the
+  // composer pill (the CHAT / AGENT / BACKTEST header toggles were removed
+  // per the Calm Orb design — mode controls live in the composer).
   const subtitle =
     mode === "deep_research" ? "LUCRA AI · DEEP RESEARCH" :
     isAgentLike ? `LUCRA AI · ${AGENT_COUNT}-AGENT SYSTEM` :
@@ -25,17 +27,6 @@ export default function ChatHeader({ mode, onModeChange }: Props) {
         <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)", letterSpacing: "0.04em" }}>
           {subtitle}
         </span>
-      </div>
-      <div className="flex items-center" style={{ gap: 4, marginLeft: "auto" }}>
-        <button className={"tbtn" + (mode === "simple" ? " on" : "")} onClick={() => onModeChange("simple")}>
-          CHAT
-        </button>
-        <button className={"tbtn" + (isAgentLike ? " on" : "")} onClick={() => onModeChange(isAgentLike ? mode : "agent")}>
-          AGENT {AGENT_COUNT}
-        </button>
-        <button className={"tbtn" + (mode === "backtest" ? " on" : "")} onClick={() => onModeChange(mode === "backtest" ? "agent" : "backtest")}>
-          BACKTEST
-        </button>
       </div>
     </div>
   );

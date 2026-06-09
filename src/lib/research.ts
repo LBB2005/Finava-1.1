@@ -206,6 +206,11 @@ export const UNIVERSE: Stock[] = U.map(([ticker, name, sector, price, chg, f, mv
   mv,
 }));
 
+/** Ticker → company name, for surfaces (e.g. watchlist) that only store symbols. */
+export const NAME_BY_TICKER: Record<string, string> = Object.fromEntries(
+  UNIVERSE.map((s) => [s.ticker, s.name]),
+);
+
 export const SECTORS: string[] = Array.from(new Set(UNIVERSE.map((s) => s.sector))).sort();
 
 export const AS_OF = "May 31, 2026 · 4:00 PM ET";

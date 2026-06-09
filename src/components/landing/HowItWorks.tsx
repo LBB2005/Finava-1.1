@@ -1,3 +1,5 @@
+import AgentFan from "./AgentFan";
+
 const STEPS = [
   {
     n: "1",
@@ -33,6 +35,13 @@ export default function HowItWorks() {
         <h2 className="lp-display mt-3 text-[clamp(1.9rem,4vw,2.8rem)] font-bold text-[var(--lp-text)]">
           From question to conviction in minutes.
         </h2>
+      </div>
+
+      <div className="mt-12">
+        <AgentFan />
+        <p className="text-center text-[13px] text-[var(--lp-muted)] mt-2">
+          15 specialists, dealt on every question.
+        </p>
       </div>
 
       <div className="mt-12 grid gap-6 md:grid-cols-4">

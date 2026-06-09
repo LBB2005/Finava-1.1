@@ -441,6 +441,7 @@ function PromptBubble({ message }: { message: ChatMessage }) {
 
   return (
     <div
+      className="prompt-lift"
       style={{
         marginLeft: "auto",
         maxWidth: "78%",

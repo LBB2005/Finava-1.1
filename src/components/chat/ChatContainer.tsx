@@ -220,7 +220,13 @@ export default function ChatContainer() {
       const res = await authFetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userPrompt: text, portfolioContext, deepResearch, conversationHistory }),
+        body: JSON.stringify({
+          userPrompt: text,
+          portfolioContext,
+          deepResearch,
+          conversationHistory,
+          holdings: holdings.map((h) => ({ ticker: h.ticker, shares: h.shares })),
+        }),
       });
 
       if (!res.ok || !res.body) throw new Error("Agent stream failed");
@@ -329,32 +335,34 @@ export default function ChatContainer() {
     async (text: string) => {
       if (isStreaming) return;
 
+      // Optimistic UI: paint the user's message and the thinking animation
+      // immediately, before any network round-trips, so send feels instant.
+      const userMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: text,
+        mode,
+        createdAt: new Date().toISOString(),
+      };
+      addMessage(userMsg);
+      setStreaming(true);
+      clearStreamingContent();
+
       try {
         const convId = await ensureConversation();
+        setStreamingConversationId(convId);
 
-        // Fetch Markov signals in parallel with building context (fast — usually cached)
+        // Fetch Markov signals (usually cached) — happens after the UI has
+        // already shown the message + loading state.
         const markovSignals = holdings.length > 0
           ? await fetchMarkovSignals(holdings.map((h) => h.ticker))
           : {};
 
         const portfolioContext = buildPortfolioContext(holdings, cashBalance, quoteMap, markovSignals);
 
-        const userMsg: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "user",
-          content: text,
-          mode,
-          createdAt: new Date().toISOString(),
-        };
-        addMessage(userMsg);
-
         saveMessage(convId, "user", text).catch((e) =>
           console.warn("[handleSend] saveMessage failed:", e)
         );
-
-        setStreaming(true);
-        setStreamingConversationId(convId);
-        clearStreamingContent();
 
         const agentHistory = messages
           .filter((m) => m.mode === "agent" || m.mode === "deep_research")
@@ -393,7 +401,7 @@ export default function ChatContainer() {
 
   return (
     <div className="flex flex-col h-full">
-      <ChatHeader mode={mode} onModeChange={setMode} />
+      <ChatHeader mode={mode} />
 
       <MessageList
         messages={messages}

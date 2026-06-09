@@ -117,7 +117,18 @@ Format your response with a clear section for each ticker.`;
 }
 
 export async function runSentimentAgent(input: unknown): Promise<string> {
-  const { tickers } = input as { tickers: string[] };
+  const { tickers: rawTickers } = (input ?? {}) as { tickers?: string[] | string };
+
+  // Normalize: callers may pass a string[] (CEO tool call) or a single/comma-joined
+  // string (briefing route). Coerce to a clean string[] and guard against undefined.
+  const tickers = (Array.isArray(rawTickers) ? rawTickers : [rawTickers])
+    .flatMap((t) => (typeof t === "string" ? t.split(",") : []))
+    .map((t) => t.trim().toUpperCase())
+    .filter(Boolean);
+
+  if (tickers.length === 0) {
+    return "No tickers provided for sentiment analysis.";
+  }
 
   // Run Perplexity search + StockTwits in parallel
   const [perplexityResult, ...stocktwitsResults] = await Promise.all([

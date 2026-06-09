@@ -48,18 +48,17 @@ async function generateForUser(userId: string): Promise<NextResponse> {
       .map((h) => `- ${h.ticker}${h.companyName ? ` (${h.companyName})` : ""}: ${h.shares} shares @ avg $${h.avgCost}`)
       .join("\n");
 
-    const tickerList = tickers.join(", ");
-
-    // Run 8 agents in parallel (fastest subset — avoid EDGAR/Perplexity for weekly speed)
+    // Run 8 agents in parallel (fastest subset — avoid EDGAR/Perplexity for weekly speed).
+    // Ticker agents expect `tickers: string[]`, so pass the array, not a joined string.
     const [risk, news, macro, technical, earnings, insider, sentiment, analyst] = await Promise.allSettled([
       runWithCache("run_risk_agent",      { portfolio: portfolioContext }),
-      runWithCache("run_news_agent",      { tickers: tickerList }),
-      runWithCache("run_macro_agent",     { tickers: tickerList }),
-      runWithCache("run_technical_agent", { tickers: tickerList }),
-      runWithCache("run_earnings_agent",  { tickers: tickerList }),
-      runWithCache("run_insider_agent",   { tickers: tickerList }),
-      runWithCache("run_sentiment_agent", { tickers: tickerList }),
-      runWithCache("run_analyst_agent",   { tickers: tickerList }),
+      runWithCache("run_news_agent",      { tickers }),
+      runWithCache("run_macro_agent",     { tickers }),
+      runWithCache("run_technical_agent", { tickers }),
+      runWithCache("run_earnings_agent",  { tickers }),
+      runWithCache("run_insider_agent",   { tickers }),
+      runWithCache("run_sentiment_agent", { tickers }),
+      runWithCache("run_analyst_agent",   { tickers }),
     ]);
 
     const sections = [

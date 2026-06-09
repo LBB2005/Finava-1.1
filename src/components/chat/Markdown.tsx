@@ -17,7 +17,7 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-const components: Components = {
+export const components: Components = {
   // Tables — scrollable container + clean styling
   table: ({ children }) => (
     <div className="overflow-x-auto my-4 rounded-xl border border-[var(--color-border)] shadow-sm">

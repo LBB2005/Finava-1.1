@@ -1,6 +1,7 @@
 "use client";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLiveBoard } from "@/hooks/useLiveBoard";
+import { NAME_BY_TICKER } from "@/lib/research";
 
 function pct(n: number | null): string {
   if (n === null) return "—";
@@ -8,6 +9,9 @@ function pct(n: number | null): string {
 }
 function price(n: number | null): string {
   return n === null ? "—" : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function nameFor(t: string): string {
+  return NAME_BY_TICKER[t] ?? "—";
 }
 
 export default function WatchlistBoard({
@@ -19,63 +23,151 @@ export default function WatchlistBoard({
   compact?: boolean;
   onRemove?: (ticker: string) => void;
 }) {
+  const router = useRouter();
   const { liveMap, isLoading } = useLiveBoard(tickers);
 
   if (tickers.length === 0) {
+    if (compact) {
+      return (
+        <p className="pl-[42px] pr-[14px] py-[7px] text-[11.5px]" style={{ color: "var(--color-muted)" }}>
+          No stocks yet.
+        </p>
+      );
+    }
     return (
-      <p style={{ fontSize: 12, color: "var(--color-muted)", padding: compact ? "8px 14px" : "20px 14px" }}>
-        No stocks yet — add one to start tracking.
-      </p>
+      <div
+        className="flex flex-col items-center justify-center text-center"
+        style={{ padding: "40px 20px", gap: 6 }}
+      >
+        <p className="text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
+          No stocks in this list yet.
+        </p>
+        <p className="text-[11.5px]" style={{ color: "var(--color-muted)" }}>
+          Add a ticker above to start tracking it.
+        </p>
+      </div>
     );
   }
 
+  /* ── Compact sidebar rows — mirrors the portfolio HoldingCard look ──────── */
+  if (compact) {
+    return (
+      <div className="flex flex-col">
+        {tickers.map((t) => {
+          const row = liveMap.get(t);
+          const chg = row?.changePct ?? null;
+          const up = (chg ?? 0) >= 0;
+          return (
+            <div
+              key={t}
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push(`/stock/${t}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  router.push(`/stock/${t}`);
+                }
+              }}
+              className="group grid items-center gap-[10px] pl-[42px] pr-[14px] py-[7px] cursor-pointer bg-transparent hover:bg-[var(--color-sidebar-hover)] transition-colors duration-100"
+              style={{ gridTemplateColumns: "auto 1fr auto" }}
+            >
+              <span
+                className="text-[10.5px] font-bold tracking-[0.04em] px-[6px] py-[3px] rounded-[5px]"
+                style={{ color: "var(--color-accent)", background: "var(--color-accent-light)" }}
+              >
+                {t}
+              </span>
+              <span
+                className="text-[11.5px] overflow-hidden text-ellipsis whitespace-nowrap"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                {nameFor(t)}
+              </span>
+              <span
+                className="text-[11px] font-semibold tabular-nums"
+                style={{ color: chg === null ? "var(--color-muted)" : up ? "var(--color-bull)" : "var(--color-bear)" }}
+              >
+                {isLoading && !row ? "…" : pct(chg)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  /* ── Full page table — mirrors the portfolio holdings table ─────────────── */
   return (
-    <div style={{ overflow: "hidden", background: "var(--color-bg)" }}>
-      <table className="lad-table board-table" style={{ minWidth: compact ? undefined : 520, width: "100%" }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: "left" }}>Ticker</th>
-            <th className="num">Last</th>
-            <th className="num">Chg</th>
-            {!compact && <th className="num">Mkt Cap</th>}
-            {!compact && onRemove && <th style={{ width: 32 }} />}
-          </tr>
-        </thead>
-        <tbody>
-          {tickers.map((t) => {
-            const row = liveMap.get(t);
-            const chg = row?.changePct ?? null;
-            const up = (chg ?? 0) >= 0;
-            return (
-              <tr key={t}>
-                <td style={{ textAlign: "left" }}>
-                  <Link href={`/stock/${t}`} style={{ color: "var(--color-text)", fontWeight: 600 }}>{t}</Link>
+    <table className="w-full">
+      <thead>
+        <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
+          {["Ticker", "Company", "Last", "Day", "Mkt Cap"].map((h, i) => (
+            <th
+              key={h}
+              className={`text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)] px-4 py-[10px] ${i >= 2 ? "text-right" : "text-left"}`}
+            >
+              {h}
+            </th>
+          ))}
+          {onRemove && <th style={{ width: 40 }} />}
+        </tr>
+      </thead>
+      <tbody>
+        {tickers.map((t) => {
+          const row = liveMap.get(t);
+          const chg = row?.changePct ?? null;
+          const up = (chg ?? 0) >= 0;
+          return (
+            <tr
+              key={t}
+              className="portfolio-row group"
+              style={{ borderBottom: "1px solid var(--color-border)", cursor: "pointer", transition: "background 100ms" }}
+              onClick={() => router.push(`/stock/${t}`)}
+            >
+              <td className="px-4 py-3">
+                <span
+                  className="text-[11px] font-bold px-[7px] py-[3px] rounded-[5px] tracking-[0.04em]"
+                  style={{ color: "var(--color-accent)", background: "var(--color-accent-light)" }}
+                >
+                  {t}
+                </span>
+              </td>
+              <td className="px-4 py-3 text-[12.5px] text-[var(--color-text-secondary)] max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap">
+                {nameFor(t)}
+              </td>
+              <td className="px-4 py-3 text-[12.5px] text-right text-[var(--color-text)] tabular-nums">
+                {isLoading && !row ? "…" : price(row?.price ?? null)}
+              </td>
+              <td
+                className="px-4 py-3 text-[12.5px] font-medium text-right tabular-nums"
+                style={{ color: chg === null ? "var(--color-muted)" : up ? "var(--color-bull)" : "var(--color-bear)" }}
+              >
+                {pct(chg)}
+              </td>
+              <td className="px-4 py-3 text-[12.5px] text-right text-[var(--color-text)] tabular-nums">
+                {row?.marketCap == null ? "—" : `$${(row.marketCap / 1e9).toFixed(1)}B`}
+              </td>
+              {onRemove && (
+                <td className="px-3 py-3 text-right">
+                  <button
+                    aria-label={`Remove ${t}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove(t);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 text-[var(--color-muted)] hover:text-[var(--color-bear)] transition-opacity duration-150 p-0.5"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
                 </td>
-                <td className="num">{isLoading && !row ? "…" : price(row?.price ?? null)}</td>
-                <td className="num" style={{ color: chg === null ? "var(--color-muted)" : up ? "var(--color-bull)" : "var(--color-bear)" }}>
-                  {pct(chg)}
-                </td>
-                {!compact && (
-                  <td className="num">
-                    {row?.marketCap == null ? "—" : `$${(row.marketCap / 1e9).toFixed(1)}B`}
-                  </td>
-                )}
-                {!compact && onRemove && (
-                  <td>
-                    <button
-                      aria-label={`Remove ${t}`}
-                      onClick={() => onRemove(t)}
-                      style={{ color: "var(--color-muted)", fontSize: 13, lineHeight: 1, padding: 4 }}
-                    >
-                      ✕
-                    </button>
-                  </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+              )}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }

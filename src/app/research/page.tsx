@@ -1,11 +1,10 @@
 "use client";
 import { useState, useMemo } from "react";
-import { HORIZONS, topPicks, overlayLive, UNIVERSE, type HorizonKey } from "@/lib/research";
+import { HORIZONS, overlayLive, UNIVERSE, type HorizonKey } from "@/lib/research";
 import { useLiveBoard } from "@/hooks/useLiveBoard";
 import { useFactorUniverse } from "@/hooks/useFactorUniverse";
-import HeroPicks from "@/components/research/HeroPicks";
+import BannerBoard from "@/components/research/BannerBoard";
 import Leaderboard from "@/components/research/Leaderboard";
-import Movers from "@/components/research/Movers";
 import TuneMode from "@/components/research/TuneMode";
 import CompareMode from "@/components/research/CompareMode";
 import ScreenMode from "@/components/research/ScreenMode";
@@ -67,7 +66,6 @@ export default function ResearchPage() {
   const tickers = useMemo(() => baseUniverse.map((s) => s.ticker), [baseUniverse]);
   const { liveMap, isLoading: pricesLoading } = useLiveBoard(tickers);
   const universe = useMemo(() => overlayLive(baseUniverse, liveMap), [baseUniverse, liveMap]);
-  const picks = useMemo(() => topPicks(universe), [universe]);
 
   const isLoading = pricesLoading || factorsLoading;
   const asOfLabel = asOf ? fmtAsOf(asOf) : "Loading…";
@@ -109,13 +107,10 @@ export default function ResearchPage() {
         <div style={{ padding: "16px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
           {mode === "board" && (
             <>
-              <SectionRule label="FORWARD PICKS · FACTOR PROFILE BY HORIZON" />
-              <HeroPicks picks={picks} />
+              <SectionRule label="TODAY ON THE BOARD · TOP PICK &amp; MOVERS" />
+              <BannerBoard horizon={horizon} universe={universe} />
 
               <Leaderboard horizon={horizon} universe={universe} loading={isLoading} />
-
-              <SectionRule label="TOP PERFORMERS · BACKWARD-LOOKING" />
-              <Movers window={horizon} universe={universe} />
             </>
           )}
 

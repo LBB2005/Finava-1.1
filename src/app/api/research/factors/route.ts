@@ -13,34 +13,16 @@
 // unexpected error.
 
 import { NextResponse } from "next/server";
-import { computeFactorUniverse, type FactorUniverse } from "@/lib/factors";
+import { getFactorUniverse } from "@/lib/factorUniverse";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // cold compute fans out across ~500 tickers
 
-const TTL_MS = 15 * 60 * 1000;
-let cache: { at: number; data: FactorUniverse } | null = null;
-let inflight: Promise<FactorUniverse> | null = null;
-
-async function load(): Promise<FactorUniverse> {
-  if (cache && Date.now() - cache.at < TTL_MS) return cache.data;
-  // Collapse concurrent cold requests onto a single computation.
-  if (!inflight) {
-    inflight = computeFactorUniverse()
-      .then((data) => {
-        cache = { at: Date.now(), data };
-        return data;
-      })
-      .finally(() => {
-        inflight = null;
-      });
-  }
-  return inflight;
-}
-
+// The 15-min memo now lives in @/lib/factorUniverse so the chat discovery scout
+// shares one cache with this lens (no double cold computes). See that module.
 export async function GET() {
   try {
-    const data = await load();
+    const data = await getFactorUniverse();
     return NextResponse.json(data);
   } catch (err) {
     console.error("[research/factors]", err);

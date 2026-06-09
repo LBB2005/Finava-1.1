@@ -378,6 +378,13 @@ export async function computeFactorUniverse(): Promise<FactorUniverse> {
       health: healthScore[i],
     };
     const p = price(i);
+    // Surface the cap + TTM P/E we already computed for the value factor so the
+    // Screen lens (cap/PE filters) and the chat scout (grounded fit table) can use
+    // real numbers. P/E is null for loss-makers (ni ≤ 0) — applyScreen treats it as
+    // "no value", which is the right behaviour for a "cheap" screen.
+    const cap = marketCap[i];
+    const ni = fund(i).netIncome;
+    const peVal = cap != null && ni != null && ni > 0 ? cap / ni : null;
     return {
       ticker: c.ticker,
       name: c.name,
@@ -386,6 +393,8 @@ export async function computeFactorUniverse(): Promise<FactorUniverse> {
       chg: snaps.get(c.ticker)?.changePct ?? 0,
       f,
       mv: computeMv(closeHist.get(c.ticker)), // real 5/21/252-day price moves for Movers
+      marketCap: cap,
+      pe: peVal,
       live: p != null,
     };
   });

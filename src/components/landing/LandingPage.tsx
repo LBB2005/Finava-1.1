@@ -9,6 +9,7 @@ import Comparison from "./Comparison";
 import Pricing from "./Pricing";
 import FAQ from "./FAQ";
 import WaitlistForm from "./WaitlistForm";
+import AgentTicker from "./AgentTicker";
 
 function Wordmark() {
   return (
@@ -95,6 +96,7 @@ export default function LandingPage() {
         <Hero />
         <Problem />
         <FeatureGrid />
+        <AgentTicker />
         <HowItWorks />
         <Comparison />
         <Pricing />

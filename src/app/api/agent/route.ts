@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   const { userId, error } = await requireAuth();
   if (error) return error;
 
-  const { userPrompt, portfolioContext, deepResearch, conversationHistory } = await req.json();
+  const { userPrompt, portfolioContext, deepResearch, conversationHistory, holdings } = await req.json();
 
   const readable = new ReadableStream({
     async start(controller) {
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       };
 
       try {
-        await runCeoAgent(userPrompt, portfolioContext ?? "", emit, !!deepResearch, conversationHistory ?? [], userId);
+        await runCeoAgent(userPrompt, portfolioContext ?? "", emit, !!deepResearch, conversationHistory ?? [], userId, Array.isArray(holdings) ? holdings : []);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("[agent route error]", err);

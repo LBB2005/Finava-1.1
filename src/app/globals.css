@@ -326,6 +326,83 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.8s linear infinite; }
 
+/* ── Calm Orb "thinking" state + send animations (chat) ──────────────
+   Ported from the Claude Design "Calm Orb" handoff. The breathing dot,
+   breathing avatar and shimmer label make up the waiting indicator;
+   prompt-lift / send-launch power the send interaction. */
+@keyframes breathe {
+  0%, 100% { transform: scale(0.86); opacity: 0.55; }
+  50%      { transform: scale(1.08); opacity: 1; }
+}
+@keyframes breathe-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-accent) 26%, transparent); }
+  50%      { box-shadow: 0 0 0 9px color-mix(in oklab, var(--color-accent) 0%, transparent); }
+}
+@keyframes avatar-breath {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-accent) 22%, transparent); }
+  50%      { transform: scale(1.04); box-shadow: 0 0 0 6px color-mix(in oklab, var(--color-accent) 0%, transparent); }
+}
+.calm-orb-dot { animation: breathe 1.8s ease-in-out infinite, breathe-glow 1.8s ease-in-out infinite; }
+.calm-orb-avatar { animation: avatar-breath 2.4s ease-in-out infinite; }
+
+/* Shimmer sweep for "thinking" labels */
+@keyframes text-shimmer {
+  0%   { background-position: 140% 0; }
+  100% { background-position: -40% 0; }
+}
+.shimmer-text {
+  background: linear-gradient(
+    100deg,
+    var(--color-muted) 0%,
+    var(--color-muted) 35%,
+    var(--color-text) 50%,
+    var(--color-muted) 65%,
+    var(--color-muted) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-shimmer 2.1s linear infinite;
+}
+
+/* Prompt lifts up into the thread on send */
+@keyframes prompt-lift {
+  0%   { opacity: 0; transform: translateY(26px) scale(0.97); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.prompt-lift { animation: prompt-lift 520ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Send button press / launch nudge */
+@keyframes send-launch {
+  0%   { transform: scale(1) rotate(0); }
+  40%  { transform: scale(0.82) rotate(0); }
+  70%  { transform: translate(2px, -3px) scale(1.05) rotate(8deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+/* Composer "+" attach button — bordered surface chip with accent hover. */
+.cmp-plus {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  transition: background 140ms, border-color 140ms, color 140ms;
+}
+.cmp-plus:hover:not(:disabled) {
+  background: var(--color-accent-light);
+  border-color: var(--color-accent-medium);
+  color: var(--color-accent);
+}
+
+/* Composer mode-menu option — subtle sidebar-style tint on hover so it's
+   clear which row the cursor is over before clicking. Active options carry an
+   inline background that wins over this rule, so only inactive rows tint
+   (mirrors .nav-row). */
+.mode-option:hover {
+  background: var(--color-sidebar-hover);
+}
+
 /* Skeleton shimmer — shared loading primitive (theme-aware) */
 @keyframes shimmer {
   0%   { background-position: -150% 0; }
@@ -345,6 +422,19 @@ body {
   animation: shimmer 1.4s ease-in-out infinite;
 }
 
+/* ── Claude-style streaming text ─────────────────────────────────────
+   Each freshly-revealed word fades in cleanly in place — pure opacity, no
+   movement, no blur. Settled words stay put (stable keys in StreamingMarkdown
+   prevent re-animation). */
+@keyframes stream-word-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.stream-word {
+  animation: stream-word-in 300ms ease-out both;
+  will-change: opacity;
+}
+
 /* Route transition — subtle fade on navigation */
 @keyframes route-fade {
   from { opacity: 0; transform: translateY(6px); }
@@ -356,6 +446,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .fade-in, .verdict-fadein, .route-fade { animation: none; }
   .skeleton { animation: none; }
+  .calm-orb-dot, .calm-orb-avatar, .shimmer-text, .prompt-lift { animation: none; }
+  .stream-word { animation: none; opacity: 1; }
 }
 
 /* Markdown body */
@@ -1306,6 +1398,67 @@ body {
   50% { box-shadow: 0 0 18px -2px rgba(77, 156, 248, 0.45); border-color: rgba(77, 156, 248, 0.5); }
 }
 
+/* ── Hero: 15 → 1 grid compress ───────────────────────────── */
+.lp-agent-tile {
+  border: 1px solid var(--lp-border);
+  background: linear-gradient(180deg, var(--lp-surface) 0%, var(--lp-bg-2) 100%);
+  min-height: 60px;
+  will-change: transform, opacity;
+}
+.lp-verdict {
+  border: 1px solid var(--lp-accent);
+  background: linear-gradient(180deg, #0e1a30 0%, var(--lp-bg-2) 100%);
+  box-shadow: 0 24px 60px -24px rgba(77, 156, 248, 0.7);
+}
+.lp-replay-btn {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+/* ── Always-on agent ticker ───────────────────────────────── */
+.lp-tick-row { position: relative; width: 100%; overflow: hidden; }
+.lp-tick-row::before,
+.lp-tick-row::after {
+  content: "";
+  position: absolute; top: 0; bottom: 0; width: 80px; z-index: 2; pointer-events: none;
+}
+.lp-tick-row::before { left: 0; background: linear-gradient(90deg, var(--lp-bg-2), transparent); }
+.lp-tick-row::after { right: 0; background: linear-gradient(270deg, var(--lp-bg-2), transparent); }
+.lp-tick-track {
+  display: flex; gap: 10px; width: max-content;
+  will-change: transform;
+}
+.lp-tick-l { animation: lp-marquee-l 38s linear infinite; }
+.lp-tick-r { animation: lp-marquee-r 38s linear infinite; }
+.lp-ticker:hover .lp-tick-track { animation-play-state: paused; }
+@keyframes lp-marquee-l { to { transform: translateX(-50%); } }
+@keyframes lp-marquee-r { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+.lp-tick-pill {
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+  border: 1px solid var(--lp-border);
+  background: var(--lp-surface);
+  border-radius: 999px;
+  padding: 7px 13px;
+  font-size: 12.5px; color: var(--lp-text-secondary);
+}
+.lp-tick-pill b { font-weight: 600; }
+.lp-tick-dot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
+
+/* ── Card-deck fan ────────────────────────────────────────── */
+.lp-fan-card {
+  border: 1px solid var(--lp-border-strong);
+  background: linear-gradient(180deg, #10192c 0%, var(--lp-bg-2) 100%);
+  box-shadow: 0 16px 34px -18px rgba(0, 0, 0, 0.85);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-tick-l, .lp-tick-r { animation: none; }
+  .lp-agent-pill { animation: none; }
+}
+
 /* Surface card with hover lift */
 .lp-card {
   background: linear-gradient(180deg, var(--lp-surface) 0%, var(--lp-bg-2) 100%);
@@ -1429,6 +1582,56 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 /* Drop the company name on narrow viewports so the numeric columns keep room. */
 @media (max-width: 920px) {
   .research-root .board-table .lad-name { display: none; }
+}
+
+/* ── Banner board: feature pick + scrollable gainers/laggards strip ──────── */
+.research-root .bn-hero {
+  display: flex; align-items: stretch; border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); overflow: hidden; background: var(--color-bg);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.research-root .bn-feat {
+  display: flex; align-items: center; gap: 18px; padding: 20px 24px;
+  border-right: 1px solid var(--color-border); width: 420px; flex-shrink: 0;
+}
+.research-root .feat-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.research-root .feat-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--color-accent); }
+.research-root .feat-idrow { display: flex; align-items: center; gap: 12px; }
+.research-root .feat-tk { font-weight: 800; letter-spacing: -0.02em; line-height: 0.9; color: var(--color-text); }
+.research-root .feat-name { font-size: 12px; color: var(--color-text-secondary); }
+.research-root .feat-pxrow { display: flex; align-items: center; gap: 14px; }
+.research-root .feat-px { font-size: 16px; font-weight: 600; color: var(--color-text); }
+.research-root .feat-chg { font-size: 13px; font-weight: 600; }
+
+.research-root .bn-movers { flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-width: 0; }
+.research-root .bn-col { display: flex; flex-direction: column; min-width: 0; }
+.research-root .bn-col + .bn-col { border-left: 1px solid var(--color-border); }
+.research-root .bn-col-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 18px; border-bottom: 1px solid var(--color-border); background: var(--color-surface);
+}
+.research-root .bn-col-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
+.research-root .bn-col-count { font-size: 10px; color: var(--color-muted); letter-spacing: 0.04em; white-space: nowrap; }
+.research-root .bn-scroll { overflow: hidden auto; max-height: 288px; padding: 2px 18px 6px; }
+.research-root .bn-scroll::-webkit-scrollbar { width: 8px; }
+.research-root .bn-scroll::-webkit-scrollbar-track { background: transparent; }
+.research-root .bn-scroll::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 99px; }
+.research-root .bn-scroll::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
+.research-root .bn-mv {
+  display: grid; grid-template-columns: 46px minmax(0, 1fr) minmax(0, 1.15fr) 52px;
+  align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--color-border);
+}
+.research-root .bn-mv:last-child { border-bottom: none; }
+.research-root .mvb-tk { font-size: 13px; font-weight: 700; color: var(--color-accent); }
+.research-root .mvb-name { font-size: 11px; color: var(--color-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.research-root .mvb-track { height: 8px; border-radius: 99px; background: var(--color-surface-2); overflow: hidden; }
+.research-root .mvb-fill { height: 100%; border-radius: 99px; }
+.research-root .mvb-val { font-size: 12.5px; font-weight: 600; text-align: right; }
+
+/* Stack the feature above the movers when the strip gets too narrow. */
+@media (max-width: 860px) {
+  .research-root .bn-hero { flex-direction: column; }
+  .research-root .bn-feat { width: 100%; border-right: none; border-bottom: 1px solid var(--color-border); }
 }
 
 /* ── Chart-first stock page (/stock/[ticker]) ───────────────────────────── */

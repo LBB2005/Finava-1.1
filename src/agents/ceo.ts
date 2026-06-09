@@ -77,7 +77,8 @@ export async function runCeoAgent(
   emit: EventEmitter,
   deepResearch = false,
   conversationHistory: { role: "user" | "assistant"; content: string }[] = [],
-  userId?: string
+  userId?: string,
+  holdings: { ticker: string; shares: number }[] = []
 ) {
   const systemPrompt = `You are Lucra's CEO Research Agent — an expert AI financial analyst managing a team of specialized sub-agents. Your job is to:
 1. Understand what the user wants
@@ -115,8 +116,16 @@ ${portfolioContext ? `## User's Portfolio\n${portfolioContext}` : "The user has 
 ## Data Quality Rules — NON-NEGOTIABLE
 - If the Technical Agent reports "DATA UNAVAILABLE" or "No data available" for a ticker, you MUST NOT make any trim/hold/buy calls that depend on current price for that ticker. Instead write: "⚠️ Technical data unavailable for [TICKER] — price-based calls withheld."
 - If an agent returns an error or explicitly states data is missing, treat that dimension as unknown. Do not fill gaps with assumptions or stale estimates.
+- **Only cite a specific number (price, RSI, SMA, beta, weight, target) if it appears verbatim in a sub-agent's output.** Never invent or round-from-memory a figure. If you cannot point to the agent that produced it, do not state it.
+- **Cross-agent consistency**: if two agents disagree on whether data exists (e.g. the Technical Agent reports an RSI but the Risk Agent says "no live price data"), surface the disagreement explicitly and lower confidence — do not silently adopt the convenient number.
+- **Portfolio loss / drawdown math**: use ONLY the Risk Agent's computed "weighted portfolio beta" and position weights. NEVER apply a single holding's beta to the whole portfolio. If weights are absent, say so and give a range, not a precise figure.
 - Any chart showing "current allocation" or cost-basis comparisons requires live price data. If that data is absent, omit the chart and note why.
 - Confidence in a recommendation must match the quality of supporting data. Missing a key data source = explicitly lower confidence, not silent omission.
+
+## Required Report Sections
+- **⚖️ Conflicting Signals** — whenever agents disagree (e.g. bullish technicals vs deteriorating macro breadth), give the conflict its own reconciliation: state both sides and your net stance with reasoning. Do not just pick the bullish read and move on.
+- **Material single-name risks** — give any material idiosyncratic risk (antitrust, litigation, regulation, key-customer concentration) a short scenario with rough magnitude and what it would mean for the thesis — never a one-line dismissal.
+- **🎯 Triggers & Guardrails** — every recommendation set ends with concrete, actionable guardrails: rebalance thresholds, sell signals, and stop-loss / trim levels. Risk identification without triggers is incomplete.
 
 ## Chart Output Format
 When your response includes comparative data, performance figures, or time series — embed an interactive chart using a fenced \`\`\`chart code block. The chart JSON schema:
@@ -184,6 +193,9 @@ You are running in Deep Research mode. This means:
   // Accumulate sub-agent outputs for the skeptic pass
   const agentOutputs = new Map<string, string>();
   let finalResponse = "";
+  // Draft assistant blocks + truncation flag, carried into the skeptic→revision pass.
+  let draftAssistantBlocks: MessageParam["content"] | null = null;
+  let truncated = false;
   // Background persistence (cache/memory/style). These used to be true
   // fire-and-forget, but on Vercel the function instance can freeze the moment
   // the response stream closes, silently dropping any still-pending write. We
@@ -220,32 +232,16 @@ You are running in Deep Research mode. This means:
         .filter((b) => b.type === "text")
         .map((b) => (b as { type: string; text: string }).text)
         .join("\n\n");
-      finalResponse =
-        text +
-        (response.stop_reason === "max_tokens" && text
-          ? "\n\n_⚠️ This response reached the length limit and may be cut off._"
-          : "");
-      if (!finalResponse) finalResponse = "Analysis complete.";
-      emit({ type: "final_response", content: finalResponse });
-      // Save ticker memory and update user investing style — flushed before "done".
-      pendingWrites.push(
-        saveTickerMemory(mentionedTickers, finalResponse, anthropic).catch((e) =>
-          console.error("[memory] save error:", e)
-        )
-      );
-      if (userId) {
-        pendingWrites.push(
-          updateStyleFromConversation(userId, userPrompt, finalResponse, anthropic).catch((e) =>
-            console.error("[userPreference] update error:", e)
-          )
-        );
-      }
+      // Capture the draft; the skeptic→revision pass (after the loop) finalizes and
+      // emits it. Don't emit final_response or persist memory here.
+      finalResponse = text || "Analysis complete.";
+      truncated = response.stop_reason === "max_tokens" && !!text;
+      draftAssistantBlocks = response.content;
       break;
     }
 
     if (response.stop_reason !== "tool_use") {
       finalResponse = "Analysis complete.";
-      emit({ type: "final_response", content: finalResponse });
       break;
     }
 
@@ -266,7 +262,11 @@ You are running in Deep Research mode. This means:
         }
         const agentName = block.name as AgentName;
         try {
-          const handler = agentDispatch[block.name];
+          // Risk agent gets real position sizes so weights/drawdown math is grounded.
+          const handler =
+            block.name === "run_risk_agent"
+              ? (input: unknown) => runRiskAgent(input, holdings)
+              : agentDispatch[block.name];
           if (!handler) throw new Error(`Unknown agent: ${block.name}`);
 
           // ── Cache check ───────────────────────────────────────────────────
@@ -320,27 +320,33 @@ You are running in Deep Research mode. This means:
 
   // If the loop exhausted MAX_ITERATIONS while still requesting tools, finalResponse
   // is empty — emit a fallback so the client never sees a silent blank/hang.
+  // Nothing to review or revise in that case.
   if (!finalResponse) {
     emit({
       type: "final_response",
       content:
         "I gathered data from several agents but ran out of analysis steps before compiling a final answer. Please try a narrower question or fewer tickers.",
     });
-  }
+  } else {
+    // ── Skeptic review → revision pass ──────────────────────────────────────
+    // The skeptic critiques the DRAFT, then the CEO revises to address it before
+    // we finalize. The critique is still surfaced to the user for transparency,
+    // but the report they read has already been corrected.
+    const canRevise = draftAssistantBlocks !== null && agentOutputs.size > 0;
+    let critique = "";
 
-  // ── Skeptic validation pass ──────────────────────────────────────────────
-  if (finalResponse) {
-    emit({ type: "skeptic_start" });
+    if (canRevise) {
+      emit({ type: "skeptic_start" });
 
-    const agentSummaryLines = Array.from(agentOutputs.entries())
-      .map(([name, output]) => `### ${name}\n${output.slice(0, 800)}${output.length > 800 ? "…" : ""}`)
-      .join("\n\n");
+      const agentSummaryLines = Array.from(agentOutputs.entries())
+        .map(([name, output]) => `### ${name}\n${output.slice(0, 800)}${output.length > 800 ? "…" : ""}`)
+        .join("\n\n");
 
-    try {
-      const critique = await generate({
-        agent: "skeptic",
-        maxTokens: 600,
-        prompt: `You are a skeptical financial analyst reviewing another analyst's research report. Your job is to identify weaknesses, flag overconfidence, and note any contradictions or missing context.
+      try {
+        critique = await generate({
+          agent: "skeptic",
+          maxTokens: 600,
+          prompt: `You are a skeptical financial analyst reviewing another analyst's research report. Your job is to identify weaknesses, flag overconfidence, and note any contradictions or missing context.
 
 ## CEO Report
 ${finalResponse.slice(0, 3000)}${finalResponse.length > 3000 ? "\n[truncated]" : ""}
@@ -357,12 +363,81 @@ Write a concise second-opinion critique (3–5 bullet points, max 150 words). Fo
 - Data gaps that would change the conclusion
 
 Be direct and constructive. Start with "**Skeptic Review:**"`,
-      });
+        });
+      } catch {
+        critique = "";
+      }
 
       emit({ type: "skeptic_complete", critique });
-    } catch {
-      // Skeptic is best-effort — don't fail the whole response
-      emit({ type: "skeptic_complete", critique: "" });
+
+      // ── Revision pass: CEO rewrites the full report to address the critique ──
+      if (critique && draftAssistantBlocks) {
+        emit({ type: "ceo_compiling" });
+        try {
+          messages.push({ role: "assistant", content: draftAssistantBlocks });
+          messages.push({
+            role: "user",
+            content: `A skeptical reviewer critiqued your draft report. Output a COMPLETE revised report that fixes every valid point — it replaces the draft entirely. Do not mention the reviewer, this instruction, or that a revision happened.
+
+Apply these corrections:
+- Remove or explicitly caveat any specific figure (price, RSI, SMA, beta, weight, target) that no sub-agent actually reported, or that another agent flagged as unavailable. When agents disagree on whether data exists, state the disagreement and lower confidence — don't adopt the convenient number.
+- For every contradiction between agents, add an explicit "⚖️ Conflicting Signals" reconciliation: both sides + your net stance. Don't just pick the bullish read.
+- Any "portfolio loss in an X% drawdown" figure must use the Risk Agent's weighted portfolio beta and position weights — never a single holding's beta applied to the whole book. If weights are absent, give a range and say so.
+- Give material single-name risks (antitrust, litigation, regulation) a brief scenario with rough magnitude, not a one-liner.
+- End with a "🎯 Triggers & Guardrails" section: concrete rebalance thresholds, sell signals, and stop-loss / trim levels.
+
+Reviewer critique:
+${critique}`,
+          });
+
+          const revision = await anthropic.messages
+            .stream({
+              model: MODEL,
+              max_tokens: SYNTH_MAX_TOKENS,
+              system: [
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                { type: "text", text: fullSystemPrompt, cache_control: { type: "ephemeral" } } as any,
+              ],
+              // No tools on the revision pass — we want a written report, not more agent calls.
+              messages,
+            })
+            .finalMessage();
+
+          const revisedText = revision.content
+            .filter((b) => b.type === "text")
+            .map((b) => (b as { type: string; text: string }).text)
+            .join("\n\n");
+
+          if (revisedText.trim()) {
+            finalResponse = revisedText;
+            truncated = revision.stop_reason === "max_tokens";
+          }
+        } catch (e) {
+          // Revision is best-effort — keep the draft if it fails.
+          console.error("[ceo] revision pass error:", e);
+        }
+      }
+    }
+
+    if (truncated) {
+      finalResponse += "\n\n_⚠️ This response reached the length limit and may be cut off._";
+    }
+    emit({ type: "final_response", content: finalResponse });
+
+    // Persist ticker memory + investing style from the FINAL (revised) report.
+    if (mentionedTickers.length) {
+      pendingWrites.push(
+        saveTickerMemory(mentionedTickers, finalResponse, anthropic).catch((e) =>
+          console.error("[memory] save error:", e)
+        )
+      );
+    }
+    if (userId) {
+      pendingWrites.push(
+        updateStyleFromConversation(userId, userPrompt, finalResponse, anthropic).catch((e) =>
+          console.error("[userPreference] update error:", e)
+        )
+      );
     }
   }
 

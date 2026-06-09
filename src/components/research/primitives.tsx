@@ -23,6 +23,37 @@ export function GradeBadge({ grade, size = "md" }: { grade: string; size?: Badge
   );
 }
 
+/** 0–100 arc gauge — 270° sweep with the score numeral centred. The Banner
+ *  board's feature-pick treatment (borrowed from the Editorial direction). */
+export function ArcGauge({ score, size = 130, stroke = 12 }: { score: number; size?: number; stroke?: number }) {
+  const r = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const a0 = 135;
+  const sweep = 270;
+  const rad = (d: number) => ((d - 180) * Math.PI) / 180;
+  const pt = (deg: number): [number, number] => [cx + r * Math.cos(rad(deg)), cy + r * Math.sin(rad(deg))];
+  const arc = (from: number, to: number) => {
+    const [x0, y0] = pt(from);
+    const [x1, y1] = pt(to);
+    const large = to - from > 180 ? 1 : 0;
+    return `M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`;
+  };
+  const end = a0 + sweep * (Math.max(0, Math.min(100, score)) / 100);
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block", flexShrink: 0 }}>
+      <path d={arc(a0, a0 + sweep)} fill="none" stroke="var(--color-surface-2)" strokeWidth={stroke} strokeLinecap="round" />
+      <path d={arc(a0, end)} fill="none" stroke="var(--color-accent)" strokeWidth={stroke} strokeLinecap="round" />
+      <text x={cx} y={cy - 2} textAnchor="middle" className="serif" style={{ fontSize: size * 0.3, fontWeight: 800, fill: "var(--color-accent)" }}>
+        {score}
+      </text>
+      <text x={cx} y={cy + size * 0.16} textAnchor="middle" className="mono" style={{ fontSize: size * 0.072, fontWeight: 700, letterSpacing: "0.16em", fill: "var(--color-muted)" }}>
+        SCORE
+      </text>
+    </svg>
+  );
+}
+
 /** Compact vertical factor bars (terminal leaderboard cell). */
 export function MiniBars({ f }: { f: FactorScores }) {
   return (

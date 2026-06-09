@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Markdown from "./Markdown";
+import StreamingMarkdown, { useSmoothStream } from "./StreamingMarkdown";
 import Message from "./Message";
+import TypingIndicator from "./TypingIndicator";
 import AgentDetailModal from "@/components/agent/AgentDetailModal";
 import { AGENT_LABELS } from "@/types/chat";
 import type { ChatMessage, ChatMode, AgentStep } from "@/types/chat";
@@ -45,6 +47,12 @@ function AgentActivityPanel({ steps, ceoThinking }: { steps: AgentStep[]; ceoThi
   const total     = steps.length;
   const isCompiling = ceoThinking === "Compiling all reports…";
 
+  // Before any agent reports in, show the same Calm Orb "thinking" beat as
+  // Simple chat — a gentle breathing wait while the crew is being deployed.
+  if (!total) {
+    return <TypingIndicator label="Assembling your research crew" />;
+  }
+
   return (
     <>
       {detailStep && (
@@ -62,13 +70,11 @@ function AgentActivityPanel({ steps, ceoThinking }: { steps: AgentStep[]; ceoThi
           ))}
         </span>
         <span className="flex-1 text-[12px] text-[var(--color-text-secondary)]">
-          {!total ? "Deploying agents…" : running > 0 ? `${running} agent${running > 1 ? "s" : ""} analyzing…` : `${complete} of ${total} complete`}
+          {running > 0 ? `${running} agent${running > 1 ? "s" : ""} analyzing…` : `${complete} of ${total} complete`}
         </span>
-        {total > 0 && (
-          <div className="rounded-full overflow-hidden flex-shrink-0" style={{ width: 60, height: 3, background: "var(--color-surface-2)" }}>
-            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${total > 0 ? (complete / total) * 100 : 0}%`, background: "var(--color-accent)" }} />
-          </div>
-        )}
+        <div className="rounded-full overflow-hidden flex-shrink-0" style={{ width: 60, height: 3, background: "var(--color-surface-2)" }}>
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(complete / total) * 100}%`, background: "var(--color-accent)" }} />
+        </div>
       </div>
 
       {/* Desktop full panel */}
@@ -97,51 +103,34 @@ function AgentActivityPanel({ steps, ceoThinking }: { steps: AgentStep[]; ceoThi
             <div className="flex flex-col gap-[1px]">
               <span className="text-[12.5px] font-semibold text-[var(--color-text)]">Research crew</span>
               <span className="text-[11px] text-[var(--color-muted)]">
-                {!total
-                  ? "Deploying agents…"
-                  : running > 0
+                {running > 0
                   ? `${running} analyzing · ${complete} complete`
                   : `${complete} of ${total} complete`}
               </span>
             </div>
             {/* Progress meter */}
-            {total > 0 && (
-              <div className="ml-auto flex items-center gap-[10px]">
-                <span className="text-[11.5px] font-semibold text-[var(--color-text-secondary)] tabular-nums">
-                  {complete}/{total}
-                </span>
+            <div className="ml-auto flex items-center gap-[10px]">
+              <span className="text-[11.5px] font-semibold text-[var(--color-text-secondary)] tabular-nums">
+                {complete}/{total}
+              </span>
+              <div
+                className="rounded-full overflow-hidden"
+                style={{ width: 80, height: 4, background: "var(--color-surface-2)" }}
+              >
                 <div
-                  className="rounded-full overflow-hidden"
-                  style={{ width: 80, height: 4, background: "var(--color-surface-2)" }}
-                >
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: total > 0 ? `${(complete / total) * 100}%` : "0%",
-                      background: "var(--color-accent)",
-                    }}
-                  />
-                </div>
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${(complete / total) * 100}%`,
+                    background: "var(--color-accent)",
+                  }}
+                />
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Skeleton rows while no steps yet */}
-          {!total && (
-            <div className="px-[14px] py-3 flex flex-col gap-2.5">
-              {[90, 68, 78].map((w, i) => (
-                <div key={i} className="flex items-center gap-3 animate-pulse">
-                  <span className="w-3 h-3 rounded-full bg-[var(--color-border-strong)] flex-shrink-0" />
-                  <span className="h-2.5 rounded-full bg-[var(--color-border)]" style={{ width: w }} />
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* Agent rows */}
-          {total > 0 && (
-            <div>
-              {steps.map((step) => {
+          <div>
+            {steps.map((step) => {
                 const isSkeptic = step.agent === "skeptic_review";
                 const label = isSkeptic ? "Skeptic Review" : (AGENT_LABELS[step.agent] ?? step.agent);
                 const focus = AGENT_FOCUS[step.agent] ?? "";
@@ -218,8 +207,7 @@ function AgentActivityPanel({ steps, ceoThinking }: { steps: AgentStep[]; ceoThi
                   </div>
                 );
               })}
-            </div>
-          )}
+          </div>
 
           {/* Footer: compiling / synthesizing */}
           {(isCompiling || (total > 0 && running > 0)) && (
@@ -428,12 +416,15 @@ export default function MessageList({
 }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const showAgentActivity = mode === "agent" && isStreaming && !streamingContent;
+  const showAgentActivity = (mode === "agent" || mode === "deep_research") && isStreaming && !streamingContent;
   const showStreaming = isStreaming && !!streamingContent;
+
+  // Smoothly paced reveal of the streaming text (decoupled from SSE bursts).
+  const revealed = useSmoothStream(streamingContent, isStreaming);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, streamingContent, agentSteps.length, ceoThinking, isStreaming]);
+  }, [messages.length, revealed, agentSteps.length, ceoThinking, isStreaming]);
 
   /* Empty state */
   if (!messages.length && !isStreaming) {
@@ -452,34 +443,21 @@ export default function MessageList({
           <AgentActivityPanel steps={agentSteps} ceoThinking={ceoThinking} />
         )}
 
-        {/* Streaming response */}
+        {/* Streaming response — Claude-style word-by-word fade + steady pacing */}
         {showStreaming && (
           <div className="flex gap-[14px]">
             <LucraAvatar />
             <div className="flex-1 min-w-0 pt-1">
-              <Markdown>{streamingContent}</Markdown>
-              <span
-                className="inline-block w-0.5 h-[1.1em] animate-pulse align-text-bottom ml-0.5"
-                style={{ background: "var(--color-accent)" }}
-              />
+              <div className="stream-body">
+                <StreamingMarkdown content={revealed} />
+              </div>
             </div>
           </div>
         )}
 
-        {/* Simple mode waiting dots */}
+        {/* Simple mode waiting — Calm Orb thinking indicator */}
         {mode === "simple" && isStreaming && !streamingContent && (
-          <div className="flex gap-[14px] items-start">
-            <LucraAvatar />
-            <div className="pt-2 flex items-center gap-1.5">
-              {[0, 1, 2].map((i) => (
-                <span
-                  key={i}
-                  className="typing-dot inline-block w-2 h-2 rounded-full"
-                  style={{ background: "var(--color-accent)", animationDelay: `${i * 160}ms` }}
-                />
-              ))}
-            </div>
-          </div>
+          <TypingIndicator label="Thinking it through" />
         )}
 
         <div ref={bottomRef} />
