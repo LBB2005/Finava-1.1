@@ -11,7 +11,7 @@ const STEPS = [
     n: "2",
     title: "15 agents fire in parallel",
     body:
-      "Lucra dispatches specialists across fundamentals, valuation, technicals, insider data, sentiment, and macro — all simultaneously, all pulling from real data sources.",
+      "Finava dispatches specialists across fundamentals, valuation, technicals, insider data, sentiment, and macro — all simultaneously, all pulling from real data sources.",
   },
   {
     n: "3",

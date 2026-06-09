@@ -22,7 +22,7 @@ const FEATURES: Feature[] = [
     </>),
     title: "Real numbers, not summaries.",
     body:
-      "Lucra pulls 5 years of SEC EDGAR XBRL data — revenue, margins, operating cash flow, R&D spend, debt load — and builds a full DCF model with terminal value. You see the actual inputs, not a black-box rating. If the model says the stock is overvalued by 40%, you know exactly why.",
+      "Finava pulls 5 years of SEC EDGAR XBRL data — revenue, margins, operating cash flow, R&D spend, debt load — and builds a full DCF model with terminal value. You see the actual inputs, not a black-box rating. If the model says the stock is overvalued by 40%, you know exactly why.",
   },
   {
     icon: I(<>
@@ -32,7 +32,7 @@ const FEATURES: Feature[] = [
     </>),
     title: "See who's buying before you do.",
     body:
-      "Every Form 4 filing is a signal. Lucra reads SEC insider transaction filings in real time, filters for meaningful purchases ($100K+), and identifies whether insiders are making new bets or adding to existing ones. The kind of data that used to require a dedicated EDGAR analyst.",
+      "Every Form 4 filing is a signal. Finava reads SEC insider transaction filings in real time, filters for meaningful purchases ($100K+), and identifies whether insiders are making new bets or adding to existing ones. The kind of data that used to require a dedicated EDGAR analyst.",
   },
   {
     icon: I(<>
@@ -40,7 +40,7 @@ const FEATURES: Feature[] = [
     </>),
     title: "Know when a stock is getting crowded.",
     body:
-      "Lucra scans Reddit, X, YouTube, and financial forums in real time and returns a 0–10 hype score with sourced citations. Catch momentum before it peaks. Know when a narrative is already priced in.",
+      "Finava scans Reddit, X, YouTube, and financial forums in real time and returns a 0–10 hype score with sourced citations. Catch momentum before it peaks. Know when a narrative is already priced in.",
   },
   {
     icon: I(<>
@@ -51,7 +51,7 @@ const FEATURES: Feature[] = [
     </>),
     title: "RSI, MACD, and moving averages — synthesised, not listed.",
     body:
-      "Lucra doesn't just display technical indicators — it tells you what they mean together. Bullish divergence on RSI while price tests the 200-day? You'll know, and you'll know why it matters.",
+      "Finava doesn't just display technical indicators — it tells you what they mean together. Bullish divergence on RSI while price tests the 200-day? You'll know, and you'll know why it matters.",
   },
   {
     icon: I(<>
@@ -61,7 +61,7 @@ const FEATURES: Feature[] = [
     </>),
     title: "Your stock doesn't trade in a vacuum.",
     body:
-      "Rate environment, yield curve shape, sector rotation, and regime context all affect your thesis. Lucra's macro agent pulls multi-source economic data and tells you how the current environment affects the stock you're researching.",
+      "Rate environment, yield curve shape, sector rotation, and regime context all affect your thesis. Finava's macro agent pulls multi-source economic data and tells you how the current environment affects the stock you're researching.",
   },
   {
     icon: I(<>
@@ -72,7 +72,7 @@ const FEATURES: Feature[] = [
     </>),
     title: "Analyst consensus. Options flow. Peer comparables. Graham value.",
     body:
-      "Lucra's 15 agents cover every major analytical framework used by professional investors — Wall Street consensus targets, unusual options activity, peer group multiples, Benjamin Graham intrinsic value, and competitor analysis. Nothing is left on the table.",
+      "Finava's 15 agents cover every major analytical framework used by professional investors — Wall Street consensus targets, unusual options activity, peer group multiples, Benjamin Graham intrinsic value, and competitor analysis. Nothing is left on the table.",
   },
 ];
 
@@ -86,7 +86,7 @@ export default function FeatureGrid() {
             Type a ticker. Get the full picture.
           </h2>
           <p className="mt-4 text-[clamp(1rem,1.4vw,1.15rem)] text-[var(--lp-text-secondary)]">
-            Lucra deploys every specialist at once, so no angle gets missed.
+            Finava deploys every specialist at once, so no angle gets missed.
           </p>
         </div>
 

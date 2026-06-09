@@ -1,6 +1,6 @@
-# Lucra — LLM Cost Optimization Report
+# Finava — LLM Cost Optimization Report
 
-*Goal: cheaper, while staying accurate and fast. Prepared from a direct audit of the Lucra codebase plus model-pricing knowledge.*
+*Goal: cheaper, while staying accurate and fast. Prepared from a direct audit of the Finava codebase plus model-pricing knowledge.*
 
 > **Accuracy note on prices:** Web access dropped mid-session, so I could not refresh live pricing pages. Every dollar figure below is my best knowledge as of early–mid 2025 and is marked *(verify)*. Prices move, but the **relative** economics — and all the architecture recommendations — hold regardless of small changes. Confirm current numbers at the official pricing pages before you wire anything to a budget (links at the end).
 
@@ -18,7 +18,7 @@ Cheaper third-party models (DeepSeek, Gemini Flash, GPT-mini, Llama on Groq) are
 
 ---
 
-## 2. What Lucra actually does today
+## 2. What Finava actually does today
 
 Audit of your API routes and agent library:
 
@@ -131,7 +131,7 @@ Without your request volumes I can't give a dollar total, but directionally, on 
 - Caching + token caps across all Sonnet endpoints: commonly **30–60% off** those calls.
 - Budget model + batch for categorization/insights: **~90% off** that slice.
 
-Realistic blended outcome for an app shaped like Lucra: **roughly 50–75% lower LLM spend** with negligible user-visible quality change, *before* you ever touch DeepSeek — and more if you do, carefully.
+Realistic blended outcome for an app shaped like Finava: **roughly 50–75% lower LLM spend** with negligible user-visible quality change, *before* you ever touch DeepSeek — and more if you do, carefully.
 
 If you tell me your monthly token volumes (or point me at usage logs), I'll turn this into a hard dollar model and a concrete `model-router.ts`.
 

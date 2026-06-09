@@ -1,6 +1,6 @@
-# Stripe Setup — Lucra Billing
+# Stripe Setup — Finava Billing
 
-This is the operator runbook for wiring Lucra's subscription billing to Stripe.
+This is the operator runbook for wiring Finava's subscription billing to Stripe.
 The app code is already written against these env vars; this doc gets you from a
 fresh Stripe account to a working **test-mode** charge flow, then to live.
 
@@ -26,9 +26,9 @@ gets a **monthly** and an **annual** recurring price.
 
 | Product | Monthly price | Annual price | Active? |
 | ------- | ------------- | ------------ | ------- |
-| Lucra Analyst | $20.00 / month | $200.00 / year | ✅ Active |
-| Lucra Pro | $60.00 / month | $600.00 / year | ✅ Active |
-| Lucra Quant | $100.00 / month | $1000.00 / year | ⬜ **Inactive** (archive/keep unpublished) |
+| Finava Analyst | $20.00 / month | $200.00 / year | ✅ Active |
+| Finava Pro | $60.00 / month | $600.00 / year | ✅ Active |
+| Finava Quant | $100.00 / month | $1000.00 / year | ⬜ **Inactive** (archive/keep unpublished) |
 
 > Free is not a Stripe object — it's the default app-side tier.
 

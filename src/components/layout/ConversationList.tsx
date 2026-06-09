@@ -35,12 +35,12 @@ function getTitle(conv: Conversation): string {
 
 function getPinned(): Set<string> {
   if (typeof window === "undefined") return new Set();
-  try { return new Set(JSON.parse(localStorage.getItem("lucra_pinned") ?? "[]")); }
+  try { return new Set(JSON.parse(localStorage.getItem("finava_pinned") ?? "[]")); }
   catch { return new Set(); }
 }
 
 function savePinned(set: Set<string>) {
-  localStorage.setItem("lucra_pinned", JSON.stringify([...set]));
+  localStorage.setItem("finava_pinned", JSON.stringify([...set]));
 }
 
 export default function ConversationList() {

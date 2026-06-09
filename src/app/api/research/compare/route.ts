@@ -61,7 +61,7 @@ export async function POST(req: Request) {
   }
 
   const tickers = stocks.map((s) => s.ticker);
-  const prompt = `You are Lucra's lead equity analyst comparing these ${stocks.length} stocks head-to-head for a retail investor. This is research color, not advice.
+  const prompt = `You are Finava's lead equity analyst comparing these ${stocks.length} stocks head-to-head for a retail investor. This is research color, not advice.
 
 ${stocks.map(describe).join("\n\n")}
 

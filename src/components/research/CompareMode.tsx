@@ -149,7 +149,7 @@ export default function CompareMode({ universe, loading }: { universe: Stock[]; 
               </svg>
               <p className="serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)" }}>Pick two or more to compare</p>
               <p style={{ fontSize: 12, color: "var(--color-muted)", maxWidth: 320, lineHeight: 1.5 }}>
-                Add up to five names and Lucra overlays their factor profiles, then an analyst agent calls the head-to-head.
+                Add up to five names and Finava overlays their factor profiles, then an analyst agent calls the head-to-head.
               </p>
             </div>
           ) : (
@@ -232,7 +232,7 @@ export default function CompareMode({ universe, loading }: { universe: Stock[]; 
       {/* ── Verdict ─────────────────────────────────────────────── */}
       <div style={{ flex: "1 1 380px", minWidth: 300, border: "1px solid var(--color-border)", borderRadius: 4, overflow: "hidden", background: "var(--color-bg)" }}>
         <div className="flex items-center justify-between" style={{ padding: "9px 14px", borderBottom: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
-          <span className="mono" style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-text)" }}>LUCRA VERDICT</span>
+          <span className="mono" style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-text)" }}>FINAVA VERDICT</span>
           <span className="mono" style={{ fontSize: 10, color: "var(--color-muted)", letterSpacing: "0.08em" }}>RESEARCH COLOR</span>
         </div>
 

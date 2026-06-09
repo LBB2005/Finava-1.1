@@ -1,7 +1,7 @@
 # Task: Per-agent LLM routing via OpenRouter to cut cost without losing accuracy
 
 ## Context
-Lucra is a Next.js stock-research app. A CEO orchestrator (`src/agents/ceo.ts`) fans out to 13 specialist sub-agents (`src/agents/sub-agents/*.ts`). **Every sub-agent currently calls `claude-sonnet-4-6`** via `anthropic.messages.create`, and some use extended thinking with `max_tokens: 10000`. One user query fires 5–15 simultaneous Sonnet calls — that fan-out is the main cost. The actual math (DCF, indicators, ratios) is already computed in TypeScript (e.g. `runDCF()` in `dcf-agent.ts`); the model only narrates pre-computed JSON. So most agents are doing cheap narration on an expensive model.
+Finava is a Next.js stock-research app. A CEO orchestrator (`src/agents/ceo.ts`) fans out to 13 specialist sub-agents (`src/agents/sub-agents/*.ts`). **Every sub-agent currently calls `claude-sonnet-4-6`** via `anthropic.messages.create`, and some use extended thinking with `max_tokens: 10000`. One user query fires 5–15 simultaneous Sonnet calls — that fan-out is the main cost. The actual math (DCF, indicators, ratios) is already computed in TypeScript (e.g. `runDCF()` in `dcf-agent.ts`); the model only narrates pre-computed JSON. So most agents are doing cheap narration on an expensive model.
 
 Goal: route each agent to the cheapest model that does its job reliably, via **OpenRouter** (one OpenAI-compatible gateway, automatic provider fallback). Use **Gemini 2.5 Flash / Flash-Lite** for narration/judgment agents, keep **Claude Sonnet 4.6** only where the user reads the output, keep **Haiku 4.5** where it's already used. Do not touch the Perplexity search agents.
 

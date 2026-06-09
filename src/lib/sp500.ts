@@ -1,5 +1,5 @@
 /* ============================================================
-   Lucra · S&P 500 constituent list (ticker → name → GICS sector)
+   Finava · S&P 500 constituent list (ticker → name → GICS sector)
    ------------------------------------------------------------
    The scan universe for the Research "Tune" lens. Sectors are the
    11 standard GICS sectors, used for sector-relative factor ranking

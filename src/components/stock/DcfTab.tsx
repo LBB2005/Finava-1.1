@@ -54,7 +54,7 @@ function Slider({ label, value, min, max, step, onChange, display }: {
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="lucra-range"
+        className="finava-range"
         style={{ width: "100%" }}
       />
     </div>

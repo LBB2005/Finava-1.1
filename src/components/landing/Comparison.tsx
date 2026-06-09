@@ -1,6 +1,6 @@
 type Cell = { v: "yes" | "no" | "warn"; note?: string } | { v: "text"; note: string };
 
-const COLS = ["Lucra", "Seeking Alpha", "Bloomberg", "ChatGPT"];
+const COLS = ["Finava", "Seeking Alpha", "Bloomberg", "ChatGPT"];
 
 const ROWS: { label: string; cells: Cell[] }[] = [
   {
@@ -79,7 +79,7 @@ export default function Comparison() {
     <section className="bg-[var(--lp-bg-2)] border-y border-[var(--lp-border)]">
       <div className="max-w-[1140px] mx-auto px-5 sm:px-8 py-24 md:py-28">
         <div className="max-w-2xl mb-12">
-          <span className="lp-eyebrow text-[var(--lp-accent-2)]">Where Lucra fits</span>
+          <span className="lp-eyebrow text-[var(--lp-accent-2)]">Where Finava fits</span>
           <h2 className="lp-display mt-3 text-[clamp(1.9rem,4vw,2.8rem)] font-bold text-[var(--lp-text)]">
             Finally, something that belongs in the middle.
           </h2>

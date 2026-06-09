@@ -5,16 +5,16 @@
 <dict>
 
   <key>Label</key>
-  <string>com.lucra.tradingbot</string>
+  <string>com.finava.tradingbot</string>
 
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/liamblackshaw-brown/code/Lucra 1.1/trading bot 1.0/.venv/bin/python3</string>
-    <string>/Users/liamblackshaw-brown/code/Lucra 1.1/trading bot 1.0/main.py</string>
+    <string>/Users/liamblackshaw-brown/code/Finava 1.1/trading bot 1.0/.venv/bin/python3</string>
+    <string>/Users/liamblackshaw-brown/code/Finava 1.1/trading bot 1.0/main.py</string>
   </array>
 
   <key>WorkingDirectory</key>
-  <string>/Users/liamblackshaw-brown/code/Lucra 1.1/trading bot 1.0</string>
+  <string>/Users/liamblackshaw-brown/code/Finava 1.1/trading bot 1.0</string>
 
   <!-- Restart automatically if the process exits -->
   <key>KeepAlive</key>
@@ -25,10 +25,10 @@
   <integer>30</integer>
 
   <key>StandardOutPath</key>
-  <string>/Users/liamblackshaw-brown/code/Lucra 1.1/trading bot 1.0/logs/stdout.log</string>
+  <string>/Users/liamblackshaw-brown/code/Finava 1.1/trading bot 1.0/logs/stdout.log</string>
 
   <key>StandardErrorPath</key>
-  <string>/Users/liamblackshaw-brown/code/Lucra 1.1/trading bot 1.0/logs/stderr.log</string>
+  <string>/Users/liamblackshaw-brown/code/Finava 1.1/trading bot 1.0/logs/stderr.log</string>
 
   <!-- Run at load (i.e. at login) -->
   <key>RunAtLoad</key>

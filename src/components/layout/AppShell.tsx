@@ -68,7 +68,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           className="text-[18px] font-black uppercase leading-none select-none text-[var(--color-text)]"
           style={{ fontFamily: "var(--font-serif)", letterSpacing: "0.16em" }}
         >
-          LUCRA
+          FINAVA
         </span>
       </header>
 

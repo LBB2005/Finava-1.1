@@ -15,7 +15,7 @@ export default function LoginPage() {
               <polyline points="16 7 22 7 22 13" />
             </svg>
           </div>
-          <span className="text-xl font-bold text-[var(--color-text)] tracking-tight">Lucra</span>
+          <span className="text-xl font-bold text-[var(--color-text)] tracking-tight">Finava</span>
         </div>
 
         {/* Card */}

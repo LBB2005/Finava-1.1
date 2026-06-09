@@ -1,7 +1,7 @@
 /* ============================================================
-   Lucra · Research — scoring engine + seed universe
+   Finava · Research — scoring engine + seed universe
    ------------------------------------------------------------
-   The Lucra Score is a 0–100 composite of six factor sub-scores,
+   The Finava Score is a 0–100 composite of six factor sub-scores,
    re-weighted per holding horizon. Same engine, three weightings:
    a stock can grade A for the year but C for the week.
 

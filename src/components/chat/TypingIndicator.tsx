@@ -1,6 +1,6 @@
 /**
  * Calm Orb thinking indicator — the "waiting for response" state from the
- * Claude Design "Calm Orb" handoff: a gently breathing Lucra avatar beside a
+ * Claude Design "Calm Orb" handoff: a gently breathing Finava avatar beside a
  * breathing navy dot and a shimmering label. Used for the Simple Chat waiting
  * state (Agent / Deep Research keep their richer "Research crew" panel).
  */

@@ -13,10 +13,10 @@ export default function ChatHeader({ mode }: Props) {
   // composer pill (the CHAT / AGENT / BACKTEST header toggles were removed
   // per the Calm Orb design — mode controls live in the composer).
   const subtitle =
-    mode === "deep_research" ? "LUCRA AI · DEEP RESEARCH" :
-    isAgentLike ? `LUCRA AI · ${AGENT_COUNT}-AGENT SYSTEM` :
-    mode === "backtest" ? "LUCRA AI · BACKTEST ENGINE" :
-    "LUCRA AI · CONVERSATIONAL";
+    mode === "deep_research" ? "FINAVA AI · DEEP RESEARCH" :
+    isAgentLike ? `FINAVA AI · ${AGENT_COUNT}-AGENT SYSTEM` :
+    mode === "backtest" ? "FINAVA AI · BACKTEST ENGINE" :
+    "FINAVA AI · CONVERSATIONAL";
 
   return (
     <div className="research-root cmdbar flex items-center flex-shrink-0" style={{ padding: "11px 22px", gap: 16 }}>

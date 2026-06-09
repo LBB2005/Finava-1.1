@@ -420,7 +420,7 @@ function UserWidget() {
   // localStorage is client-only; reading it in an effect (not render) is the
   // hydration-safe way to pick up the stored theme without an SSR mismatch.
   useEffect(() => {
-    const stored = localStorage.getItem("lucra-theme") as "light" | "dark" | null;
+    const stored = localStorage.getItem("finava-theme") as "light" | "dark" | null;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(stored ?? "light");
   }, []);
@@ -439,7 +439,7 @@ function UserWidget() {
   function toggleTheme() {
     const next = theme === "light" ? "dark" : "light";
     setTheme(next);
-    localStorage.setItem("lucra-theme", next);
+    localStorage.setItem("finava-theme", next);
     if (next === "dark") {
       document.documentElement.setAttribute("data-theme", "dark");
     } else {
@@ -722,7 +722,7 @@ export default function Sidebar({
           className="text-[22px] font-black uppercase leading-none select-none text-[var(--color-text)]"
           style={{ fontFamily: "var(--font-serif)", letterSpacing: "0.16em" }}
         >
-          LUCRA
+          FINAVA
         </span>
         <div className="flex items-center gap-0.5">
           <button
@@ -745,65 +745,6 @@ export default function Sidebar({
           </button>
         </div>
       </div>
-
-      {/* Unified nav list */}
-      <nav className="flex flex-col gap-[2px] px-[10px] flex-shrink-0">
-        {/* Chat */}
-        <NavLink
-          href="/chat"
-          active={isOnChat}
-          onNavigate={onNavigate}
-          icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-          }
-          label="Chat"
-          trailing={
-            hasBackgroundStream ? (
-              <span className="w-[7px] h-[7px] rounded-full" style={{ background: "var(--color-accent)", boxShadow: "0 0 0 3px color-mix(in oklab, var(--color-accent) 22%, transparent)", animation: "pulse-dot 1.4s infinite ease-in-out" }} />
-            ) : undefined
-          }
-        />
-
-        {/* Portfolio (expandable) */}
-        <PortfolioNavItem active={isOnPortfolio} onAddClick={() => setShowAddMenu(true)} onNavigate={onNavigate} />
-
-        {/* Research */}
-        <NavLink
-          href="/research"
-          active={isOnResearch}
-          onNavigate={onNavigate}
-          icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              <path d="M8 11h6M11 8v6" />
-            </svg>
-          }
-          label="Research"
-        />
-
-        {/* Watchlist (expandable) */}
-        <WatchlistNavItem active={isOnWatchlist} onNavigate={onNavigate} />
-
-        {/* Hedge Fund — hidden for now, restore when feature is ready */}
-        {/* <NavLink
-          href="/hedge-fund"
-          active={isOnHedgeFund}
-          onNavigate={onNavigate}
-          icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-              <polyline points="16 7 22 7 22 13" />
-            </svg>
-          }
-          label="Hedge Fund"
-        /> */}
-      </nav>
-
-      {/* divider */}
-      <div className="h-px mx-[14px] my-[6px] flex-shrink-0" style={{ background: "var(--color-border)" }} />
 
       {/* Add-holding menu (anchored, opened from inside Portfolio item) */}
       {showAddMenu && (
@@ -829,11 +770,71 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* Weekly briefing banner */}
-      <BriefingBanner />
+      {/* Scrollable body — nav + briefing + recents */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {/* Unified nav list */}
+        <nav className="flex flex-col gap-[2px] px-[10px]">
+          {/* Chat */}
+          <NavLink
+            href="/chat"
+            active={isOnChat}
+            onNavigate={onNavigate}
+            icon={
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            }
+            label="Chat"
+            trailing={
+              hasBackgroundStream ? (
+                <span className="w-[7px] h-[7px] rounded-full" style={{ background: "var(--color-accent)", boxShadow: "0 0 0 3px color-mix(in oklab, var(--color-accent) 22%, transparent)", animation: "pulse-dot 1.4s infinite ease-in-out" }} />
+              ) : undefined
+            }
+          />
 
-      {/* Recent conversations */}
-      <div className="flex-1 overflow-y-auto min-h-0 py-1">
+          {/* Portfolio (expandable) */}
+          <PortfolioNavItem active={isOnPortfolio} onAddClick={() => setShowAddMenu(true)} onNavigate={onNavigate} />
+
+          {/* Research */}
+          <NavLink
+            href="/research"
+            active={isOnResearch}
+            onNavigate={onNavigate}
+            icon={
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                <path d="M8 11h6M11 8v6" />
+              </svg>
+            }
+            label="Research"
+          />
+
+          {/* Watchlist (expandable) */}
+          <WatchlistNavItem active={isOnWatchlist} onNavigate={onNavigate} />
+
+          {/* Hedge Fund — hidden for now, restore when feature is ready */}
+          {/* <NavLink
+            href="/hedge-fund"
+            active={isOnHedgeFund}
+            onNavigate={onNavigate}
+            icon={
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                <polyline points="16 7 22 7 22 13" />
+              </svg>
+            }
+            label="Hedge Fund"
+          /> */}
+        </nav>
+
+        {/* divider */}
+        <div className="h-px mx-[14px] my-[6px]" style={{ background: "var(--color-border)" }} />
+
+        {/* Weekly briefing banner */}
+        <BriefingBanner />
+
+        {/* Recent conversations */}
         <p className="px-[18px] pt-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
           Recent
         </p>

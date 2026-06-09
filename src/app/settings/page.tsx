@@ -210,14 +210,14 @@ function useTheme() {
   // localStorage is client-only; reading it in an effect (not render) is the
   // hydration-safe way to pick up the stored theme without an SSR mismatch.
   useEffect(() => {
-    const stored = localStorage.getItem("lucra-theme") as "light" | "dark" | null;
+    const stored = localStorage.getItem("finava-theme") as "light" | "dark" | null;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(stored ?? "light");
   }, []);
 
   function select(next: "light" | "dark") {
     setTheme(next);
-    localStorage.setItem("lucra-theme", next);
+    localStorage.setItem("finava-theme", next);
     if (next === "dark") document.documentElement.setAttribute("data-theme", "dark");
     else document.documentElement.removeAttribute("data-theme");
   }
@@ -266,7 +266,7 @@ function GeneralSection() {
           <Icon name="globe" size={14} /> English
         </span>
       </Row>
-      <Row label="Start screen" description="Where Lucra opens when you launch the app.">
+      <Row label="Start screen" description="Where Finava opens when you launch the app.">
         <span className="text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
           Chat
         </span>
@@ -282,11 +282,11 @@ function NotificationsSection() {
     ["briefing", "Weekly briefing ready", "Get notified when your Monday briefing is generated."],
     ["alerts", "Price & signal alerts", "Movements and agent signals on your watchlist and holdings."],
     ["runs", "Agent run summaries", "A digest when a scheduled routine finishes."],
-    ["product", "Product updates", "Occasional news about new Lucra features."],
+    ["product", "Product updates", "Occasional news about new Finava features."],
   ];
   return (
     <div>
-      <Head title="Notifications" description="Decide what Lucra notifies you about." />
+      <Head title="Notifications" description="Decide what Finava notifies you about." />
       {items.map(([k, l, d]) => (
         <Row key={k} label={l} description={d}>
           <Toggle checked={s[k]} onChange={set(k)} />
@@ -387,7 +387,7 @@ function PlaidRow() {
 function ConnectionsSection({ userData }: { userData: UserData | undefined }) {
   return (
     <div>
-      <Head title="Connections" description="Brokerages and services linked to your Lucra account." />
+      <Head title="Connections" description="Brokerages and services linked to your Finava account." />
       <ConnectionRow logo="AL" color="#ffd400" fg="#0d1626" name="Alpaca" status="Connected · Paper trading" live>
         <Btn variant="soft">Manage</Btn>
       </ConnectionRow>
@@ -533,7 +533,7 @@ function ProfileSection({ userData, mutate }: { userData: UserData | undefined; 
         </span>
       </Row>
 
-      <Row label="Sign out" description="Sign out of Lucra on this device.">
+      <Row label="Sign out" description="Sign out of Finava on this device.">
         <Btn variant="soft" onClick={signOut}>
           <Icon name="logout" size={14} /> Sign out
         </Btn>
@@ -554,9 +554,9 @@ function PrivacySection({ userData, mutate }: { userData: UserData | undefined; 
 
   return (
     <div>
-      <Head title="Privacy & Data" description="Control how Lucra uses and stores your data." />
+      <Head title="Privacy & Data" description="Control how Finava uses and stores your data." />
       <Row
-        label="Help improve Lucra"
+        label="Help improve Finava"
         description="Allow your chats and sessions to improve AI models. You can opt out at any time."
       >
         <Toggle checked={userData?.allowDataTraining ?? true} onChange={(v) => patch("allowDataTraining", v)} />
@@ -700,7 +700,7 @@ function BillingSection({ userData }: { userData: UserData | undefined; mutate: 
               className="mt-1.5 text-[26px] font-bold"
               style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)" }}
             >
-              Lucra {plan}
+              Finava {plan}
             </div>
             <div className="text-[12.5px] mt-[3px]" style={{ color: "var(--color-text-secondary)" }}>
               {statusLine}
@@ -771,7 +771,7 @@ function BillingSection({ userData }: { userData: UserData | undefined; mutate: 
                   style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}
                 >
                   <div className="text-[15px] font-bold" style={{ color: "var(--color-text)" }}>
-                    Lucra {c.label}
+                    Finava {c.label}
                   </div>
                   <div className="text-[20px] font-bold mt-1" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)" }}>
                     {cadence === "monthly" ? c.price.monthly : c.price.annual}
@@ -799,7 +799,7 @@ function BillingSection({ userData }: { userData: UserData | undefined; mutate: 
             })}
           </div>
           <div className="mt-3 text-[11.5px]" style={{ color: "var(--color-muted)" }}>
-            Lucra Quant ($100/mo · hedge-fund suite) is coming soon.
+            Finava Quant ($100/mo · hedge-fund suite) is coming soon.
           </div>
         </div>
       )}
@@ -1016,7 +1016,7 @@ function UsageSection({ onUpgrade }: { onUpgrade: () => void }) {
               className="h-full flex items-center justify-center rounded-[12px] text-center px-6"
               style={{ border: "1px dashed var(--color-border)", color: "var(--color-muted)", fontSize: 12.5 }}
             >
-              No usage yet — your AI activity will chart here as you use Lucra.
+              No usage yet — your AI activity will chart here as you use Finava.
             </div>
           )}
         </div>

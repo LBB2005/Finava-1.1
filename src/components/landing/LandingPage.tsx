@@ -24,7 +24,7 @@ function Wordmark() {
         className="text-[19px] font-black uppercase leading-none text-[var(--lp-text)]"
         style={{ fontFamily: "var(--font-serif)", letterSpacing: "0.14em" }}
       >
-        Lucra
+        Finava
       </span>
     </a>
   );
@@ -137,13 +137,13 @@ function Footer() {
         <div className="lp-divider my-8" />
 
         <p className="text-[11.5px] leading-relaxed text-[var(--lp-muted)] max-w-3xl">
-          Lucra is not a registered investment advisor. All content on this platform is for
+          Finava is not a registered investment advisor. All content on this platform is for
           informational and educational purposes only and does not constitute financial,
           investment, or trading advice. Past performance is not indicative of future results.
           Investing involves risk, including the possible loss of principal. Always do your own
           research and consult a qualified financial advisor before making investment decisions.
         </p>
-        <p className="mt-5 text-[12px] text-[var(--lp-muted)]">© 2026 Lucra. All rights reserved.</p>
+        <p className="mt-5 text-[12px] text-[var(--lp-muted)]">© 2026 Finava. All rights reserved.</p>
       </div>
     </footer>
   );

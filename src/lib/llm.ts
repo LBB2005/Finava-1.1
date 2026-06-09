@@ -34,7 +34,7 @@ export type AgentKey =
   | "ceo" // CEO synthesis (stays on Anthropic SDK — streaming + tools; key kept for completeness)
   | "chat" // chat route main stream (stays on Anthropic SDK — SSE; key kept for completeness)
   | "aiTake"
-  | "lucraSynthesis"
+  | "finavaSynthesis"
   | "briefingSynthesis"
   | "portfolioStatement"
   | "risk"
@@ -71,7 +71,7 @@ const ROUTED_MODELS: Record<AgentKey, string> = {
   ceo: SONNET,
   chat: SONNET,
   aiTake: SONNET,
-  lucraSynthesis: SONNET,
+  finavaSynthesis: SONNET,
   briefingSynthesis: SONNET,
   portfolioStatement: SONNET,
   risk: SONNET,
@@ -172,8 +172,8 @@ function getClient(): OpenAI {
       baseURL: "https://openrouter.ai/api/v1",
       defaultHeaders: {
         // Headers OpenRouter uses for attribution/rankings.
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL ?? "https://lucra.app",
-        "X-Title": process.env.NEXT_PUBLIC_APP_NAME ?? "Lucra",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL ?? "https://finava.app",
+        "X-Title": process.env.NEXT_PUBLIC_APP_NAME ?? "Finava",
       },
     });
   }

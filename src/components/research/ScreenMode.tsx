@@ -169,7 +169,7 @@ export default function ScreenMode({ universe, loading }: { universe: Stock[]; l
               </svg>
               <p className="serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)" }}>Describe what you&apos;re hunting for</p>
               <p style={{ fontSize: 12, color: "var(--color-muted)", maxWidth: 340, lineHeight: 1.5 }}>
-                Type it in plain English — Lucra turns it into a factor screen and runs it across the whole S&amp;P 500.
+                Type it in plain English — Finava turns it into a factor screen and runs it across the whole S&amp;P 500.
               </p>
             </div>
           ) : results.length === 0 ? (
@@ -228,7 +228,7 @@ export default function ScreenMode({ universe, loading }: { universe: Stock[]; l
             </div>
           ) : (
             <p style={{ fontSize: 12, color: "var(--color-muted)", lineHeight: 1.5, minHeight: 80 }}>
-              Run a screen and Lucra writes a short read on what the surviving names have in common.
+              Run a screen and Finava writes a short read on what the surviving names have in common.
             </p>
           )}
         </div>

@@ -22,7 +22,7 @@ export default function Problem() {
             position.
           </p>
           <p className="text-[var(--lp-text)] font-medium">
-            That gap is exactly what Lucra was built to close.
+            That gap is exactly what Finava was built to close.
           </p>
         </div>
       </div>

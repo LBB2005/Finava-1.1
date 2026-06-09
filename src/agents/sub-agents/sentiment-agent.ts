@@ -21,7 +21,7 @@ interface StockTwitsMessage {
 
 async function fetchStockTwitsSentiment(ticker: string) {
   const token = process.env.STOCKTWITS_ACCESS_TOKEN;
-  const headers: Record<string, string> = { "User-Agent": "Lucra App" };
+  const headers: Record<string, string> = { "User-Agent": "Finava App" };
   if (token) headers["Authorization"] = `OAuth ${token}`;
 
   try {

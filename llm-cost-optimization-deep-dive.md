@@ -1,4 +1,4 @@
-# Lucra — LLM Cost Optimization, Deep Dive
+# Finava — LLM Cost Optimization, Deep Dive
 
 *Per-agent model routing without losing accuracy. Math/finance model research. Implementation plan and API choice. All prices verified against live pricing pages, May 2026.*
 
@@ -6,7 +6,7 @@
 
 ## 0. Correction to my first report
 
-My first pass mis-described Lucra as a budgeting app. Reading the code properly: Lucra is a **stock-research + trading platform**. A **CEO orchestrator agent** (`ceo.ts`) fans out to **13 specialist sub-agents** (DCF, Graham, technical, comparables, risk, macro, news, earnings, insider, options, sentiment, competitor, fundamentals, analyst), plus a backtest engine, a Markov regime model, and Alpaca trading. You already use **Perplexity Sonar** for the web-search agents.
+My first pass mis-described Finava as a budgeting app. Reading the code properly: Finava is a **stock-research + trading platform**. A **CEO orchestrator agent** (`ceo.ts`) fans out to **13 specialist sub-agents** (DCF, Graham, technical, comparables, risk, macro, news, earnings, insider, options, sentiment, competitor, fundamentals, analyst), plus a backtest engine, a Markov regime model, and Alpaca trading. You already use **Perplexity Sonar** for the web-search agents.
 
 The important correction: **you're not using Opus anywhere.** Every sub-agent uses `MODEL = claude-sonnet-4-6`. Haiku 4.5 is already used in the smart places (chat follow-ups, backtest parsing, the CEO "skeptic" pass). So the real cost driver isn't an over-powered top model — it's that **one user question fans out into 5–15 simultaneous Sonnet calls**, several of them with extended thinking and `max_tokens: 10000`.
 
@@ -37,7 +37,7 @@ This reframes your whole question. **You don't need a "math genius" LLM** — yo
 
 I researched the 2026 math leaderboards (AIME, HMMT, MATH-500). The headline: **competition math is effectively solved.** Frontier and even mid-tier reasoning models cluster at 95–99% on AIME — Kimi K2.6 (96.4%), Qwen 3.6 (95.3%), GLM-5.1 (95.3%), GPT-5, Gemini 3.x, DeepSeek's reasoning line all sit in the same band. The benchmark no longer separates models.
 
-Two consequences for Lucra:
+Two consequences for Finava:
 
 1. **For the arithmetic you actually do (DCF, ratios, beta, RSI/MACD): keep it in code.** No LLM, however good at AIME, should be trusted to multiply your free-cash-flow projections when a `for` loop does it deterministically for free. You already do this in `runDCF` and (from the technical agent) your indicators. Extend the pattern, don't replace it.
 
@@ -47,7 +47,7 @@ Two consequences for Lucra:
 
 Reasoning ability and factual reliability **move in opposite directions.** On hallucination benchmarks (Vectara), DeepSeek's reasoning model **R1 hallucinates 14.3%** vs its base **V3 at 3.9%** — and 71.7% of R1's hallucinations are "benign" (plausible-sounding fabricated additions). Non-reasoning **Gemini 2.5 Flash-Lite sits at ~3.3%.**
 
-For Lucra this is decisive: **a model that invents a plausible revenue figure is worse than useless — it's a liability.** Independent 2026 testing found four of six leading models will *fabricate* financial figures when the source document is incomplete. So for your data-narration agents you specifically want a **low-hallucination, non-reasoning** model, not a flashy reasoner. This is the opposite of what "use the smartest model for finance" intuition suggests.
+For Finava this is decisive: **a model that invents a plausible revenue figure is worse than useless — it's a liability.** Independent 2026 testing found four of six leading models will *fabricate* financial figures when the source document is incomplete. So for your data-narration agents you specifically want a **low-hallucination, non-reasoning** model, not a flashy reasoner. This is the opposite of what "use the smartest model for finance" intuition suggests.
 
 ---
 
@@ -66,7 +66,7 @@ Financial reasoning benchmarks (FinanceBench, FinQA, ConvFinQA, TAT-QA): top mod
 
 | Model | Input | Output | Notes |
 |---|---|---|---|
-| Claude Opus 4.8 | $5 | $25 | not needed for Lucra |
+| Claude Opus 4.8 | $5 | $25 | not needed for Finava |
 | **Claude Sonnet 4.6** (your `MODEL`) | $3 | $15 | keep for CEO + judgment agents |
 | **Claude Haiku 4.5** (your `HAIKU`) | $1 | $5 | already used well; great default |
 | Gemini 2.5 Flash | $0.30 | $2.50 | cheap, fast, low-hallucination; supports thinking |

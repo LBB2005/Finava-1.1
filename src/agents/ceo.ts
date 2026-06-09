@@ -223,7 +223,7 @@ export async function runCeoAgent(
   // Discovery is GENERIC — never feed the portfolio to the model (no "already in
   // your portfolio" / cash-based picks). Held names are tagged client-side instead.
   const portfolioForPrompt = discover ? "" : portfolioContext;
-  const systemPrompt = `You are Lucra's CEO Research Agent — an expert AI financial analyst managing a team of specialized sub-agents. Your job is to:
+  const systemPrompt = `You are Finava's CEO Research Agent — an expert AI financial analyst managing a team of specialized sub-agents. Your job is to:
 1. Understand what the user wants
 2. Deploy the right sub-agents to gather comprehensive data
 3. Synthesize their findings into clear, actionable investment insights

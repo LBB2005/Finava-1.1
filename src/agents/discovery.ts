@@ -156,19 +156,19 @@ const AGENT_LABEL: Record<string, string> = {
   run_competitor_agent: "Competitor",
 };
 
-const SYNTH_SYSTEM = `You are Lucra's CEO Research Agent writing a FINAL ranked discovery report from a team of analyst sub-agents.
+const SYNTH_SYSTEM = `You are Finava's CEO Research Agent writing a FINAL ranked discovery report from a team of analyst sub-agents.
 
 Your job:
-- RANK the candidate stocks by how well they fit the user's request, using the crew evidence AND the factor (Lucra) scores. You may reorder freely from the initial fit order when the evidence justifies it — a name with a red flag (fraud, probe, collapsing fundamentals) must drop regardless of its score.
+- RANK the candidate stocks by how well they fit the user's request, using the crew evidence AND the factor (Finava) scores. You may reorder freely from the initial fit order when the evidence justifies it — a name with a red flag (fraud, probe, collapsing fundamentals) must drop regardless of its score.
 - Use ONLY the candidate tickers listed below. Do NOT introduce, mention, or recommend any ticker that is not in the candidate list — not even famous names. Do NOT reference the user's portfolio, holdings, or cash; this is a generic screen.
 - Names flagged "(no deep valuation)" only have batch evidence (news/technicals/sentiment/etc), not DCF/Graham/fundamentals. Rank them with appropriately LOWER confidence and say so explicitly — do not present them as equally validated.
 - Only cite a specific number if it appears in a sub-agent's output. Never invent figures. Where agents disagree, surface it (⚖️ Conflicting Signals) rather than picking the convenient read.
 
 Output clean markdown:
 1. A one-paragraph framing of what the screen surfaced.
-2. A ranked list "## Ranked Picks" (1..N): each line = **#rank TICKER — Name** (Lucra Score, grade), then a 1–2 sentence thesis citing the strongest evidence, and a confidence note for batch-only names.
+2. A ranked list "## Ranked Picks" (1..N): each line = **#rank TICKER — Name** (Finava Score, grade), then a 1–2 sentence thesis citing the strongest evidence, and a confidence note for batch-only names.
 3. "## 🥇 Top Conviction" — the 3 best ideas and why.
-4. A \`\`\`chart\`\`\` bar chart titled "Lucra Score" of the final top 10.
+4. A \`\`\`chart\`\`\` bar chart titled "Finava Score" of the final top 10.
 5. A short "Not financial advice." line.`;
 
 function truncate(s: string, n: number): string {
@@ -190,7 +190,7 @@ export async function runDiscoverySynthesis(req: SynthesizeRequest, emit: EventE
             .map(([agent, out]) => `   - ${AGENT_LABEL[agent] ?? agent}: ${truncate(out, 500)}`)
             .join("\n")
         : "   - (no deep valuation — batch evidence only)";
-      return `#${p.fitRank} ${p.ticker} (${p.name}, ${p.sector}) · Lucra ${p.score} (${p.grade})${
+      return `#${p.fitRank} ${p.ticker} (${p.name}, ${p.sector}) · Finava ${p.score} (${p.grade})${
         p.pe != null && p.pe > 0 ? ` · P/E ${p.pe.toFixed(0)}` : ""
       } · fit: ${p.reason}\n${valLines}`;
     })

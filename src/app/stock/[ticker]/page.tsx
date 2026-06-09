@@ -7,9 +7,9 @@ import { useToast } from "@/hooks/useToast";
 import StockHero from "@/components/stock/StockHero";
 import { OverviewTab, FinancialsTab, AnalystsTab, NewsTab } from "@/components/stock/StockTabs";
 import { DcfTab } from "@/components/stock/DcfTab";
-import { LucraTab } from "@/components/stock/LucraTab";
+import { FinavaTab } from "@/components/stock/FinavaTab";
 
-const TABS = ["Overview", "Financials", "Analysts", "News", "DCF", "Lucra"] as const;
+const TABS = ["Overview", "Financials", "Analysts", "News", "DCF", "Finava"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function StockPage() {
@@ -117,7 +117,7 @@ export default function StockPage() {
         {tab === "Analysts" && <AnalystsTab analysts={bundle.analysts} price={livePrice} />}
         {tab === "News" && <NewsTab news={bundle.news} />}
         {tab === "DCF" && <DcfTab ticker={ticker} />}
-        {tab === "Lucra" && <LucraTab ticker={ticker} />}
+        {tab === "Finava" && <FinavaTab ticker={ticker} />}
       </div>
     </div>
   );

@@ -78,7 +78,7 @@ export default function Leaderboard({
       <div style={{ overflowX: "auto" }}>
         <table className="lad-table board-table" style={{ minWidth: 980 }}>
           <thead>
-            {/* Every column is fixed-width except Lucra Score, so the left
+            {/* Every column is fixed-width except Finava Score, so the left
                 cluster (#/ticker/price/fundamentals) stays tight and the score
                 bar — the app's headline metric — absorbs the slack. */}
             <tr>
@@ -90,7 +90,7 @@ export default function Leaderboard({
               <th onClick={() => th("pe")} className="num" style={{ width: 62 }}>P/E{ar("pe")}</th>
               <th onClick={() => th("avgVol")} className="num" style={{ width: 86 }}>Avg Vol{ar("avgVol")}</th>
               <th onClick={() => th("rvol")} className="num" style={{ width: 72 }}>RVOL{ar("rvol")}</th>
-              <th onClick={() => th("score")} style={{ textAlign: "left", minWidth: 160 }}>Lucra Score{ar("score")}</th>
+              <th onClick={() => th("score")} style={{ textAlign: "left", minWidth: 160 }}>Finava Score{ar("score")}</th>
               <th style={{ textAlign: "center", width: 54 }}>Grd</th>
             </tr>
           </thead>

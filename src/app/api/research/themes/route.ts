@@ -41,7 +41,7 @@ async function compute(): Promise<ThemesPayload> {
   // A compact ticker list keeps the prompt grounded in the real universe.
   const universeList = SP500.map((c) => c.ticker).join(", ");
 
-  const prompt = `You are Lucra's market strategist. Group S&P 500 stocks into 6 distinct, investable THEMES that an investor would actually explore today (e.g. "AI Infrastructure", "Rate-Cut Winners", "Quality Compounders", "Reshoring & Industrials", "GLP-1 / Obesity", "Cash-Rich Defensives"). Make them genuinely different from each other.
+  const prompt = `You are Finava's market strategist. Group S&P 500 stocks into 6 distinct, investable THEMES that an investor would actually explore today (e.g. "AI Infrastructure", "Rate-Cut Winners", "Quality Compounders", "Reshoring & Industrials", "GLP-1 / Obesity", "Cash-Rich Defensives"). Make them genuinely different from each other.
 
 ONLY use tickers from this S&P 500 universe:
 ${universeList}

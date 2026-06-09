@@ -15,7 +15,7 @@ const fetcher = (url: string) =>
   });
 
 /**
- * The full S&P 500 scored on all six Lucra factors from real data (Polygon
+ * The full S&P 500 scored on all six Finava factors from real data (Polygon
  * fundamentals, Alpaca momentum, Finnhub analyst). Computed server-side and
  * memoised there; we refresh every 5 minutes so analyst coverage fills in as
  * the upstream cache warms. The Tune lens re-ranks this universe client-side

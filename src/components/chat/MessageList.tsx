@@ -19,7 +19,7 @@ const SUGGESTIONS = [
 ];
 
 /* ── Tiny helpers ───────────────────────────────────────────────────────── */
-function LucraAvatar() {
+function FinavaAvatar() {
   return (
     <div
       className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center flex-shrink-0 text-white text-[13px] font-black"
@@ -79,7 +79,7 @@ function AgentActivityPanel({ steps, ceoThinking }: { steps: AgentStep[]; ceoThi
 
       {/* Desktop full panel */}
       <div className="hidden sm:flex gap-[14px]">
-      <LucraAvatar />
+      <FinavaAvatar />
       <div className="flex-1 min-w-0 pt-0">
         <div
           className="rounded-[var(--radius-lg)] overflow-hidden fade-in"
@@ -448,7 +448,7 @@ export default function MessageList({
         {/* Streaming response — Claude-style word-by-word fade + steady pacing */}
         {showStreaming && (
           <div className="flex gap-[14px]">
-            <LucraAvatar />
+            <FinavaAvatar />
             <div className="flex-1 min-w-0 pt-1">
               <div className="stream-body">
                 <StreamingMarkdown content={revealed} />

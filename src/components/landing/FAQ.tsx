@@ -3,20 +3,20 @@ import { useState } from "react";
 
 const QA = [
   {
-    q: "Is Lucra's data real, or is it making things up?",
-    a: "Every figure in a Lucra briefing is pulled from a primary source — SEC EDGAR for financials and insider transactions, Finnhub for market data and earnings, and Perplexity for real-time news and sentiment. When Lucra can't verify a data point, it says so rather than guessing.",
+    q: "Is Finava's data real, or is it making things up?",
+    a: "Every figure in a Finava briefing is pulled from a primary source — SEC EDGAR for financials and insider transactions, Finnhub for market data and earnings, and Perplexity for real-time news and sentiment. When Finava can't verify a data point, it says so rather than guessing.",
   },
   {
-    q: "Is Lucra giving me financial advice?",
-    a: "No. Lucra is a research tool — it synthesises information and presents analysis, but every decision is yours to make. Think of it like having a very thorough analyst team: they give you the research, you decide what to do with it.",
+    q: "Is Finava giving me financial advice?",
+    a: "No. Finava is a research tool — it synthesises information and presents analysis, but every decision is yours to make. Think of it like having a very thorough analyst team: they give you the research, you decide what to do with it.",
   },
   {
     q: "How is this different from just asking ChatGPT about a stock?",
-    a: "ChatGPT doesn't have access to real-time market data, SEC filings, or live financial figures. It also doesn't maintain context about your portfolio or investment style across sessions. Lucra is purpose-built for investment research: 15 domain-specific agents, real data sources, and a persistent memory of what you own and how you invest.",
+    a: "ChatGPT doesn't have access to real-time market data, SEC filings, or live financial figures. It also doesn't maintain context about your portfolio or investment style across sessions. Finava is purpose-built for investment research: 15 domain-specific agents, real data sources, and a persistent memory of what you own and how you invest.",
   },
   {
     q: "Can I import my existing portfolio?",
-    a: "Yes. Lucra supports manual entry, CSV upload, and brokerage statement parsing. Once your holdings are in, every AI analysis is automatically contextualised to your actual positions.",
+    a: "Yes. Finava supports manual entry, CSV upload, and brokerage statement parsing. Once your holdings are in, every AI analysis is automatically contextualised to your actual positions.",
   },
   {
     q: "What happens to my data?",

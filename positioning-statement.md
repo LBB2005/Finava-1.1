@@ -1,18 +1,18 @@
-# Lucra — Brand Positioning Document
+# Finava — Brand Positioning Document
 
 ---
 
 ## One-Sentence Positioning
 
-**Lucra is the AI analyst team that self-directed investors have never had access to** — giving you hedge-fund-quality research depth in a single conversation, so you can invest with conviction instead of guesswork.
+**Finava is the AI analyst team that self-directed investors have never had access to** — giving you hedge-fund-quality research depth in a single conversation, so you can invest with conviction instead of guesswork.
 
 ---
 
 ## The Full Positioning Statement
 
-For self-directed investors who are tired of stitching together research from ten browser tabs or paying thousands for tools that still require you to do the work, Lucra is the first AI-powered research platform that deploys 15 specialized analyst agents simultaneously — covering fundamentals, DCF valuation, insider activity, technicals, macro regime, options flow, sentiment, and more — to give you the complete picture on any stock in minutes.
+For self-directed investors who are tired of stitching together research from ten browser tabs or paying thousands for tools that still require you to do the work, Finava is the first AI-powered research platform that deploys 15 specialized analyst agents simultaneously — covering fundamentals, DCF valuation, insider activity, technicals, macro regime, options flow, sentiment, and more — to give you the complete picture on any stock in minutes.
 
-Unlike Seeking Alpha, which gives you one writer's opinion, or TradingView, which gives you charts but no synthesis, Lucra does the analytical work for you — and for the first time, puts institutional-grade frameworks in the hands of anyone with an internet connection.
+Unlike Seeking Alpha, which gives you one writer's opinion, or TradingView, which gives you charts but no synthesis, Finava does the analytical work for you — and for the first time, puts institutional-grade frameworks in the hands of anyone with an internet connection.
 
 ---
 
@@ -70,7 +70,7 @@ Large language models crossed a quality threshold in 2024–2025 that makes mult
 
 ---
 
-## What Lucra Does
+## What Finava Does
 
 **15 specialised AI agents, deployed simultaneously on any stock:**
 
@@ -98,32 +98,32 @@ Large language models crossed a quality threshold in 2024–2025 that makes mult
 
 ## Competitive Differentiation
 
-### What makes Lucra different from everything else:
+### What makes Finava different from everything else:
 
 **vs. Seeking Alpha / Motley Fool**
 - Human writers cover the stocks they choose to cover, on a schedule you don't control
-- Lucra covers any stock, on demand, in minutes
-- Seeking Alpha gives you one angle; Lucra gives you fifteen simultaneously
+- Finava covers any stock, on demand, in minutes
+- Seeking Alpha gives you one angle; Finava gives you fifteen simultaneously
 
 **vs. TradingView**
 - TradingView is charts — you still have to do the analysis yourself
-- Lucra synthesises the analysis for you
-- Lucra includes fundamentals, macro, and insider data that TradingView doesn't touch
+- Finava synthesises the analysis for you
+- Finava includes fundamentals, macro, and insider data that TradingView doesn't touch
 
 **vs. ChatGPT / Claude directly**
 - General AI has no real-time market data, no EDGAR integration, no Alpaca connection
-- Lucra is purpose-built: 15 domain-specific agents with real data sources
-- General AI hallucinates financial data; Lucra fetches and cites real figures
+- Finava is purpose-built: 15 domain-specific agents with real data sources
+- General AI hallucinates financial data; Finava fetches and cites real figures
 
 **vs. Bloomberg / FactSet**
 - Bloomberg costs $27,000/year and requires training to use
-- Lucra is conversational, requires no learning curve, and is accessible to individuals
-- Lucra synthesises; Bloomberg displays raw data and leaves analysis to you
+- Finava is conversational, requires no learning curve, and is accessible to individuals
+- Finava synthesises; Bloomberg displays raw data and leaves analysis to you
 
 **vs. Koyfin / YCharts**
 - These are data visualisation tools — beautiful dashboards but no AI synthesis
 - You still need to know what you're looking at and draw your own conclusions
-- Lucra does the interpretation
+- Finava does the interpretation
 
 ---
 
@@ -135,35 +135,35 @@ No other retail tool runs this many specialised analytical frameworks simultaneo
 
 ### 2. Speed
 *"Research in minutes, not days."*
-What a solo investor could piece together manually in 3–5 hours, Lucra returns in 2–3 minutes. Time is the scarcest resource for a self-directed investor with a day job.
+What a solo investor could piece together manually in 3–5 hours, Finava returns in 2–3 minutes. Time is the scarcest resource for a self-directed investor with a day job.
 
 ### 3. Conviction
 *"Invest with conviction, not guesswork."*
-The goal isn't more information — it's confidence. Lucra synthesises everything into a clear recommendation with an explicit rationale, so you know exactly why you're making a move.
+The goal isn't more information — it's confidence. Finava synthesises everything into a clear recommendation with an explicit rationale, so you know exactly why you're making a move.
 
 ### 4. Access
 *"Institutional-grade analysis, individual pricing."*
-The frameworks Lucra uses — DCF, Graham value, regime detection, insider flow — are the same ones used by professional analysts. The difference is they've never been accessible to individuals before.
+The frameworks Finava uses — DCF, Graham value, regime detection, insider flow — are the same ones used by professional analysts. The difference is they've never been accessible to individuals before.
 
 ---
 
 ## Tone of Voice
 
-**Confident, not arrogant.** Lucra is making a strong claim ("hedge fund-quality research") and needs to back it up with specificity — cite real methodologies, real data sources, real numbers.
+**Confident, not arrogant.** Finava is making a strong claim ("hedge fund-quality research") and needs to back it up with specificity — cite real methodologies, real data sources, real numbers.
 
 **Sophisticated, not jargon-heavy.** The target user is financially literate but not a Bloomberg power user. Use terms like "DCF" and "insider transactions" without over-explaining them, but don't assume CFA-level knowledge.
 
 **Precise, not fluffy.** Avoid vague AI marketing language ("unlock insights," "harness the power of AI"). Instead: "15 agents. SEC EDGAR data. Real-time Perplexity search. In 2 minutes."
 
-**Honest about what it is.** Lucra is a research tool, not a financial advisor. The tone should reflect that — it helps you make better decisions, it doesn't make decisions for you.
+**Honest about what it is.** Finava is a research tool, not a financial advisor. The tone should reflect that — it helps you make better decisions, it doesn't make decisions for you.
 
 ---
 
-## What Lucra Is Not
+## What Finava Is Not
 
 - **Not financial advice.** Every output is research to inform your decisions, not a directive to trade.
-- **Not a black box.** Every agent shows its reasoning, sources, and methodology. You can see exactly why Lucra reached a conclusion.
-- **Not a replacement for judgment.** Lucra makes you a better investor; it doesn't invest for you.
+- **Not a black box.** Every agent shows its reasoning, sources, and methodology. You can see exactly why Finava reached a conclusion.
+- **Not a replacement for judgment.** Finava makes you a better investor; it doesn't invest for you.
 
 ---
 
@@ -181,6 +181,6 @@ The frameworks Lucra uses — DCF, Graham value, regime detection, insider flow 
 
 ## The One Thing to Remember
 
-**Lucra gives retail investors the analyst team they've never been able to afford.**
+**Finava gives retail investors the analyst team they've never been able to afford.**
 
 Every other element of positioning — speed, depth, conviction, access — flows from that core truth.

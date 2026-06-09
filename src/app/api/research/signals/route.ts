@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     )
     .join("\n");
 
-  const prompt = `You are Lucra's markets desk writing a live signals feed. Each numbered item below is a REAL, data-derived event across the S&P 500. Write a punchy headline and a 1-2 sentence take for each, in order. This is research color, not advice — don't invent facts beyond what's given.
+  const prompt = `You are Finava's markets desk writing a live signals feed. Each numbered item below is a REAL, data-derived event across the S&P 500. Write a punchy headline and a 1-2 sentence take for each, in order. This is research color, not advice — don't invent facts beyond what's given.
 
 ${lines}
 

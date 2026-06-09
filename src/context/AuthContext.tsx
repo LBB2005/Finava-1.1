@@ -47,7 +47,7 @@ const DEV_ENABLED = process.env.NODE_ENV !== "production";
 // Firestore reads and token-gated API calls will not work under it.
 const MOCK_USER = {
   uid: "dev-user",
-  email: "dev@lucra.local",
+  email: "dev@finava.local",
   displayName: "Dev User",
   photoURL: null,
   emailVerified: true,
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (DEV_ENABLED && typeof window !== "undefined") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDevBypass(localStorage.getItem("lucra_dev_auth") === "1");
+      setDevBypass(localStorage.getItem("finava_dev_auth") === "1");
     }
   }, []);
 
@@ -98,8 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setDevBypass((prev) => {
       const next = !prev;
       if (typeof window !== "undefined") {
-        if (next) localStorage.setItem("lucra_dev_auth", "1");
-        else localStorage.removeItem("lucra_dev_auth");
+        if (next) localStorage.setItem("finava_dev_auth", "1");
+        else localStorage.removeItem("finava_dev_auth");
       }
       return next;
     });
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     if (DEV_ENABLED && devBypass) {
       setDevBypass(false);
-      if (typeof window !== "undefined") localStorage.removeItem("lucra_dev_auth");
+      if (typeof window !== "undefined") localStorage.removeItem("finava_dev_auth");
     }
     await firebaseSignOut(auth);
     router.push("/login");

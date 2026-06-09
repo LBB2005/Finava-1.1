@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-LOG_DIR="$HOME/Library/Logs/Lucra"
+LOG_DIR="$HOME/Library/Logs/Finava"
 mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/markov-refresh.log"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')

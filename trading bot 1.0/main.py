@@ -1,5 +1,5 @@
 """
-Lucra Trading Bot — main loop orchestrator.
+Finava Trading Bot — main loop orchestrator.
 
 Strategy modes (set STRATEGY_MODE in config.py):
   "orb"        → TQQQ Opening Range Breakout (default)
@@ -363,7 +363,7 @@ def _tick_allocation() -> None:
 def main() -> None:
     log.info("=" * 60)
     log.info(
-        "Lucra Trading Bot  |  PAPER  |  mode=%s  |  %s",
+        "Finava Trading Bot  |  PAPER  |  mode=%s  |  %s",
         STRATEGY_MODE,
         ORB_SIGNAL_TICKER if STRATEGY_MODE == "orb" else ", ".join(TICKERS),
     )

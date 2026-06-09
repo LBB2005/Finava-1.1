@@ -15,11 +15,11 @@ const TIERS: Tier[] = [
     name: "Free",
     price: "$0",
     cadence: "",
-    blurb: "A real taste of Lucra.",
+    blurb: "A real taste of Finava.",
     features: [
       "2 Deep Research runs / month",
       "15 chats + 5 research lenses / month",
-      "2 Lucra Analyses / month",
+      "2 Finava Analyses / month",
       "1 watchlist",
     ],
     cta: "Get started",
@@ -153,7 +153,7 @@ export default function Pricing() {
         Every account starts with a 3-day Pro trial — no credit card required.
       </p>
       <p className="mt-2 text-center text-[12px] text-[var(--lp-muted)] italic max-w-2xl mx-auto">
-        Lucra is a research tool, not a financial advisor. All outputs are for informational
+        Finava is a research tool, not a financial advisor. All outputs are for informational
         purposes and do not constitute investment advice.
       </p>
     </section>

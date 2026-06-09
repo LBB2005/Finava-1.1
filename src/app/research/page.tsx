@@ -1,10 +1,11 @@
 "use client";
 import { useState, useMemo } from "react";
-import { HORIZONS, overlayLive, UNIVERSE, type HorizonKey } from "@/lib/research";
+import { HORIZONS, overlayLive, ranked, UNIVERSE, type HorizonKey } from "@/lib/research";
 import { useLiveBoard } from "@/hooks/useLiveBoard";
 import { useFactorUniverse } from "@/hooks/useFactorUniverse";
-import BannerBoard from "@/components/research/BannerBoard";
-import Leaderboard from "@/components/research/Leaderboard";
+import VerdictHero from "@/components/research/VerdictHero";
+import BoardLeaderboard from "@/components/research/BoardLeaderboard";
+import MoversRail from "@/components/research/MoversRail";
 import TuneMode from "@/components/research/TuneMode";
 import CompareMode from "@/components/research/CompareMode";
 import ScreenMode from "@/components/research/ScreenMode";
@@ -70,51 +71,53 @@ export default function ResearchPage() {
   const isLoading = pricesLoading || factorsLoading;
   const asOfLabel = asOf ? fmtAsOf(asOf) : "Loading…";
 
+  const feature = useMemo(() => ranked(horizon, universe)[0], [horizon, universe]);
+
   return (
-    <div className="research-root term flex flex-col h-full overflow-hidden">
-      {/* Command bar */}
-      <div className="cmdbar flex items-center flex-shrink-0" style={{ padding: "11px 22px", gap: 16, flexWrap: "wrap" }}>
-        <div className="flex items-baseline" style={{ gap: 10 }}>
-          <span className="serif" style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.01em", color: "var(--color-text)" }}>Research</span>
-          <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)", letterSpacing: "0.04em" }}>S&amp;P 500 · LUCRA SCORE ENGINE</span>
+    <div className="research-root term vB1 flex flex-col h-full overflow-hidden">
+      {/* Seamless command bar — blends into the body, pill lens tabs + segmented
+          horizon. No hard divider (the soft fade lives in the ::after). */}
+      <div className="b-bar">
+        <div className="b-bar-mast">
+          <span className="serif b-bar-title">Research</span>
+          <span className="mono b-bar-eyebrow">SCORE ENGINE</span>
         </div>
 
-        {/* Lens toggle */}
-        <div className="flex items-center" style={{ gap: 4, marginLeft: 6, flexWrap: "wrap" }}>
+        <div className="b-lenses b-lenses-pill">
           {MODES.map((m) => (
-            <button key={m.key} className={"tbtn" + (mode === m.key ? " on" : "")} onClick={() => setMode(m.key)}>{m.label}</button>
+            <button key={m.key} className={"b-lens" + (mode === m.key ? " on" : "")} onClick={() => setMode(m.key)}>{m.label}</button>
           ))}
         </div>
 
-        <div className="flex items-center" style={{ gap: 7, marginLeft: "auto" }}>
-          {mode === "board" && (
-            <>
-              <span className="mono" style={{ fontSize: 10, color: "var(--color-muted)", letterSpacing: "0.1em", marginRight: 2 }}>HORIZON</span>
-              {HORIZONS.map((h) => (
-                <button key={h.key} className={"tbtn" + (horizon === h.key ? " on" : "")} onClick={() => setHorizon(h.key)}>
-                  {h.tag}
-                </button>
-              ))}
-            </>
-          )}
+        <div className="b-bar-right">
+          <div className="b-hzseg">
+            {HORIZONS.map((h) => (
+              <button key={h.key} className={"b-hzbtn" + (horizon === h.key ? " on" : "")} onClick={() => setHorizon(h.key)}>
+                {h.tag}
+              </button>
+            ))}
+          </div>
+          <span className="mono b-asof">{asOfLabel}</span>
         </div>
-        <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>{asOfLabel}</span>
       </div>
 
       {/* Scrolling body — outer scroller stays a plain block so the inner
           flex column grows to its content height instead of shrink-clipping. */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div style={{ padding: "16px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ padding: "8px 26px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
           {mode === "board" && (
             <>
-              <SectionRule label="TODAY ON THE BOARD · TOP PICK &amp; MOVERS" />
-              <BannerBoard horizon={horizon} universe={universe} />
-
-              <Leaderboard horizon={horizon} universe={universe} loading={isLoading} />
+              {feature && <VerdictHero feature={feature} horizon={horizon} />}
+              <div className="b-split">
+                <BoardLeaderboard horizon={horizon} universe={universe} loading={isLoading} />
+                <MoversRail horizon={horizon} universe={universe} />
+              </div>
             </>
           )}
 
-          {mode !== "board" && SECTION_RULE[mode] && <SectionRule label={SECTION_RULE[mode]!} />}
+          {mode !== "board" && SECTION_RULE[mode] && (
+            <div style={{ marginTop: 8 }}><SectionRule label={SECTION_RULE[mode]!} /></div>
+          )}
 
           {mode === "tune" && <TuneMode />}
           {mode === "compare" && <CompareMode universe={universe} loading={isLoading} />}

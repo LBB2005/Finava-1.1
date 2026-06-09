@@ -264,7 +264,7 @@ export function OverviewTab({
       <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gap: 0 }} className="overview-grid">
         {/* left — AI take */}
         <div style={{ paddingRight: 32 }} className="overview-left">
-          <Rule>The Lucra Read</Rule>
+          <Rule>The Finava Read</Rule>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
             {sentiment && (
               <button

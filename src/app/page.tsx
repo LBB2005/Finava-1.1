@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import LandingPage from "@/components/landing/LandingPage";
 
 export const metadata: Metadata = {
-  title: "Lucra — 15 AI analysts. One conversation.",
+  title: "Finava — 15 AI analysts. One conversation.",
   description:
-    "Lucra deploys 15 specialized AI agents on any stock — fundamentals, DCF valuation, insider activity, technicals, macro, and sentiment — giving you research depth that used to cost $32,000 a year.",
+    "Finava deploys 15 specialized AI agents on any stock — fundamentals, DCF valuation, insider activity, technicals, macro, and sentiment — giving you research depth that used to cost $32,000 a year.",
   openGraph: {
-    title: "Lucra — 15 AI analysts. One conversation.",
+    title: "Finava — 15 AI analysts. One conversation.",
     description:
       "Institutional-grade stock research for self-directed investors. 15 specialist agents, real SEC EDGAR data, in minutes.",
     type: "website",

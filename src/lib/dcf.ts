@@ -84,7 +84,7 @@ export function computeDcf(inputs: DcfInputs, a: DcfAssumptions): DcfResult {
 }
 
 /** Convenience: the fair value under the suggested/default assumptions. Used by the
- *  Lucra synthesis to feed the three-way valuation comparison. */
+ *  Finava synthesis to feed the three-way valuation comparison. */
 export function defaultFairValue(inputs: DcfInputs): number | null {
   const growth =
     inputs.historicalGrowth != null

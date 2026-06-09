@@ -155,7 +155,7 @@ export async function runScoutAgent(input: unknown, emit: EventEmitter): Promise
     )
     .join("\n");
 
-  const prompt = `You are Lucra's discovery scout. From the universe below, pick and RANK the ${n} stocks that BEST fit the user's request.
+  const prompt = `You are Finava's discovery scout. From the universe below, pick and RANK the ${n} stocks that BEST fit the user's request.
 
 Request: "${query}"
 
@@ -234,7 +234,7 @@ Output ONLY the JSON below — no preamble, no markdown, no trailing commentary:
   const lines = picks
     .map(
       (p) =>
-        `${p.fitRank}. ${p.ticker} (${p.name}, ${p.sector}) — Lucra Score ${p.score} (${p.grade}); fit: ${p.reason}`
+        `${p.fitRank}. ${p.ticker} (${p.name}, ${p.sector}) — Finava Score ${p.score} (${p.grade}); fit: ${p.reason}`
     )
     .join("\n");
   return `Scout scanned the whole S&P 500 and selected EXACTLY these ${picks.length} names for "${query}" (${interpretation}):
@@ -243,5 +243,5 @@ ${lines}
 Write a concise, engaging recommendation covering EXACTLY these ${picks.length} tickers and NO OTHERS. Hard rules:
 - Do NOT mention, recommend, rank, or chart any ticker that is not in the list above — not even famous names (NVDA, MSFT, META, etc.). These picks ARE the answer; do not substitute your own ideas.
 - Do NOT reference the user's portfolio, holdings, or available cash.
-Reference each by its ticker, explain the fit in 1–2 lines, and call out the single best idea. Include one \`\`\`chart\`\`\` bar chart titled "Lucra Score" of THESE names' scores. Keep it tight; do not call any tools.`;
+Reference each by its ticker, explain the fit in 1–2 lines, and call out the single best idea. Include one \`\`\`chart\`\`\` bar chart titled "Finava Score" of THESE names' scores. Keep it tight; do not call any tools.`;
 }

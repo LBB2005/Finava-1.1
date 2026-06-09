@@ -87,7 +87,7 @@ async function generateForUser(userId: string): Promise<NextResponse> {
     const content = await generate({
       agent: "briefingSynthesis",
       maxTokens: 3000,
-      prompt: `You are Lucra, a financial research assistant. Synthesize these agent reports into a polished weekly portfolio briefing.
+      prompt: `You are Finava, a financial research assistant. Synthesize these agent reports into a polished weekly portfolio briefing.
 
 ## Portfolio
 ${portfolioContext}

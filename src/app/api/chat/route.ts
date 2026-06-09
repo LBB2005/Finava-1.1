@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   // Run the whole stream inside the usage context so every model call it makes
   // (this chat message + the follow-up generate()) is metered to this user.
   return usageStore.run({ userId }, () => {
-    const systemPrompt = `You are Lucra, an expert AI financial research assistant. You help users research stocks, analyze their portfolio, and make informed investment decisions.
+    const systemPrompt = `You are Finava, an expert AI financial research assistant. You help users research stocks, analyze their portfolio, and make informed investment decisions.
 
 ${portfolioContext ? `## User's Current Portfolio\n${portfolioContext}` : "The user has no portfolio holdings yet."}
 

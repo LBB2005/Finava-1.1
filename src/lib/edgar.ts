@@ -1,5 +1,5 @@
 const EDGAR_BASE = "https://data.sec.gov";
-const USER_AGENT = "Lucra App liamblackshawbrown@gmail.com";
+const USER_AGENT = "Finava App liamblackshawbrown@gmail.com";
 
 async function edgarFetch(url: string) {
   const res = await fetch(url, {

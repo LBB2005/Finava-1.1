@@ -19,7 +19,7 @@ export default function Hero() {
           </h1>
 
           <p className="mt-6 text-[clamp(1.05rem,1.6vw,1.25rem)] leading-relaxed text-[var(--lp-text-secondary)] max-w-xl">
-            Lucra deploys 15 specialized AI agents simultaneously on any stock — covering
+            Finava deploys 15 specialized AI agents simultaneously on any stock — covering
             fundamentals, DCF valuation, insider transactions, technicals, macro, sentiment, and
             more — giving you research depth that used to cost{" "}
             <span className="text-[var(--lp-text)] font-semibold">$32,000 a year.</span>

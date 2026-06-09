@@ -1,7 +1,7 @@
 /* ============================================================
-   Lucra · Research — real factor engine for the "Tune" lens
+   Finava · Research — real factor engine for the "Tune" lens
    ------------------------------------------------------------
-   Scores every S&P 500 name on the six Lucra factors from REAL
+   Scores every S&P 500 name on the six Finava factors from REAL
    data, not placeholders:
 
      MOM  Momentum    ← Alpaca daily closes (price returns + trend)

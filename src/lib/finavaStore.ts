@@ -1,42 +1,42 @@
 "use client";
-// Session-scoped store for Lucra analyses. A module-level Map keyed by ticker
+// Session-scoped store for Finava analyses. A module-level Map keyed by ticker
 // survives tab unmount/remount, so the analysis runs once per ticker per visit and
-// progress persists if the user toggles away mid-stream. runLucra() is deduped by
+// progress persists if the user toggles away mid-stream. runFinava() is deduped by
 // an in-flight guard, so a double tab-click can't fire two runs.
 
 import { authFetch } from "@/lib/authFetch";
-import { SIGNAL_ORDER, type LucraAnalysis, type LucraEvent, type LucraSignal } from "@/lib/lucra";
+import { SIGNAL_ORDER, type FinavaAnalysis, type FinavaEvent, type FinavaSignal } from "@/lib/finava";
 
-export type LucraStatus = "idle" | "streaming" | "done" | "error";
+export type FinavaStatus = "idle" | "streaming" | "done" | "error";
 
-export interface LucraEntry {
-  status: LucraStatus;
-  analysis: LucraAnalysis;
+export interface FinavaEntry {
+  status: FinavaStatus;
+  analysis: FinavaAnalysis;
   error: string | null;
 }
 
-const store = new Map<string, LucraEntry>();
+const store = new Map<string, FinavaEntry>();
 const inflight = new Set<string>();
 const listeners = new Map<string, Set<() => void>>();
 
-function emptyEntry(): LucraEntry {
+function emptyEntry(): FinavaEntry {
   return { status: "idle", analysis: { signals: [], verdict: null }, error: null };
 }
 
 // Stable singleton for the "not started" state. useSyncExternalStore compares
 // getSnapshot results by reference, so getEntry must return the SAME object for an
 // absent ticker every call — a fresh emptyEntry() each time would loop forever.
-const EMPTY: LucraEntry = {
+const EMPTY: FinavaEntry = {
   status: "idle",
   analysis: { signals: [], verdict: null },
   error: null,
 };
 
-export function getEntry(ticker: string): LucraEntry {
+export function getEntry(ticker: string): FinavaEntry {
   return store.get(ticker) ?? EMPTY;
 }
 
-function setEntry(ticker: string, entry: LucraEntry) {
+function setEntry(ticker: string, entry: FinavaEntry) {
   store.set(ticker, entry);
   listeners.get(ticker)?.forEach((fn) => fn());
 }
@@ -52,14 +52,14 @@ export function subscribe(ticker: string, fn: () => void): () => void {
 }
 
 /** Merge a streamed signal in, keeping the canonical 5-signal display order. */
-function withSignal(analysis: LucraAnalysis, signal: LucraSignal): LucraAnalysis {
+function withSignal(analysis: FinavaAnalysis, signal: FinavaSignal): FinavaAnalysis {
   const next = analysis.signals.filter((s) => s.key !== signal.key).concat(signal);
   next.sort((a, b) => SIGNAL_ORDER.indexOf(a.key) - SIGNAL_ORDER.indexOf(b.key));
   return { ...analysis, signals: next };
 }
 
 /** Kick off (or no-op resume) the analysis for a ticker. Safe to call repeatedly. */
-export async function runLucra(ticker: string): Promise<void> {
+export async function runFinava(ticker: string): Promise<void> {
   const sym = ticker.toUpperCase();
   const existing = store.get(sym);
   if (inflight.has(sym)) return; // already running
@@ -69,7 +69,7 @@ export async function runLucra(ticker: string): Promise<void> {
   setEntry(sym, { status: "streaming", analysis: { signals: [], verdict: null }, error: null });
 
   try {
-    const res = await authFetch(`/api/stock/${encodeURIComponent(sym)}/lucra-analysis`, {
+    const res = await authFetch(`/api/stock/${encodeURIComponent(sym)}/finava-analysis`, {
       method: "POST",
     });
     if (!res.ok || !res.body) {
@@ -93,9 +93,9 @@ export async function runLucra(ticker: string): Promise<void> {
         if (!line.startsWith("data:")) continue;
         const json = line.slice(5).trim();
         if (!json) continue;
-        let event: LucraEvent;
+        let event: FinavaEvent;
         try {
-          event = JSON.parse(json) as LucraEvent;
+          event = JSON.parse(json) as FinavaEvent;
         } catch {
           continue;
         }
@@ -132,7 +132,7 @@ export async function runLucra(ticker: string): Promise<void> {
 }
 
 /** Drop a ticker's cached analysis so the next run starts fresh (used by retry). */
-export function resetLucra(ticker: string) {
+export function resetFinava(ticker: string) {
   const sym = ticker.toUpperCase();
   store.delete(sym);
   setEntry(sym, emptyEntry());

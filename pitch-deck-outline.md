@@ -1,4 +1,4 @@
-# Lucra — Pitch Deck Outline
+# Finava — Pitch Deck Outline
 *Slide-by-slide content guide for a pre-seed/seed raise*
 *Build when ready: target ~12 slides, ~10–15 minutes to present*
 
@@ -6,10 +6,10 @@
 
 ## Slide 1 — Cover
 
-**Visual direction:** Clean, dark background. Lucra wordmark. One-line descriptor below.
+**Visual direction:** Clean, dark background. Finava wordmark. One-line descriptor below.
 
 **Content:**
-- Company name: **Lucra**
+- Company name: **Finava**
 - Tagline: *The AI analyst team for self-directed investors*
 - Founder name + contact
 - Date / round (add when pitching)
@@ -31,7 +31,7 @@
 - The gap between what professionals use and what individuals can afford has never been larger
 
 **Body (2–3 sentences):**
-There is no middle ground between "Seeking Alpha gives me one person's opinion once a week" and "Bloomberg costs $32,000 a year." Retail investors are stitching together research from 10 browser tabs, asking ChatGPT questions it can't reliably answer, and making decisions without the full picture. Lucra is that middle ground.
+There is no middle ground between "Seeking Alpha gives me one person's opinion once a week" and "Bloomberg costs $32,000 a year." Retail investors are stitching together research from 10 browser tabs, asking ChatGPT questions it can't reliably answer, and making decisions without the full picture. Finava is that middle ground.
 
 ---
 
@@ -55,7 +55,7 @@ There is no middle ground between "Seeking Alpha gives me one person's opinion o
 
 **Headline:** *15 AI analysts. One conversation. Any stock.*
 
-**Sub-headline:** *Type a question. Lucra deploys every specialist at once.*
+**Sub-headline:** *Type a question. Finava deploys every specialist at once.*
 
 **Show:**
 - The chat interface with a real query ("Give me the full picture on NVDA before earnings")
@@ -124,7 +124,7 @@ Briefing + Follow-up Questions
 **Supporting stats:**
 - 50M+ self-directed investors in the US (SIFMA 2024)
 - Self-directed investing grew 40%+ post-2020 and has not reversed
-- Seeking Alpha has ~1M+ paid subscribers at $299/year = ~$300M ARR from one content business. Lucra is a better product at a lower price.
+- Seeking Alpha has ~1M+ paid subscribers at $299/year = ~$300M ARR from one content business. Finava is a better product at a lower price.
 
 ---
 
@@ -177,10 +177,10 @@ Briefing + Follow-up Questions
 - Lower-left: Koyfin ($39–$79/mo) — good data, no AI synthesis
 - Lower-right: Seeking Alpha, Motley Fool — retail, but shallow
 - Lower-right: ChatGPT/Perplexity — accessible but generic
-- Upper-right: **Lucra** — deep + retail accessible (currently unoccupied)
+- Upper-right: **Finava** — deep + retail accessible (currently unoccupied)
 
 **One-line competitive summary:**
-Koyfin has the data but no AI. Seeking Alpha has AI summaries but one writer's view. ChatGPT has no real-time data. Bloomberg has everything but costs $32,000. Lucra is the first product at the intersection of all four.
+Koyfin has the data but no AI. Seeking Alpha has AI summaries but one writer's view. ChatGPT has no real-time data. Bloomberg has everything but costs $32,000. Finava is the first product at the intersection of all four.
 
 ---
 
@@ -229,7 +229,7 @@ Koyfin has the data but no AI. Seeking Alpha has AI summaries but one writer's v
 **Phase 2 — Word of Mouth + Content (Months 1–6)**
 - Agent output quality drives organic sharing ("look at what this thing found on NVDA")
 - Weekly market briefings as standalone content marketing pieces
-- YouTube comparison content: "Lucra vs. Bloomberg for retail investors"
+- YouTube comparison content: "Finava vs. Bloomberg for retail investors"
 
 **Phase 3 — B2B Channel (Months 6–18)**
 - White-label for financial newsletters (large existing audiences, need to add AI value)
@@ -305,10 +305,10 @@ Detailed profiles of the Research tier and Pro tier user archetypes
 
 ## Presentation Tips
 
-**On the demo:** The best version of this pitch starts with the product. Open with: "Let me show you what this looks like" — run a live Lucra query on a stock that's in the news. The output speaks for itself.
+**On the demo:** The best version of this pitch starts with the product. Open with: "Let me show you what this looks like" — run a live Finava query on a stock that's in the news. The output speaks for itself.
 
 **On the solo founder question:** Don't be defensive. Say: "I built everything you've seen. I'm raising to scale, not to start." Then tell them exactly what profile of co-founder or early hire you're bringing on.
 
 **On traction (pre-launch):** Be specific about what's built. "We have X lines of code, Y integrations, Z weeks to launch" is more compelling than "we're almost ready." Investors fund builders.
 
-**On the AI disclaimer:** Proactively address the "isn't this just ChatGPT?" question before they ask it. The answer is: 15 agents, real primary data sources (SEC EDGAR, Finnhub, Perplexity), portfolio context, and purpose-built workflows. ChatGPT is a hammer; Lucra is a surgical suite.
+**On the AI disclaimer:** Proactively address the "isn't this just ChatGPT?" question before they ask it. The answer is: 15 agents, real primary data sources (SEC EDGAR, Finnhub, Perplexity), portfolio context, and purpose-built workflows. ChatGPT is a hammer; Finava is a surgical suite.

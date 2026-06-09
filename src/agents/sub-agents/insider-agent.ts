@@ -11,7 +11,7 @@ import { getSkillsPrompt } from "@/agents/skills";
 import { getInsiderTransactions } from "@/lib/finnhub";
 import { searchRecentForm4, type Form4Filing } from "@/lib/edgar";
 
-const USER_AGENT = "Lucra App liamblackshawbrown@gmail.com";
+const USER_AGENT = "Finava App liamblackshawbrown@gmail.com";
 
 interface RecentPurchase {
   ticker: string;

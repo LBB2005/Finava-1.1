@@ -15,9 +15,9 @@ Final command-bar tab row: `BOARD · TUNE · COMPARE · SCREEN · THEMES · SIGN
 - **Factor universe**: `useFactorUniverse()` → `/api/research/factors` → `computeFactorUniverse()` returns `Stock[]` (503 S&P names, real six-factor scores). Live price/cap/PE/rvol overlaid by `overlayLive()` + `useLiveBoard()`. The page already loads this once; all new lenses consume the same in-memory universe — no extra heavy compute.
 - **Scoring math**: `composite`, `ranked`, `rankByWeights`, `grade`, `gradeClass`, `factorColor` in `src/lib/research.ts`.
 - **AI**: `generate({ agent, prompt, maxTokens })` in `src/lib/llm.ts` (OpenRouter gateway, per-agent model routing). New `AgentKey`s registered for each lens.
-- **SSE / store pattern**: `lucraStore.ts` + `lucra-analysis/route.ts` are the reference for streamed multi-agent output where used.
+- **SSE / store pattern**: `finavaStore.ts` + `finava-analysis/route.ts` are the reference for streamed multi-agent output where used.
 - **UI primitives**: `Radar`, `MiniBars`, `GradeBadge` (`primitives.tsx`), `LadderRow`, terminal CSS classes (`.tbtn`, `.lad-table`, `.fbar-track`, `.grade`, etc., all scoped under `.research-root`).
-- **Auth**: server routes use `requireAuth()`; client uses `authFetch()`. Factor route stays unauthenticated (dev-bypass friendly); AI routes require auth like `lucra-analysis`.
+- **Auth**: server routes use `requireAuth()`; client uses `authFetch()`. Factor route stays unauthenticated (dev-bypass friendly); AI routes require auth like `finava-analysis`.
 
 ## New AgentKeys (`llm.ts`)
 
@@ -34,7 +34,7 @@ Final command-bar tab row: `BOARD · TUNE · COMPARE · SCREEN · THEMES · SIGN
 
 **Component:** `CompareMode.tsx`. User searches/adds 2–5 tickers from the universe. Renders:
 - Overlaid factor radar (`RadarOverlay` — new primitive, multiple polygons) + a factor table (rows = 6 factors, columns = stocks, best cell highlighted per row).
-- Live row: price, today %, P/E, market cap, Lucra score for a chosen horizon.
+- Live row: price, today %, P/E, market cap, Finava score for a chosen horizon.
 - **AI verdict panel**: POST `/api/research/compare` with the selected stocks' factor + market data → `compareVerdict` agent → `{ winner, summary, perStock: [{ ticker, oneLiner, bullCase, bearCase }] }`. Single non-streaming JSON response with a loading state (fast, ≤5 stocks).
 
 **Server:** client sends the stocks (already has scored data) so no recompute. Failure → 503/error panel with retry.
@@ -64,7 +64,7 @@ Pure filter math `applyScreen(universe, filter): RankedStock[]` lives in `src/li
 
 ## Error handling & isolation
 
-Every AI route is failure-isolated like `lucra-analysis`: missing `OPENROUTER_API_KEY` → 503 with a clear message; agent error → error payload the client turns into a retry; unparseable JSON → graceful fallback (neutral/empty state), never a crash. Lenses degrade independently — a down AI call never breaks the factor board.
+Every AI route is failure-isolated like `finava-analysis`: missing `OPENROUTER_API_KEY` → 503 with a clear message; agent error → error payload the client turns into a retry; unparseable JSON → graceful fallback (neutral/empty state), never a crash. Lenses degrade independently — a down AI call never breaks the factor board.
 
 ## Out of scope (YAGNI)
 

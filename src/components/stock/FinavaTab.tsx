@@ -1,14 +1,14 @@
 "use client";
 import { useEffect } from "react";
-import { useLucra } from "@/hooks/useLucra";
+import { useFinava } from "@/hooks/useFinava";
 import { useQuotes } from "@/hooks/useQuotes";
 import {
   SIGNAL_ORDER,
   SIGNAL_LABELS,
-  type LucraSignal,
+  type FinavaSignal,
   type Stance,
   type SignalKey,
-} from "@/lib/lucra";
+} from "@/lib/finava";
 
 /* ── tokens / helpers ─────────────────────────────────────────────────────── */
 function stanceColor(stance: Stance): string {
@@ -54,7 +54,7 @@ function ScoreRing({ score, color, pending }: { score: number | null; color: str
         alignItems: "center",
         justifyContent: "center",
         transition: "background 0.6s ease",
-        animation: pending ? "lucraPulse 1.4s ease-in-out infinite" : undefined,
+        animation: pending ? "finavaPulse 1.4s ease-in-out infinite" : undefined,
       }}
     >
       <div style={{ width: 74, height: 74, background: "var(--color-bg)", borderRadius: "50%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
@@ -72,7 +72,7 @@ function ScoreRing({ score, color, pending }: { score: number | null; color: str
 }
 
 /* ── one signal bar (progressive) ─────────────────────────────────────────── */
-function SignalBar({ signalKey, signal }: { signalKey: SignalKey; signal: LucraSignal | undefined }) {
+function SignalBar({ signalKey, signal }: { signalKey: SignalKey; signal: FinavaSignal | undefined }) {
   const label = SIGNAL_LABELS[signalKey];
   if (!signal) {
     return (
@@ -124,8 +124,8 @@ function CompareBox({ src, value, price, highlight }: { src: string; value: numb
 }
 
 /* ── main ─────────────────────────────────────────────────────────────────── */
-export function LucraTab({ ticker }: { ticker: string }) {
-  const { status, analysis, error, run, retry } = useLucra(ticker);
+export function FinavaTab({ ticker }: { ticker: string }) {
+  const { status, analysis, error, run, retry } = useFinava(ticker);
   const { quoteMap } = useQuotes([ticker]);
   const price = quoteMap.get(ticker)?.price ?? null;
 
@@ -148,7 +148,7 @@ export function LucraTab({ ticker }: { ticker: string }) {
   }
 
   return (
-    <div className="fade-in lucra-grid" style={{ display: "grid", gridTemplateColumns: "168px 1fr", gap: 28, alignItems: "start" }}>
+    <div className="fade-in finava-grid" style={{ display: "grid", gridTemplateColumns: "168px 1fr", gap: 28, alignItems: "start" }}>
       {/* ── left panel ─────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: 14, background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 12 }}>
         <ScoreRing score={verdict?.score ?? null} color={ringColor} pending={!verdict} />
@@ -179,7 +179,7 @@ export function LucraTab({ ticker }: { ticker: string }) {
         ))}
 
         <div style={{ marginTop: 18 }}>
-          <Rule>The Lucra Take</Rule>
+          <Rule>The Finava Take</Rule>
           {verdict ? (
             <p className="fade-in" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.65, color: "var(--color-text-secondary)" }}>{verdict.take}</p>
           ) : (
@@ -191,7 +191,7 @@ export function LucraTab({ ticker }: { ticker: string }) {
           <div className="fade-in" style={{ marginTop: 18 }}>
             <Rule>Valuation · vs ${price != null ? price.toFixed(2) : "—"}</Rule>
             <div style={{ display: "flex", gap: 8 }}>
-              <CompareBox src="Lucra" value={verdict.comparison.lucra} price={price} highlight />
+              <CompareBox src="Finava" value={verdict.comparison.finava} price={price} highlight />
               <CompareBox src="Street" value={verdict.comparison.street} price={price} />
               <CompareBox src="DCF" value={verdict.comparison.dcf} price={price} />
             </div>

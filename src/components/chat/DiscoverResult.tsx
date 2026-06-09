@@ -6,7 +6,7 @@ import type { DiscoverMessageContent, ScoutPick, WaveEvidence } from "@/lib/scou
 
 const ACCENT = "var(--color-discover)";
 
-function LucraAvatar() {
+function FinavaAvatar() {
   return (
     <div
       className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center flex-shrink-0 text-white text-[13px] font-black"
@@ -206,7 +206,7 @@ export default function DiscoverResult({
 
   return (
     <div style={{ display: "flex", gap: 14 }}>
-      <LucraAvatar />
+      <FinavaAvatar />
       <div className="flex-1 min-w-0 pt-1">
         {content.kind === "shortlist" && (
           <Shortlist

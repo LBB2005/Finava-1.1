@@ -45,7 +45,7 @@ export default function WaitlistForm() {
           Get early access.
         </h2>
         <p className="mt-5 text-[clamp(1rem,1.4vw,1.15rem)] leading-relaxed text-[var(--lp-text-secondary)]">
-          Lucra is in private beta. Join the waitlist and be first in line when we open the doors.
+          Finava is in private beta. Join the waitlist and be first in line when we open the doors.
           Early waitlist members get{" "}
           <span className="text-[var(--lp-text)] font-semibold">3 months of Pro free.</span>
         </p>

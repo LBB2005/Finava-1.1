@@ -5,7 +5,7 @@ import type { Regime, Strategy, WatchItem, Order, Fill, BotLogEntry } from "./ty
 // ── V10 "Dual Pane" layout ──────────────────────────────────────────────────
 // Asymmetric 60/40 split. Left pane changes per tab; the right pane keeps NAV +
 // bot pill persistent with a rotating third panel. Recreates the approved
-// "Hedge fund - V10 prototype" design against live Lucra data.
+// "Hedge fund - V10 prototype" design against live Finava data.
 
 export type DualTab = "dashboard" | "strategies" | "trading" | "activity";
 
@@ -640,7 +640,7 @@ export function HFDualPane({
     <div className="v10">
       <div className="top">
         <div className="brand">
-          <span className="mast">Lucra HF</span>
+          <span className="mast">Finava HF</span>
           <span className="vol">{asOf}</span>
         </div>
         {([

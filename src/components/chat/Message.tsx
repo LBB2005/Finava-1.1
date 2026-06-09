@@ -524,7 +524,7 @@ function SkepticCritique({ critique }: { critique: string }) {
 }
 
 /* ── Simple chat avatar ─────────────────────────────────────────────── */
-function LucraAvatar() {
+function FinavaAvatar() {
   return (
     <div
       className="flex-shrink-0 flex items-center justify-center text-white text-[13px] font-black"
@@ -573,7 +573,7 @@ function MessageInner({
     }
     return (
       <div style={{ display: "flex", gap: 14 }}>
-        <LucraAvatar />
+        <FinavaAvatar />
         <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
           <Markdown>{message.content}</Markdown>
         </div>
@@ -594,7 +594,7 @@ function MessageInner({
     // Render error message as plain text
     return (
       <div style={{ display: "flex", gap: 14 }}>
-        <LucraAvatar />
+        <FinavaAvatar />
         <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
           <Markdown>{message.content}</Markdown>
         </div>
@@ -609,7 +609,7 @@ function MessageInner({
   if (!isAgentMode) {
     return (
       <div style={{ display: "flex", gap: 14 }}>
-        <LucraAvatar />
+        <FinavaAvatar />
         <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
           <Markdown>{message.content}</Markdown>
           <div style={{ fontSize: 11, color: "var(--color-muted)", marginTop: 10, fontVariantNumeric: "tabular-nums" }}>

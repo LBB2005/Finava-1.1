@@ -15,7 +15,7 @@ export async function getAuthToken(): Promise<string | null> {
   if (
     process.env.NODE_ENV !== "production" &&
     typeof window !== "undefined" &&
-    localStorage.getItem("lucra_dev_auth") === "1"
+    localStorage.getItem("finava_dev_auth") === "1"
   ) {
     return DEV_BYPASS_TOKEN;
   }

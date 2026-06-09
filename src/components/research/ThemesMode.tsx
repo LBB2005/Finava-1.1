@@ -5,7 +5,7 @@ import { useThemes } from "@/hooks/useThemes";
 import type { Theme } from "@/lib/researchAI";
 import LadderRow from "./LadderRow";
 
-/** Average year-horizon Lucra score of a theme's resolved constituents. */
+/** Average year-horizon Finava score of a theme's resolved constituents. */
 function themeStrength(stocks: Stock[]): number {
   if (!stocks.length) return 0;
   return Math.round(stocks.reduce((a, s) => a + composite(s, "year"), 0) / stocks.length);

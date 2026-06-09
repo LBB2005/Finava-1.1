@@ -70,7 +70,7 @@ export default function BoardRow({ s, highlight = false }: { s: RankedStock; hig
         {fmtRvol(s.rvol)}
       </td>
 
-      {/* Lucra Score — its column absorbs the table's slack; cap the bar so it
+      {/* Finava Score — its column absorbs the table's slack; cap the bar so it
           stays a tidy meter rather than stretching the full width. */}
       <td>
         <div className="flex items-center" style={{ gap: 9, maxWidth: 300 }}>

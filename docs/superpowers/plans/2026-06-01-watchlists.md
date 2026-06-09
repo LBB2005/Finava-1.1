@@ -973,7 +973,7 @@ import AddToWatchlistButton from "@/components/watchlist/AddToWatchlistButton";
 Delete this block (lines ~34-42):
 
 ```tsx
-const WATCHLIST_KEY = "lucra:watchlist";
+const WATCHLIST_KEY = "finava:watchlist";
 function readWatchlist(): string[] {
   if (typeof window === "undefined") return [];
   try {
@@ -1083,7 +1083,7 @@ import { useWatchlists } from "@/hooks/useWatchlists";
 import { useWatchlistStore } from "@/stores/watchlistStore";
 import WatchlistBoard from "@/components/watchlist/WatchlistBoard";
 
-const COLLAPSE_KEY = "lucra:watchlist-widget-collapsed";
+const COLLAPSE_KEY = "finava:watchlist-widget-collapsed";
 
 export default function WatchlistSidebarWidget() {
   const { watchlists } = useWatchlists();
@@ -1194,5 +1194,5 @@ Walk the full flow in the browser: create two watchlists → add tickers to each
 
 Grep to be sure no references remain:
 
-Run: `grep -rn "lucra:watchlist\"" src/ ; grep -rn "readWatchlist" src/`
-Expected: no matches (the widget's `lucra:watchlist-widget-collapsed` key is unrelated and fine).
+Run: `grep -rn "finava:watchlist\"" src/ ; grep -rn "readWatchlist" src/`
+Expected: no matches (the widget's `finava:watchlist-widget-collapsed` key is unrelated and fine).

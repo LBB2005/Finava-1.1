@@ -1,6 +1,6 @@
 # Research
 
-Notes, findings, and references gathered during development of Lucra.
+Notes, findings, and references gathered during development of Finava.
 
 This folder is for reference only — nothing here is wired into the codebase.
 

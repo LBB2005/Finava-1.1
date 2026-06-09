@@ -1,4 +1,4 @@
-// Lucra Analysis — multi-agent, streaming. The LUCRA tab POSTs here on click.
+// Finava Analysis — multi-agent, streaming. The FINAVA tab POSTs here on click.
 //
 // Five signal agents (fundamentals, momentum, sentiment, analyst, insider) run in
 // parallel; each is enqueued onto the SSE stream the instant it resolves, so the
@@ -30,11 +30,11 @@ import {
   SIGNAL_LABELS,
   stanceFromScore,
   verdictLabel,
-  type LucraSignal,
-  type LucraVerdict,
+  type FinavaSignal,
+  type FinavaVerdict,
   type SignalKey,
-  type LucraEvent,
-} from "@/lib/lucra";
+  type FinavaEvent,
+} from "@/lib/finava";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -63,7 +63,7 @@ function parseJson(raw: string): Record<string, unknown> | null {
   }
 }
 
-function toSignal(key: SignalKey, parsed: Record<string, unknown> | null): LucraSignal {
+function toSignal(key: SignalKey, parsed: Record<string, unknown> | null): FinavaSignal {
   const rawScore = typeof parsed?.score === "number" ? parsed.score : 50;
   const score = Math.max(0, Math.min(100, Math.round(rawScore)));
   const headline =
@@ -77,7 +77,7 @@ function toSignal(key: SignalKey, parsed: Record<string, unknown> | null): Lucra
   return { key, label: SIGNAL_LABELS[key], score, stance: stanceFromScore(score), headline, detail };
 }
 
-function neutralSignal(key: SignalKey): LucraSignal {
+function neutralSignal(key: SignalKey): FinavaSignal {
   return {
     key,
     label: SIGNAL_LABELS[key],
@@ -229,7 +229,7 @@ export async function POST(
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (e: LucraEvent) =>
+      const send = (e: FinavaEvent) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
 
       // Fire all five; enqueue each as it resolves. Promise.allSettled collects
@@ -242,7 +242,7 @@ export async function POST(
             send({ type: "signal", signal: sig });
             return sig;
           } catch (err) {
-            console.error("[lucra signal]", symbol, s.key, err);
+            console.error("[finava signal]", symbol, s.key, err);
             const sig = neutralSignal(s.key);
             send({ type: "signal", signal: sig });
             return sig;
@@ -250,7 +250,7 @@ export async function POST(
         })
       );
 
-      const signals: LucraSignal[] = settled.map((r, i) =>
+      const signals: FinavaSignal[] = settled.map((r, i) =>
         r.status === "fulfilled" ? r.value : neutralSignal(SIGNALS[i].key)
       );
 
@@ -261,7 +261,7 @@ export async function POST(
           .map((s) => `- ${s.label}: ${s.score}/100 (${s.stance}) — ${s.headline}`)
           .join("\n");
 
-        const synthPrompt = `You are Lucra's lead equity analyst. Synthesise these five signal scores for ${name} (${symbol}) into one verdict for a retail investor. This is research color, not advice.
+        const synthPrompt = `You are Finava's lead equity analyst. Synthesise these five signal scores for ${name} (${symbol}) into one verdict for a retail investor. This is research color, not advice.
 
 Current price: $${fmt(price, 2)}
 Analyst mean target (Street): ${street != null ? `$${fmt(street, 2)}` : "n/a"}
@@ -283,7 +283,7 @@ Respond with ONLY this JSON (no markdown):
 }`;
 
         const raw = await generate({
-          agent: "lucraSynthesis",
+          agent: "finavaSynthesis",
           maxTokens: 900,
           prompt: synthPrompt,
         });
@@ -301,10 +301,10 @@ Respond with ONLY this JSON (no markdown):
         const confidence =
           p.confidence === "High" || p.confidence === "Low" ? p.confidence : "Moderate";
 
-        const verdict: LucraVerdict = {
+        const verdict: FinavaVerdict = {
           score,
           stance: verdictLabel(score),
-          confidence: confidence as LucraVerdict["confidence"],
+          confidence: confidence as FinavaVerdict["confidence"],
           fairValue,
           upsidePct,
           take:
@@ -313,11 +313,11 @@ Respond with ONLY this JSON (no markdown):
               : "A balanced setup — see the signal breakdown above. Informational research, not advice.",
           catalysts: toStrings(p.catalysts),
           risks: toStrings(p.risks),
-          comparison: { lucra: fairValue, street, dcf: dcfFair },
+          comparison: { finava: fairValue, street, dcf: dcfFair },
         };
         send({ type: "verdict", verdict });
       } catch (err) {
-        console.error("[lucra synthesis]", symbol, err);
+        console.error("[finava synthesis]", symbol, err);
         send({ type: "error", message: "Failed to synthesise the verdict." });
       }
 
@@ -334,7 +334,7 @@ Respond with ONLY this JSON (no markdown):
   });
 }
 
-function avg(signals: LucraSignal[]): number {
+function avg(signals: FinavaSignal[]): number {
   return signals.reduce((a, s) => a + s.score, 0) / (signals.length || 1);
 }
 function toStrings(v: unknown): string[] {

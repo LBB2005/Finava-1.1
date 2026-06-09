@@ -24,7 +24,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Lucra — AI Stock Research",
+  title: "Finava — AI Investment Research",
   description: "AI-powered stock research platform with multi-agent analysis",
 };
 
@@ -41,7 +41,7 @@ export default function RootLayout({
     >
       <head>
         {/* Apply stored theme before first paint to avoid flash */}
-        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('lucra-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}` }} />
+        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('finava-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}` }} />
       </head>
       <body className="h-full bg-[var(--color-bg)]">
         <AuthProvider>

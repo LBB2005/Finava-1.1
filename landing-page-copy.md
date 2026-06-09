@@ -1,4 +1,4 @@
-# Lucra — Landing Page Copy
+# Finava — Landing Page Copy
 
 ---
 
@@ -12,7 +12,7 @@ Now in private beta
 One conversation.
 
 **Sub-headline:**
-Lucra deploys 15 specialized AI agents simultaneously on any stock — covering fundamentals, DCF valuation, insider transactions, technicals, macro, sentiment, and more — giving you research depth that used to cost $32,000 a year.
+Finava deploys 15 specialized AI agents simultaneously on any stock — covering fundamentals, DCF valuation, insider transactions, technicals, macro, sentiment, and more — giving you research depth that used to cost $32,000 a year.
 
 **CTA (primary):**
 Join the Waitlist
@@ -37,7 +37,7 @@ Free platforms give you a stock chart and three bullet points of news. Seeking A
 
 None of them do what a real analyst team does: pull every relevant signal simultaneously, synthesise it into a clear view, and tell you what it means for your position.
 
-That gap is exactly what Lucra was built to close.
+That gap is exactly what Finava was built to close.
 
 ---
 
@@ -47,7 +47,7 @@ That gap is exactly what Lucra was built to close.
 Type a ticker. Get the full picture.
 
 **Section sub-headline:**
-Lucra deploys every specialist at once, so no angle gets missed.
+Finava deploys every specialist at once, so no angle gets missed.
 
 ---
 
@@ -58,7 +58,7 @@ Lucra deploys every specialist at once, so no angle gets missed.
 
 **Headline:** Real numbers, not summaries.
 
-**Body:** Lucra pulls 5 years of SEC EDGAR XBRL data — revenue, margins, operating cash flow, R&D spend, debt load — and builds a full DCF model with terminal value. You see the actual inputs, not a black-box rating. If the model says the stock is overvalued by 40%, you know exactly why.
+**Body:** Finava pulls 5 years of SEC EDGAR XBRL data — revenue, margins, operating cash flow, R&D spend, debt load — and builds a full DCF model with terminal value. You see the actual inputs, not a black-box rating. If the model says the stock is overvalued by 40%, you know exactly why.
 
 ---
 
@@ -67,7 +67,7 @@ Lucra deploys every specialist at once, so no angle gets missed.
 
 **Headline:** See who's buying before you do.
 
-**Body:** Every Form 4 filing is a signal. Lucra reads SEC insider transaction filings in real time, filters for meaningful purchases ($100K+), and identifies whether insiders are making new bets or adding to existing ones. The kind of data that used to require a dedicated EDGAR analyst.
+**Body:** Every Form 4 filing is a signal. Finava reads SEC insider transaction filings in real time, filters for meaningful purchases ($100K+), and identifies whether insiders are making new bets or adding to existing ones. The kind of data that used to require a dedicated EDGAR analyst.
 
 ---
 
@@ -76,7 +76,7 @@ Lucra deploys every specialist at once, so no angle gets missed.
 
 **Headline:** Know when a stock is getting crowded.
 
-**Body:** Lucra scans Reddit, X, YouTube, and financial forums in real time and returns a 0–10 hype score with sourced citations. Catch momentum before it peaks. Know when a narrative is already priced in.
+**Body:** Finava scans Reddit, X, YouTube, and financial forums in real time and returns a 0–10 hype score with sourced citations. Catch momentum before it peaks. Know when a narrative is already priced in.
 
 ---
 
@@ -85,7 +85,7 @@ Lucra deploys every specialist at once, so no angle gets missed.
 
 **Headline:** RSI, MACD, and moving averages — synthesised, not listed.
 
-**Body:** Lucra doesn't just display technical indicators — it tells you what they mean together. Bullish divergence on RSI while price tests the 200-day? You'll know, and you'll know why it matters.
+**Body:** Finava doesn't just display technical indicators — it tells you what they mean together. Bullish divergence on RSI while price tests the 200-day? You'll know, and you'll know why it matters.
 
 ---
 
@@ -94,7 +94,7 @@ Lucra deploys every specialist at once, so no angle gets missed.
 
 **Headline:** Your stock doesn't trade in a vacuum.
 
-**Body:** Rate environment, yield curve shape, sector rotation, and regime context all affect your thesis. Lucra's macro agent pulls multi-source economic data and tells you how the current environment affects the stock you're researching.
+**Body:** Rate environment, yield curve shape, sector rotation, and regime context all affect your thesis. Finava's macro agent pulls multi-source economic data and tells you how the current environment affects the stock you're researching.
 
 ---
 
@@ -103,7 +103,7 @@ Lucra deploys every specialist at once, so no angle gets missed.
 
 **Headline:** Analyst consensus. Options flow. Peer comparables. Graham value. All included.
 
-**Body:** Lucra's 15 agents cover every major analytical framework used by professional investors — Wall Street consensus targets, unusual options activity, peer group multiples, Benjamin Graham intrinsic value, and competitor analysis. Nothing is left on the table.
+**Body:** Finava's 15 agents cover every major analytical framework used by professional investors — Wall Street consensus targets, unusual options activity, peer group multiples, Benjamin Graham intrinsic value, and competitor analysis. Nothing is left on the table.
 
 ---
 
@@ -118,7 +118,7 @@ Ask anything: "Is NVDA overvalued right now?" or "What are insiders doing at AAP
 
 **Step 2**
 **15 agents fire in parallel**
-Lucra dispatches specialists across fundamentals, valuation, technicals, insider data, sentiment, macro, and more — all simultaneously, all pulling from real data sources (SEC EDGAR, Finnhub, Perplexity).
+Finava dispatches specialists across fundamentals, valuation, technicals, insider data, sentiment, macro, and more — all simultaneously, all pulling from real data sources (SEC EDGAR, Finnhub, Perplexity).
 
 **Step 3**
 **Get a synthesised briefing**
@@ -135,7 +135,7 @@ Ask follow-ups, run a backtest, track the stock in your portfolio, or — if you
 **Section headline:**
 Finally, something that belongs in the middle.
 
-| | Lucra | Seeking Alpha | Bloomberg | ChatGPT |
+| | Finava | Seeking Alpha | Bloomberg | ChatGPT |
 |---|---|---|---|---|
 | Multi-angle AI analysis | ✅ 15 agents | ❌ One writer's view | ❌ Raw data only | ⚠️ No real-time data |
 | Real SEC EDGAR data | ✅ | ❌ | ✅ | ❌ |
@@ -161,7 +161,7 @@ What investors are saying
 — Early beta user
 
 **Quote 2:**
-> "I've been paying $299/year for Seeking Alpha and getting one person's opinion. Lucra gives me fifteen specialists in two minutes."
+> "I've been paying $299/year for Seeking Alpha and getting one person's opinion. Finava gives me fifteen specialists in two minutes."
 — Beta tester, self-directed investor
 
 **Quote 3:**
@@ -227,7 +227,7 @@ For serious investors who run deep research daily:
 **Pricing footnote:**
 All plans include a 14-day free trial. No credit card required to join the waitlist.
 
-*Lucra is a research tool, not a financial advisor. All outputs are for informational purposes and do not constitute investment advice.*
+*Finava is a research tool, not a financial advisor. All outputs are for informational purposes and do not constitute investment advice.*
 
 ---
 
@@ -237,7 +237,7 @@ All plans include a 14-day free trial. No credit card required to join the waitl
 Get early access.
 
 **Sub-headline:**
-Lucra is in private beta. Join the waitlist and be first in line when we open the doors. Early waitlist members get 3 months of Pro free.
+Finava is in private beta. Join the waitlist and be first in line when we open the doors. Early waitlist members get 3 months of Pro free.
 
 **Input field:** Your email address
 
@@ -255,20 +255,20 @@ Common questions
 
 ---
 
-**Q: Is Lucra's data real, or is it making things up?**
-A: Every figure in a Lucra briefing is pulled from a primary source — SEC EDGAR for financials and insider transactions, Finnhub for market data and earnings, and Perplexity for real-time news and sentiment. When Lucra can't verify a data point, it says so rather than guessing.
+**Q: Is Finava's data real, or is it making things up?**
+A: Every figure in a Finava briefing is pulled from a primary source — SEC EDGAR for financials and insider transactions, Finnhub for market data and earnings, and Perplexity for real-time news and sentiment. When Finava can't verify a data point, it says so rather than guessing.
 
-**Q: Is Lucra giving me financial advice?**
-A: No. Lucra is a research tool — it synthesises information and presents analysis, but every decision is yours to make. Think of it like having a very thorough analyst team: they give you the research, you decide what to do with it.
+**Q: Is Finava giving me financial advice?**
+A: No. Finava is a research tool — it synthesises information and presents analysis, but every decision is yours to make. Think of it like having a very thorough analyst team: they give you the research, you decide what to do with it.
 
 **Q: How is this different from just asking ChatGPT about a stock?**
-A: ChatGPT doesn't have access to real-time market data, SEC filings, or live financial figures. It also doesn't maintain context about your portfolio or investment style across sessions. Lucra is purpose-built for investment research: 15 domain-specific agents, real data sources, and a persistent memory of what you own and how you invest.
+A: ChatGPT doesn't have access to real-time market data, SEC filings, or live financial figures. It also doesn't maintain context about your portfolio or investment style across sessions. Finava is purpose-built for investment research: 15 domain-specific agents, real data sources, and a persistent memory of what you own and how you invest.
 
 **Q: What is the hedge fund tab / Pro tier?**
 A: Pro includes a dashboard that mirrors the structure of a hedge fund trading desk — live Alpaca paper trading, order management, automated strategy execution, and Markov regime detection. It's paper trading only to start — a way to test strategies systematically before putting real money behind them.
 
 **Q: Can I import my existing portfolio?**
-A: Yes. Lucra supports manual entry, CSV upload, and brokerage statement parsing. Once your holdings are in, every AI analysis is automatically contextualised to your actual positions.
+A: Yes. Finava supports manual entry, CSV upload, and brokerage statement parsing. Once your holdings are in, every AI analysis is automatically contextualised to your actual positions.
 
 **Q: What happens to my data?**
 A: Your portfolio and conversation data is stored securely in Firebase and never sold to third parties. See our Privacy Policy for details.
@@ -278,11 +278,11 @@ A: Your portfolio and conversation data is stored securely in Firebase and never
 ## FOOTER
 
 **Tagline:**
-Lucra — The AI analyst team for self-directed investors.
+Finava — The AI analyst team for self-directed investors.
 
 **Links:** About · Pricing · Privacy Policy · Terms of Service · Contact
 
 **Legal disclaimer:**
-Lucra is not a registered investment advisor. All content on this platform is for informational and educational purposes only and does not constitute financial, investment, or trading advice. Past performance is not indicative of future results. Investing involves risk, including the possible loss of principal. Always do your own research and consult a qualified financial advisor before making investment decisions.
+Finava is not a registered investment advisor. All content on this platform is for informational and educational purposes only and does not constitute financial, investment, or trading advice. Past performance is not indicative of future results. Investing involves risk, including the possible loss of principal. Always do your own research and consult a qualified financial advisor before making investment decisions.
 
-© 2026 Lucra. All rights reserved.
+© 2026 Finava. All rights reserved.
