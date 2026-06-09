@@ -3,6 +3,7 @@ import { Hanken_Grotesk, Geist_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/layout/AppShell";
 import { AuthProvider } from "@/context/AuthContext";
+import ToastProvider from "@/components/feedback/ToastProvider";
 import DevAuthToggle from "@/components/dev/DevAuthToggle";
 
 const hankenSans = Hanken_Grotesk({
@@ -44,8 +45,10 @@ export default function RootLayout({
       </head>
       <body className="h-full bg-[var(--color-bg)]">
         <AuthProvider>
-          <AppShell>{children}</AppShell>
-          <DevAuthToggle />
+          <ToastProvider>
+            <AppShell>{children}</AppShell>
+            <DevAuthToggle />
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>
