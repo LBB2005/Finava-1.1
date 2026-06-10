@@ -340,7 +340,7 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-[720px] mx-auto px-4 py-8">
+      <div className="max-w-[720px] mx-auto px-4 pt-8 pb-[150px]">
         {/* Greeting headline */}
         <div className="mb-6">
           <p
@@ -435,7 +435,7 @@ export default function MessageList({
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-[720px] px-4 py-8 flex flex-col gap-7">
+      <div className="mx-auto max-w-[720px] px-4 pt-8 pb-[150px] flex flex-col gap-7">
         {messages.map((msg) => (
           <Message key={msg.id} message={msg} onSuggestion={onSuggestion} onDiscoverDeeper={onDiscoverDeeper} />
         ))}

@@ -40,6 +40,7 @@ const ICON_PATHS: Record<string, string> = {
   activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
   check: '<polyline points="20 6 9 17 4 12"/>',
   moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
   sun: '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
   globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
@@ -229,6 +230,7 @@ function useTheme() {
 
 function GeneralSection() {
   const { theme, select } = useTheme();
+  const { devEnabled, devBypass, toggleDevBypass } = useAuth();
   return (
     <div>
       <Head title="General" description="App-wide preferences and appearance." />
@@ -271,6 +273,11 @@ function GeneralSection() {
           Chat
         </span>
       </Row>
+      {devEnabled && (
+        <Row label="Dev auth bypass" description="Mount a mock Pro session without signing in. Local dev only.">
+          <Toggle checked={devBypass} onChange={toggleDevBypass} />
+        </Row>
+      )}
     </div>
   );
 }
@@ -614,7 +621,7 @@ function planFeatures(plan: PlanName): string[] {
   return feats;
 }
 
-function BillingSection({ userData }: { userData: UserData | undefined; mutate: () => void }) {
+function BillingSection({ userData, mutate }: { userData: UserData | undefined; mutate: () => void }) {
   const plan = (userData?.plan as PlanName) ?? "Free";
   const source = userData?.planSource;
   const status = userData?.subscriptionStatus;
@@ -623,6 +630,7 @@ function BillingSection({ userData }: { userData: UserData | undefined; mutate: 
   const [cadence, setCadence] = useState<BillingCadence>("monthly");
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [changed, setChanged] = useState<string | null>(null);
 
   async function startCheckout(target: PlanName) {
     setBusy(target);
@@ -645,6 +653,34 @@ function BillingSection({ userData }: { userData: UserData | undefined; mutate: 
     }
   }
 
+  async function changePlan(target: PlanName) {
+    setBusy(target);
+    try {
+      const res = await authFetch("/api/stripe/change-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: target, cadence }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 404 && data.error === "no_subscription") {
+        await startCheckout(target);
+        return;
+      }
+      if (!res.ok) {
+        alert(data.error || "Could not update plan. Please try again.");
+        return;
+      }
+      setPicking(false);
+      setChanged(target);
+      // Webhook updates Firestore — poll a few times to pick up the change.
+      mutate();
+      setTimeout(() => mutate(), 2000);
+      setTimeout(() => { mutate(); setChanged(null); }, 5000);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function openPortal() {
     setBusy("portal");
     try {
@@ -654,7 +690,6 @@ function BillingSection({ userData }: { userData: UserData | undefined; mutate: 
         window.location.href = data.url as string;
         return;
       }
-      // No Stripe customer yet → send them to pick a plan instead.
       if (res.status === 404) setPicking(true);
       else alert("Could not open the billing portal. Please try again.");
     } finally {
@@ -662,7 +697,6 @@ function BillingSection({ userData }: { userData: UserData | undefined; mutate: 
     }
   }
 
-  // Status line under the plan title.
   let statusLine: string;
   if (source === "trial") {
     statusLine = `Trial — ${daysLeft(userData?.trialEndsAt)} day${daysLeft(userData?.trialEndsAt) === 1 ? "" : "s"} left · then Free`;
@@ -677,11 +711,26 @@ function BillingSection({ userData }: { userData: UserData | undefined; mutate: 
   }
 
   const purchasable = PLAN_ORDER.filter((p) => PLANS[p].stripe.purchasable);
+  const planIdx = PLAN_ORDER.indexOf(plan);
 
   return (
     <div>
       <Head title="Billing" description="Your subscription and payment details." />
 
+      {/* Plan changed banner */}
+      {changed && (
+        <div
+          className="mb-5 rounded-[10px] px-4 py-3 text-[13px] flex items-center justify-between"
+          style={{ border: "1px solid var(--color-bull)", background: "var(--color-surface)", color: "var(--color-text)" }}
+        >
+          <span>Switching to Finava {changed} — updating your plan…</span>
+          <button onClick={() => setChanged(null)} className="text-[12px] font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Current plan card */}
       <div
         style={{
           border: "1px solid var(--color-accent-medium)",
@@ -696,10 +745,7 @@ function BillingSection({ userData }: { userData: UserData | undefined; mutate: 
             <div className="eyebrow-label" style={{ color: "var(--color-accent)", letterSpacing: "0.18em" }}>
               Current plan
             </div>
-            <div
-              className="mt-1.5 text-[26px] font-bold"
-              style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)" }}
-            >
+            <div className="mt-1.5 text-[26px] font-bold" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)" }}>
               Finava {plan}
             </div>
             <div className="text-[12.5px] mt-[3px]" style={{ color: "var(--color-text-secondary)" }}>
@@ -730,88 +776,14 @@ function BillingSection({ userData }: { userData: UserData | undefined; mutate: 
         </div>
       </div>
 
-      {picking && (
-        <div
-          className="rounded-[14px] p-5 mb-5"
-          style={{ border: "1px solid var(--color-border)", background: "var(--color-bg)" }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-[14px] font-bold" style={{ color: "var(--color-text)" }}>
-              Choose a plan
-            </p>
-            {/* Monthly / annual toggle */}
-            <div
-              className="inline-flex gap-[3px] p-[3px] rounded-[8px]"
-              style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
-            >
-              {(["monthly", "annual"] as const).map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCadence(c)}
-                  className="px-3 py-[5px] text-[12px] font-medium rounded-[5px] capitalize transition-all duration-150"
-                  style={
-                    cadence === c
-                      ? { background: "var(--color-bg)", color: "var(--color-accent)", fontWeight: 600 }
-                      : { color: "var(--color-text-secondary)" }
-                  }
-                >
-                  {c === "annual" ? "Annual · save 2 mo" : "Monthly"}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {purchasable.map((p) => {
-              const c = PLANS[p];
-              const isCurrent = p === plan && isSubscribed;
-              return (
-                <div
-                  key={p}
-                  className="rounded-[12px] p-4 flex flex-col"
-                  style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}
-                >
-                  <div className="text-[15px] font-bold" style={{ color: "var(--color-text)" }}>
-                    Finava {c.label}
-                  </div>
-                  <div className="text-[20px] font-bold mt-1" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)" }}>
-                    {cadence === "monthly" ? c.price.monthly : c.price.annual}
-                    <span className="text-[12px] font-normal" style={{ color: "var(--color-text-secondary)" }}>
-                      {cadence === "monthly" ? " / mo" : " / yr"}
-                    </span>
-                  </div>
-                  <div className="mt-3 mb-4 flex-1 space-y-1.5">
-                    {planFeatures(p).map((f) => (
-                      <div key={f} className="flex items-center gap-1.5 text-[11.5px]" style={{ color: "var(--color-text-secondary)" }}>
-                        <span style={{ color: "var(--color-bull)" }}><Icon name="check" size={12} stroke={2.6} /></span>
-                        {f}
-                      </div>
-                    ))}
-                  </div>
-                  <Btn
-                    variant={isCurrent ? "soft" : "prim"}
-                    disabled={isCurrent || busy !== null}
-                    onClick={() => startCheckout(p)}
-                  >
-                    {isCurrent ? "Current plan" : busy === p ? "Redirecting…" : `Choose ${c.label}`}
-                  </Btn>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-3 text-[11.5px]" style={{ color: "var(--color-muted)" }}>
-            Finava Quant ($100/mo · hedge-fund suite) is coming soon.
-          </div>
-        </div>
-      )}
-
       <Row label="Plan" description={isSubscribed ? "Upgrade, downgrade, or switch billing period." : "Upgrade to unlock more."}>
         {isSubscribed ? (
-          <Btn variant="soft" onClick={openPortal} disabled={busy !== null}>
-            {busy === "portal" ? "Opening…" : "Change plan"}
+          <Btn variant="soft" onClick={() => setPicking(true)} disabled={busy !== null}>
+            Change plan
           </Btn>
         ) : (
-          <Btn variant="prim" onClick={() => setPicking((v) => !v)}>
-            {picking ? "Hide plans" : "Upgrade"}
+          <Btn variant="prim" onClick={() => setPicking(true)} disabled={busy !== null}>
+            Upgrade
           </Btn>
         )}
       </Row>
@@ -823,6 +795,131 @@ function BillingSection({ userData }: { userData: UserData | undefined; mutate: 
       <Row label="Invoices" description="Download past receipts and invoices.">
         <Btn variant="soft" onClick={openPortal} disabled={busy !== null}>View history</Btn>
       </Row>
+
+      {/* Plan picker modal */}
+      {picking && (
+        <div
+          className="fixed inset-0 flex items-center justify-center"
+          style={{ zIndex: 1000, background: "rgba(15,23,42,0.45)", backdropFilter: "blur(4px)" }}
+          onClick={() => setPicking(false)}
+        >
+          <div
+            className="rounded-[18px] p-6 w-full"
+            style={{
+              maxWidth: 520,
+              margin: "0 16px",
+              background: "var(--color-bg)",
+              border: "1px solid var(--color-border)",
+              boxShadow: "0 24px 60px rgba(15,23,42,0.18)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between mb-5">
+              <p className="text-[16px] font-bold" style={{ color: "var(--color-text)" }}>
+                {isSubscribed ? "Change plan" : "Choose a plan"}
+              </p>
+              <div className="flex items-center gap-3">
+                <div
+                  className="inline-flex gap-[3px] p-[3px] rounded-[8px]"
+                  style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+                >
+                  {(["monthly", "annual"] as const).map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setCadence(c)}
+                      className="px-3 py-[5px] text-[12px] font-medium rounded-[5px] capitalize transition-all duration-150"
+                      style={
+                        cadence === c
+                          ? { background: "var(--color-bg)", color: "var(--color-accent)", fontWeight: 600 }
+                          : { color: "var(--color-text-secondary)" }
+                      }
+                    >
+                      {c === "annual" ? "Annual · save 2 mo" : "Monthly"}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setPicking(false)}
+                  className="rounded-[7px] p-1 transition-colors duration-100"
+                  style={{ color: "var(--color-text-secondary)" }}
+                >
+                  <Icon name="x" size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Plan cards */}
+            <div className="grid grid-cols-2 gap-3">
+              {purchasable.map((p) => {
+                const c = PLANS[p];
+                const isCurrent = p === plan && isSubscribed;
+                const thisIdx = PLAN_ORDER.indexOf(p);
+                const isUpgrade = thisIdx > planIdx;
+
+                let btnLabel: string;
+                if (isCurrent) btnLabel = "Current plan";
+                else if (busy === p) btnLabel = isSubscribed ? "Updating…" : "Redirecting…";
+                else if (isSubscribed) btnLabel = isUpgrade ? `Upgrade to ${c.label}` : `Switch to ${c.label}`;
+                else btnLabel = `Choose ${c.label}`;
+
+                return (
+                  <div
+                    key={p}
+                    className="rounded-[12px] p-4 flex flex-col"
+                    style={{
+                      border: isCurrent ? "1.5px solid var(--color-accent)" : "1px solid var(--color-border)",
+                      background: isCurrent ? "var(--color-accent-light)" : "var(--color-surface)",
+                    }}
+                  >
+                    <div className="flex items-start justify-between mb-0.5">
+                      <div className="text-[14px] font-bold" style={{ color: "var(--color-text)" }}>
+                        Finava {c.label}
+                      </div>
+                      {isCurrent && (
+                        <span
+                          className="text-[9px] font-bold uppercase px-1.5 py-[2px] rounded-full flex-shrink-0"
+                          style={{ background: "var(--color-accent)", color: "#fff", letterSpacing: "0.1em" }}
+                        >
+                          Current
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[22px] font-bold mt-1" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)" }}>
+                      {cadence === "monthly" ? c.price.monthly : c.price.annual}
+                      <span className="text-[12px] font-normal" style={{ color: "var(--color-text-secondary)" }}>
+                        {cadence === "monthly" ? " / mo" : " / yr"}
+                      </span>
+                    </div>
+                    <div className="mt-3 mb-4 flex-1 space-y-1.5">
+                      {planFeatures(p).map((f) => (
+                        <div key={f} className="flex items-center gap-1.5 text-[11.5px]" style={{ color: "var(--color-text-secondary)" }}>
+                          <span style={{ color: "var(--color-bull)" }}>
+                            <Icon name="check" size={12} stroke={2.6} />
+                          </span>
+                          {f}
+                        </div>
+                      ))}
+                    </div>
+                    <Btn
+                      variant={isCurrent ? "soft" : "prim"}
+                      disabled={isCurrent || busy !== null}
+                      onClick={() => isSubscribed ? changePlan(p) : startCheckout(p)}
+                    >
+                      {btnLabel}
+                    </Btn>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 text-[11.5px]" style={{ color: "var(--color-muted)" }}>
+              Finava Quant · hedge-fund suite · coming soon.
+              {isSubscribed && " Plan changes are prorated to your billing cycle."}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 export const MODEL = "claude-sonnet-4-6";
-export const HAIKU = "claude-haiku-4-5-20251001";
+export const HAIKU = "claude-haiku-4-5";
 
 // Store the singleton on globalThis so it survives Turbopack HMR module
 // re-evaluations. Module-level `let _client` resets on every hot reload,

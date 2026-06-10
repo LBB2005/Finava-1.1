@@ -170,6 +170,11 @@ function getClient(): OpenAI {
     g.__openrouterClient = new OpenAI({
       apiKey,
       baseURL: "https://openrouter.ai/api/v1",
+      // The SDK default request timeout is 10 minutes — far past every route's
+      // maxDuration (60–300s) and the CEO's per-agent 60–120s caps. Bound it so
+      // a hung upstream fails fast enough for callers to surface a clean error.
+      timeout: 60_000,
+      maxRetries: 1,
       defaultHeaders: {
         // Headers OpenRouter uses for attribution/rankings.
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL ?? "https://finava.app",

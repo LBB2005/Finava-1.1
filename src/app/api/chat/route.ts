@@ -45,6 +45,16 @@ Be concise, data-driven, and actionable. When making recommendations, always not
         ? lastUserContent.content
         : "";
 
+    // Follow-up suggestions depend only on the user's question, so run the
+    // (cheap) call concurrently with the main stream instead of serializing it
+    // after the last token. `.catch` attached immediately so an early rejection
+    // can never surface as an unhandled rejection.
+    const followupsPromise: Promise<string | null> = generate({
+      agent: "chatFollowups",
+      maxTokens: 120,
+      prompt: `Generate exactly 3 short follow-up research questions (max 12 words each). Return a JSON array of strings only.\n\nQuestion: ${lastUserText.slice(0, 200)}`,
+    }).catch(() => null);
+
     const readable = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
@@ -69,14 +79,10 @@ Be concise, data-driven, and actionable. When making recommendations, always not
               cacheRead: final.usage?.cache_read_input_tokens,
             });
           } catch { /* metering is best-effort */ }
-          // Generate follow-up suggestions
+          // Emit follow-up suggestions (started concurrently with the stream)
           try {
-            const raw = await generate({
-              agent: "chatFollowups",
-              maxTokens: 120,
-              prompt: `Generate exactly 3 short follow-up research questions (max 12 words each). Return a JSON array of strings only.\n\nQuestion: ${lastUserText.slice(0, 200)}`,
-            });
-            const match = raw.match(/\[[\s\S]*\]/);
+            const raw = await followupsPromise;
+            const match = raw?.match(/\[[\s\S]*\]/);
             if (match) {
               const questions = JSON.parse(match[0]) as string[];
               if (Array.isArray(questions) && questions.length > 0) {

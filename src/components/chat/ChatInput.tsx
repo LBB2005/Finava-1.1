@@ -21,6 +21,13 @@ interface Props {
   disabled?: boolean;
   mode: ChatMode;
   onModeChange: (mode: ChatMode) => void;
+  /** Auto-focus the textarea on mount. True on the chat page; false when the
+   *  composer is embedded on Portfolio/Watchlist so it doesn't steal scroll. */
+  autoFocus?: boolean;
+  /** Floating overlay mode: transparent surround (no white band), stronger
+   *  shadow, and click-through side gutters so page content scrolls behind it.
+   *  Used by the global persistent composer. */
+  floating?: boolean;
 }
 
 const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: string; color: string; icon: React.ReactNode }> = {
@@ -84,7 +91,7 @@ const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: 
 
 const MODE_ORDER: ChatMode[] = ["agent", "discover", "deep_research", "backtest", "simple"];
 
-export default function ChatInput({ onSend, disabled, mode, onModeChange }: Props) {
+export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFocus = true, floating = false }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -115,8 +122,8 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
   }, []);
 
   useEffect(() => {
-    if (!disabled) textareaRef.current?.focus();
-  }, [disabled]);
+    if (autoFocus && !disabled) textareaRef.current?.focus();
+  }, [disabled, autoFocus]);
 
   function resize() {
     const el = textareaRef.current;
@@ -211,10 +218,10 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
 
   return (
     <div
-      className="flex-shrink-0 px-6 pb-6 pt-5"
-      style={{ background: "linear-gradient(to bottom, rgba(255,255,255,0) 0%, var(--color-bg) 28%)" }}
+      className={floating ? "px-6 pt-5 pb-0 pointer-events-none" : "flex-shrink-0 px-6 pb-6 pt-5"}
+      style={floating ? { background: "transparent" } : { background: "linear-gradient(to bottom, rgba(255,255,255,0) 0%, var(--color-bg) 28%)" }}
     >
-      <div className="mx-auto max-w-[720px]">
+      <div className={floating ? "mx-auto max-w-[720px] pointer-events-auto" : "mx-auto max-w-[720px]"}>
         {/* Chips row */}
         {(attachments.length > 0 || tickers.length > 0 || watchlistRefs.length > 0) && (
           <div className="flex flex-wrap gap-1.5 mb-2 px-1">
@@ -257,7 +264,9 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
               border: "1px solid var(--color-border)",
               borderRadius: 16,
               padding: 8,
-              boxShadow: disabled ? "none" : "0 1px 4px rgba(15,23,42,0.04)",
+              boxShadow: floating
+                ? "0 8px 28px rgba(15,23,42,0.13), 0 2px 8px rgba(15,23,42,0.07)"
+                : disabled ? "none" : "0 1px 4px rgba(15,23,42,0.04)",
               opacity: disabled ? 0.6 : 1,
             }}
           >
@@ -279,11 +288,12 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
               <button
                 onClick={() => { setModeOpen((v) => !v); setPopoverOpen(false); }}
                 disabled={disabled}
-                className="inline-flex items-center gap-1.5 h-8 px-2.5 mb-[1px] rounded-[9px] text-[12px] font-semibold"
+                title={cfg.label}
+                aria-label={`Mode: ${cfg.label}`}
+                className="inline-flex items-center gap-1 h-8 px-2 mb-[1px] rounded-[9px] text-[12px] font-semibold"
                 style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)", color: cfg.color }}
               >
                 {cfg.icon}
-                <span>{cfg.pill}</span>
                 <span
                   className="flex"
                   style={{ color: "var(--color-muted)", transform: modeOpen ? "rotate(180deg)" : "none", transition: "transform 160ms" }}
@@ -452,7 +462,10 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
           )}
         </div>
 
-        <p className="text-center text-[10.5px] text-[var(--color-muted)] mt-3 tracking-[0.04em]">
+        <p
+          className="text-center text-[10.5px] text-[var(--color-muted)] tracking-[0.04em]"
+          style={{ marginTop: "var(--composer-footer-gap, 12px)" }}
+        >
           Not financial advice · Always do your own research
         </p>
       </div>

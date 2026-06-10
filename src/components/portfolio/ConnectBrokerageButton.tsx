@@ -11,6 +11,8 @@ interface Props {
   onLinked?: () => void | Promise<void>;
   /** Button class — defaults to the topbar "tbtn on" style. */
   className?: string;
+  /** Inline style overrides for the button (e.g. rounded corners). */
+  style?: React.CSSProperties;
   label?: string;
 }
 
@@ -24,6 +26,7 @@ type Phase = "idle" | "starting" | "importing" | "error";
 export default function ConnectBrokerageButton({
   onLinked,
   className = "tbtn on",
+  style,
   label = "CONNECT BROKERAGE",
 }: Props) {
   const [linkToken, setLinkToken] = useState<string | null>(null);
@@ -103,6 +106,7 @@ export default function ConnectBrokerageButton({
       <button
         onClick={handleClick}
         className={className}
+        style={style}
         disabled={phase === "starting" || phase === "importing"}
         title="Link a brokerage account via Plaid"
       >

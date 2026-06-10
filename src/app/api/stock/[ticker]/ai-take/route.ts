@@ -10,6 +10,7 @@ import { generate } from "@/lib/llm";
 import { getStockBundle } from "@/lib/stockData";
 import { requireAuth } from "@/lib/requireAuth";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { fenceExternal, EXTERNAL_DATA_RULE } from "@/lib/externalContent";
 
 function fmtNum(n: number | null | undefined, opts?: Intl.NumberFormatOptions): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return "n/a";
@@ -98,12 +99,12 @@ export async function POST(
         ? `Analyst ratings (${an.period ?? "latest"}): strongBuy ${an.strongBuy}, buy ${an.buy}, hold ${an.hold}, sell ${an.sell}, strongSell ${an.strongSell}; target mean $${fmtNum(an.targetMean, { maximumFractionDigits: 2 })}`
         : null,
       fundamentalsLine,
-      `Recent headlines:\n${newsLines}`,
+      `Recent headlines:\n${fenceExternal("news headlines", newsLines)}`,
     ]
       .filter(Boolean)
       .join("\n");
 
-    const prompt = `You are a sober equity research assistant. Using ONLY the data below, write a concise "AI take" on ${name} (${symbol}) for a retail investor browsing a research page.
+    const prompt = `You are a sober equity research assistant. Using ONLY the data below, write a concise "AI take" on ${name} (${symbol}) for a retail investor browsing a research page. ${EXTERNAL_DATA_RULE}
 
 ${context}
 

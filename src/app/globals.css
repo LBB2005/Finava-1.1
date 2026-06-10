@@ -155,6 +155,13 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Font helper utilities — usable anywhere, not just inside .research-root.
+   Standalone pages (e.g. /portfolio) apply `serif`/`mono` directly to opt
+   individual elements into the display serif or tabular mono face. These only
+   set font-family, so they're purely additive and never alter layout. */
+.serif { font-family: var(--font-serif); }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
 /* Keyboard focus — visible ring for accessibility.
    Only shows on keyboard navigation, never on mouse/touch, so it
    doesn't disturb the existing pointer-driven hover styling. */
@@ -1729,6 +1736,9 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 .research-root .b-table td.num { text-align: right; }
 .research-root .b-row { cursor: pointer; }
 .research-root .b-row:hover td { background: var(--color-accent-light); }
+/* Watchlist remove button — hidden until row hover */
+.wl-x { opacity: 0; transition: opacity 130ms; }
+.research-root .b-row:hover .wl-x { opacity: 1; }
 .research-root .b-row:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 .research-root .b-row.top3 td { background: color-mix(in oklab, var(--color-accent) 4%, transparent); }
 .research-root .b-row.top3:hover td { background: var(--color-accent-light); }

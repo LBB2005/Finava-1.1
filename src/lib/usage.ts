@@ -49,6 +49,8 @@ const MODEL_PRICING: Record<string, Price> = {
   "google/gemini-2.5-flash-lite": { in: 0.1, out: 0.4 },
   // Direct Anthropic ids (src/lib/anthropic.ts)
   "claude-sonnet-4-6": { in: 3, out: 15 },
+  "claude-haiku-4-5": { in: 1, out: 5 },
+  // Legacy dated Haiku id — keep priced in case any stored/queued call still uses it.
   "claude-haiku-4-5-20251001": { in: 1, out: 5 },
 };
 // Fallback for an unrecognized model — assume the most expensive tier so we never

@@ -35,6 +35,7 @@ import {
   type SignalKey,
   type FinavaEvent,
 } from "@/lib/finava";
+import { fenceExternal, EXTERNAL_DATA_RULE } from "@/lib/externalContent";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -211,7 +212,8 @@ export async function POST(
     {
       key: "sentiment",
       agent: "sentiment",
-      prompt: `Assess news SENTIMENT for ${name} (${symbol}) from these recent headlines.\n\n${newsCtx}\n\n${JSON_RULES}`,
+      // Headlines are third-party text — fence them so they read as data, not instructions.
+      prompt: `Assess news SENTIMENT for ${name} (${symbol}) from these recent headlines. ${EXTERNAL_DATA_RULE}\n\n${fenceExternal("news headlines", newsCtx)}\n\n${JSON_RULES}`,
     },
     {
       key: "analyst",
@@ -330,6 +332,9 @@ Respond with ONLY this JSON (no markdown):
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
+      // Disable proxy/CDN buffering so the per-signal events flush immediately
+      // on Vercel (matches the chat/agent SSE routes).
+      "X-Accel-Buffering": "no",
     },
   });
 }

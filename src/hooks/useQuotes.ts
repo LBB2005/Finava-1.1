@@ -13,8 +13,8 @@ export function useQuotes(tickers: string[]) {
     tickers.length > 0 ? `/api/quotes?tickers=${tickers.join(",")}` : null;
 
   const { data, error, isLoading } = useSWR<Quote[]>(key, fetcher, {
-    refreshInterval: 30_000,
-    revalidateOnFocus: true,
+    refreshInterval: 60_000,
+    revalidateOnFocus: false,
   });
 
   const quoteMap = new Map<string, Quote>();

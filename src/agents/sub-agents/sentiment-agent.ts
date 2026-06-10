@@ -11,6 +11,7 @@
 import { generate } from "@/lib/llm";
 import { recordUsage } from "@/lib/usage";
 import { getSkillsPrompt } from "@/agents/skills";
+import { fenceExternal, EXTERNAL_DATA_RULE } from "@/lib/externalContent";
 
 const PERPLEXITY_API = "https://api.perplexity.ai/chat/completions";
 
@@ -27,7 +28,7 @@ async function fetchStockTwitsSentiment(ticker: string) {
   try {
     const res = await fetch(
       `https://api.stocktwits.com/api/2/streams/symbol/${ticker}.json`,
-      { headers }
+      { headers, signal: AbortSignal.timeout(10_000) }
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -76,6 +77,9 @@ Format your response with a clear section for each ticker.`;
   try {
     const res = await fetch(PERPLEXITY_API, {
       method: "POST",
+      // Perplexity with live search can be slow, but never let it hang past the
+      // sentiment agent's own 60s orchestrator timeout.
+      signal: AbortSignal.timeout(30_000),
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
@@ -156,9 +160,15 @@ export async function runSentimentAgent(input: unknown): Promise<string> {
   });
 
   const combinedInput = [
-    `## Social Media Search (Reddit, X/Twitter, News — last 48h)\n\n${perplexityResult}`,
+    `## Social Media Search (Reddit, X/Twitter, News — last 48h)\n\n${fenceExternal(
+      "perplexity social search",
+      perplexityResult
+    )}`,
     stocktwitsSection.length > 0
-      ? `## StockTwits Live Stream\n\n${stocktwitsSection.join("\n\n")}`
+      ? `## StockTwits Live Stream\n\n${fenceExternal(
+          "stocktwits posts",
+          stocktwitsSection.join("\n\n")
+        )}`
       : null,
   ]
     .filter(Boolean)
@@ -167,7 +177,7 @@ export async function runSentimentAgent(input: unknown): Promise<string> {
   // Ask the model to synthesize
   return generate({
     agent: "sentiment",
-    system: getSkillsPrompt("sentiment"),
+    system: [getSkillsPrompt("sentiment"), EXTERNAL_DATA_RULE].filter(Boolean).join("\n\n"),
     maxTokens: 1400,
     prompt: `You are a social sentiment analyst. Synthesize the following multi-platform sentiment data for ${tickers.join(", ")} into a clear, actionable report.
 

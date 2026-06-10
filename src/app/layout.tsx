@@ -4,7 +4,7 @@ import "./globals.css";
 import AppShell from "@/components/layout/AppShell";
 import { AuthProvider } from "@/context/AuthContext";
 import ToastProvider from "@/components/feedback/ToastProvider";
-import DevAuthToggle from "@/components/dev/DevAuthToggle";
+import SWRProvider from "@/components/providers/SWRProvider";
 
 const hankenSans = Hanken_Grotesk({
   variable: "--font-sans-ui",
@@ -44,12 +44,13 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('finava-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}` }} />
       </head>
       <body className="h-full bg-[var(--color-bg)]">
-        <AuthProvider>
-          <ToastProvider>
-            <AppShell>{children}</AppShell>
-            <DevAuthToggle />
-          </ToastProvider>
-        </AuthProvider>
+        <SWRProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <AppShell>{children}</AppShell>
+            </ToastProvider>
+          </AuthProvider>
+        </SWRProvider>
       </body>
     </html>
   );
