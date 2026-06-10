@@ -32,11 +32,12 @@ export async function POST(req: Request) {
   if (error) return error;
   try {
     const body = await req.json();
-    const { title } = body;
+    const { title, context } = body;
     const now = new Date().toISOString();
     const docRef = await convsCol(userId).add({
       userId,
       title: title ?? null,
+      context: context ?? null,
       createdAt: now,
       updatedAt: now,
     });
