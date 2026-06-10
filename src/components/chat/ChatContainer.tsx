@@ -7,7 +7,6 @@ import { useQuotes } from "@/hooks/useQuotes";
 import { useToast } from "@/hooks/useToast";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
-import ChatInput from "./ChatInput";
 import type { ChatMessage, AgentEvent, AgentStep } from "@/types/chat";
 import type { Quote } from "@/types/portfolio";
 import {
@@ -20,7 +19,7 @@ import {
   type DiscoverMessageContent,
 } from "@/lib/scoutTypes";
 
-function buildPortfolioContext(
+export function buildPortfolioContext(
   holdings: ReturnType<typeof usePortfolio>["holdings"],
   cashBalance: number,
   quoteMap?: Map<string, Quote>,
@@ -65,7 +64,6 @@ export default function ChatContainer() {
     agentSteps,
     ceoThinking,
     conversationId,
-    setMode,
     addMessage,
     setMessages,
     setStreaming,
@@ -147,13 +145,15 @@ export default function ChatContainer() {
 
   async function ensureConversation(): Promise<string> {
     if (conversationId) return conversationId;
+    const { pendingContext, setPendingContext } = useChatStore.getState();
     const res = await authFetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: null }),
+      body: JSON.stringify({ title: null, context: pendingContext }),
     });
     const data = await res.json();
     setConversationId(data.id);
+    if (pendingContext) setPendingContext(null);
     return data.id;
   }
 
@@ -797,8 +797,6 @@ export default function ChatContainer() {
         agentSteps={agentSteps}
         ceoThinking={ceoThinking}
       />
-
-      <ChatInput onSend={handleSend} disabled={isStreaming} mode={mode} onModeChange={setMode} />
     </div>
   );
 }
