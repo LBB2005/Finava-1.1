@@ -606,7 +606,7 @@ export default function WatchlistSplitRail() {
           </div>
         ) : (
           // Split rail layout
-          <div style={{ height: "100%", overflowY: "auto", padding: "10px 24px 150px", display: "grid", gridTemplateColumns: "minmax(0,1fr) 268px", gap: 16, alignItems: "start" }}>
+          <div style={{ height: "100%", overflowY: "auto", scrollbarGutter: "stable both-edges", padding: "10px 24px 150px", display: "grid", gridTemplateColumns: "minmax(0,1fr) 268px", gap: 16, alignItems: "start" }}>
             {/* Table */}
             <div className="b-board">
               <div className="b-boardhead">

@@ -495,7 +495,7 @@ export default function PortfolioPage() {
       </div>
 
       {/* ── Body ── */}
-      <div className="flex-1 overflow-y-auto pb-[150px]">
+      <div className="flex-1 overflow-y-auto pb-[150px]" style={{ scrollbarGutter: "stable both-edges" }}>
         {holdings.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
             {plaidConnected ? (

@@ -105,7 +105,7 @@ export default function ResearchPage() {
 
       {/* Scrolling body — outer scroller stays a plain block so the inner
           flex column grows to its content height instead of shrink-clipping. */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarGutter: "stable both-edges" }}>
         <div style={{ padding: "8px 26px 150px", display: "flex", flexDirection: "column", gap: 18 }}>
           {mode === "board" && (
             <>
