@@ -8,6 +8,7 @@ import StockHero from "@/components/stock/StockHero";
 import { OverviewTab, FinancialsTab, AnalystsTab, NewsTab } from "@/components/stock/StockTabs";
 import { DcfTab } from "@/components/stock/DcfTab";
 import { FinavaTab } from "@/components/stock/FinavaTab";
+import ChatContextButton from "@/components/chat/ChatContextButton";
 
 const TABS = ["Overview", "Financials", "Analysts", "News", "DCF", "Finava"] as const;
 type Tab = (typeof TABS)[number];
@@ -76,6 +77,7 @@ export default function StockPage() {
 
   /* ── Loaded ───────────────────────────────────────────────────────────── */
   const livePrice = quoteMap.get(ticker)?.price ?? bundle.quote?.price ?? null;
+  const chg = quoteMap.get(ticker)?.changePct ?? null;
 
   return (
     <div className="research-root stock-page h-full overflow-y-auto" style={{ background: "var(--color-bg)" }}>
@@ -87,25 +89,49 @@ export default function StockPage() {
         initialRange={bundle.candleRange}
       />
 
-      {/* Sticky tab bar — research .tbtn vocabulary */}
+      {/* Sticky command bar — research b-bar vocabulary (mast + pill lenses) */}
       <div
         style={{
-          display: "flex",
-          gap: 6,
+          display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap", rowGap: 12,
           padding: "12px 36px",
           borderTop: "1px solid var(--color-border)",
           borderBottom: "1px solid var(--color-border)",
           background: "var(--color-surface)",
-          position: "sticky",
-          top: 0,
-          zIndex: 5,
+          position: "sticky", top: 0, zIndex: 5,
         }}
       >
-        {TABS.map((t) => (
-          <button key={t} className={"tbtn" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>
-            {t.toUpperCase()}
-          </button>
-        ))}
+        <div className="b-bar-mast">
+          <span className="b-bar-title">{ticker}</span>
+          <span className="b-bar-eyebrow">
+            {(bundle.profile?.name ?? ticker).toUpperCase()}
+            {bundle.profile?.exchange ? ` · ${bundle.profile.exchange}` : ""}
+          </span>
+        </div>
+
+        <div className="b-lenses b-lenses-pill">
+          {TABS.map((t) => (
+            <button key={t} className={"b-lens" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>
+              {t.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        <div className="b-bar-right">
+          {livePrice != null && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.15 }}>
+              <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text)" }}>
+                ${livePrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              {chg != null && (
+                <span className="mono" style={{ fontSize: 9.5, fontWeight: 600, color: chg >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
+                  {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
+                </span>
+              )}
+            </div>
+          )}
+          <span style={{ width: 1, height: 22, background: "var(--color-border)" }} />
+          <ChatContextButton context={`stock:${ticker}`} />
+        </div>
       </div>
 
       {/* Tab content */}
