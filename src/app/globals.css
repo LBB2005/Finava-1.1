@@ -78,6 +78,19 @@
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 18px;
+
+  /* Page chrome — header and content gutters lock together so the title's
+     left edge and the content's left edge line up on every page. Scrollers
+     use scrollbar-gutter: stable both-edges, which insets content by the
+     5px thin scrollbar on each side; headers sit outside the scroller, so
+     they add the same 5px to stay flush with content. */
+  --page-gutter: 22px;
+  --scrollbar-gutter: 5px; /* keep in sync with ::-webkit-scrollbar width */
+  --page-header-pad-y: 11px;
+  --page-header-gap: 16px;
+  --page-header-row-h: 30px;
+  --content-pad-top: 12px;
+  --content-pad-bottom: 150px; /* clearance for the floating GlobalComposer */
 }
 
 /* Dark mode */
@@ -1540,13 +1553,36 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 .research-root .fbar-track { background: var(--color-surface-2); border-radius: 99px; overflow: hidden; }
 .research-root .fbar-fill { height: 100%; border-radius: 99px; }
 
-/* Command bar */
-.research-root .cmdbar { background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+/* Page header — one anatomy for every top-level page (Chat is the reference).
+   Main row is min 52px tall (30px content row + 11px×2 padding) so the bar
+   height is identical with or without tabs; gutters come from --page-gutter
+   so the title's left edge matches the content below it. */
+.page-header { position: relative; z-index: 4; flex-shrink: 0; background: var(--color-bg); }
+.page-header-row {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: var(--page-header-gap); row-gap: 10px;
+  padding: var(--page-header-pad-y) calc(var(--page-gutter) + var(--scrollbar-gutter));
+  min-height: calc(var(--page-header-row-h) + 2 * var(--page-header-pad-y));
+}
+.page-header-mast { display: flex; align-items: baseline; gap: 10px; flex-shrink: 0; }
+.page-title { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: var(--color-text); }
+.page-subtitle { font-size: 10.5px; letter-spacing: 0.04em; color: var(--color-muted); white-space: nowrap; }
+.page-header-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.page-header .page-header-actions .tbtn { border-radius: 99px; }
+.page-header-secondrow {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 20px;
+  padding: 0 calc(var(--page-gutter) + var(--scrollbar-gutter)) var(--page-header-pad-y);
+}
+.page-header.has-fade::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -14px; height: 14px;
+  background: linear-gradient(var(--color-bg), transparent); pointer-events: none;
+}
 
-/* Horizon toggle buttons */
+/* Horizon toggle buttons — fixed 28px height so rows of mixed buttons sit even */
 .research-root .tbtn {
+  display: inline-flex; align-items: center; height: 28px;
   font-family: var(--font-mono); font-size: 11px; font-weight: 600;
-  letter-spacing: 0.04em; padding: 5px 11px; border: 1px solid var(--color-border);
+  letter-spacing: 0.04em; padding: 0 11px; border: 1px solid var(--color-border);
   background: var(--color-bg); color: var(--color-text-secondary);
   cursor: pointer; border-radius: 3px;
 }
@@ -1698,9 +1734,8 @@ html:has(.landing-root) { scroll-behavior: smooth; }
    Scoped under .research-root.vB1.
    ════════════════════════════════════════════════════════════ */
 
-/* ── Seamless command bar (blends into the body, no hard rule) ── */
-.research-root .b-bar { display: flex; align-items: center; gap: 18px; padding: 16px 26px 14px; background: var(--color-bg); flex-shrink: 0; flex-wrap: wrap; row-gap: 12px; position: relative; z-index: 2; }
-.research-root .b-bar::after { content: ""; position: absolute; left: 0; right: 0; bottom: -14px; height: 14px; background: linear-gradient(var(--color-bg), transparent); pointer-events: none; }
+/* ── Command-bar vocabulary (mast/title/eyebrow/right still used by the
+   stock page's sticky tab bar; the page-level bar itself is .page-header) ── */
 .research-root .b-bar-mast { display: flex; align-items: baseline; gap: 10px; }
 .research-root .b-bar-title { font-size: 21px; font-weight: 800; letter-spacing: -0.015em; color: var(--color-text); }
 .research-root .b-bar-eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 0.16em; color: var(--color-muted); white-space: nowrap; }
@@ -1710,13 +1745,13 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 /* lens tabs — segmented pill */
 .research-root .b-lenses { display: flex; align-items: center; }
 .research-root .b-lenses-pill { gap: 2px; background: var(--color-surface); border-radius: 99px; padding: 3px; }
-.research-root .b-lenses-pill .b-lens { background: none; border: none; padding: 5px 13px; border-radius: 99px; font-family: var(--font-sans); font-size: 12px; font-weight: 600; color: var(--color-text-secondary); cursor: pointer; transition: background 130ms, color 130ms; }
+.research-root .b-lenses-pill .b-lens { background: none; border: none; padding: 5px 13px; border-radius: 99px; font-family: var(--font-sans); font-size: 12px; font-weight: 600; line-height: 14px; color: var(--color-text-secondary); cursor: pointer; transition: background 130ms, color 130ms; }
 .research-root .b-lenses-pill .b-lens:hover { color: var(--color-text); }
 .research-root .b-lenses-pill .b-lens.on { background: var(--color-bg); color: var(--color-accent); box-shadow: var(--shadow-card); }
 
 /* horizon — segmented */
 .research-root .b-hzseg { display: flex; gap: 2px; background: var(--color-surface); border-radius: 99px; padding: 3px; }
-.research-root .b-hzbtn { background: none; border: none; padding: 4px 11px; border-radius: 99px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.03em; color: var(--color-text-secondary); cursor: pointer; transition: background 130ms, color 130ms; }
+.research-root .b-hzbtn { background: none; border: none; padding: 4px 11px; border-radius: 99px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; line-height: 16px; letter-spacing: 0.03em; color: var(--color-text-secondary); cursor: pointer; transition: background 130ms, color 130ms; }
 .research-root .b-hzbtn:hover { color: var(--color-text); }
 .research-root .b-hzbtn.on { background: var(--color-accent); color: #fff; }
 

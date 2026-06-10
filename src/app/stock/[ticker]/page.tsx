@@ -60,7 +60,7 @@ export default function StockPage() {
   if (isLoading || !bundle) {
     return (
       <div className="research-root h-full overflow-y-auto" style={{ background: "var(--color-bg)" }} aria-busy="true" aria-label={`Loading ${ticker}`}>
-        <div style={{ padding: "22px 36px 0", background: "linear-gradient(180deg, var(--color-accent-light), transparent 80%)" }}>
+        <div style={{ padding: "22px var(--page-gutter) 0", background: "linear-gradient(180deg, var(--color-accent-light), transparent 80%)" }}>
           <div className="flex items-center gap-3.5">
             <div className="w-[44px] h-[44px] rounded-[8px] skeleton" />
             <div className="flex flex-col gap-2">
@@ -80,7 +80,7 @@ export default function StockPage() {
   const chg = quoteMap.get(ticker)?.changePct ?? null;
 
   return (
-    <div className="research-root stock-page h-full overflow-y-auto" style={{ background: "var(--color-bg)" }}>
+    <div className="research-root stock-page h-full overflow-y-auto" style={{ background: "var(--color-bg)", scrollbarGutter: "stable both-edges" }}>
       <StockHero
         ticker={ticker}
         profile={bundle.profile}
@@ -93,7 +93,7 @@ export default function StockPage() {
       <div
         style={{
           display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap", rowGap: 12,
-          padding: "12px 36px",
+          padding: "12px var(--page-gutter)",
           borderTop: "1px solid var(--color-border)",
           borderBottom: "1px solid var(--color-border)",
           background: "var(--color-surface)",
@@ -135,7 +135,7 @@ export default function StockPage() {
       </div>
 
       {/* Tab content */}
-      <div style={{ padding: "22px 36px 48px" }}>
+      <div style={{ padding: "22px var(--page-gutter) 48px" }}>
         {tab === "Overview" && (
           <OverviewTab ticker={ticker} profile={bundle.profile} keyStats={bundle.keyStats} sentiment={bundle.sentiment} />
         )}

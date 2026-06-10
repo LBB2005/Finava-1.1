@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/useToast";
 import type { Holding, Quote } from "@/types/portfolio";
 import ConnectBrokerageButton from "@/components/portfolio/ConnectBrokerageButton";
 import ChatContextButton from "@/components/chat/ChatContextButton";
+import PageHeader from "@/components/layout/PageHeader";
 
 type Period = "1D" | "1W" | "1M" | "YTD" | "1Y" | "5Y" | "ALL";
 const PERIODS: Period[] = ["1D", "1W", "1M", "YTD", "1Y", "5Y", "ALL"];
@@ -425,74 +426,66 @@ export default function PortfolioPage() {
     <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden" style={{ background: "var(--color-bg)" }}>
 
       {/* ── Topbar ── */}
-      <div
-        className="research-root cmdbar flex items-center flex-shrink-0"
-        style={{ padding: "11px 22px", gap: 16 }}
-      >
-        <div className="flex items-baseline" style={{ gap: 10 }}>
-          <span className="serif" style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.01em", color: "var(--color-text)" }}>
-            Portfolio
-          </span>
-          <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)", letterSpacing: "0.04em" }}>
-            {positionLabel} · ACCOUNT OVERVIEW
-          </span>
-        </div>
-        <div className="flex items-center" style={{ gap: 8, marginLeft: "auto" }}>
-          <ChatContextButton context="portfolio" />
-          {plaidConnected ? (
-            // Synced status pill — the little glowing dot signals a live link;
-            // the institution name comes straight from the connected brokerage.
-            // Click to re-pull holdings; the dot turns amber while syncing.
-            <button
-              onClick={handleSync}
-              className="tbtn"
-              disabled={syncing}
-              title={`Refresh holdings from ${institutionName ?? "your brokerage"}`}
-              style={{ display: "inline-flex", alignItems: "center", gap: 7, borderRadius: 99 }}
-            >
-              <span
-                className="rounded-full"
-                style={{
-                  width: 6, height: 6, flexShrink: 0,
-                  background: syncing ? "var(--color-warn)" : "var(--color-bull)",
-                  boxShadow: `0 0 0 3px color-mix(in oklab, ${syncing ? "var(--color-warn)" : "var(--color-bull)"} 22%, transparent)`,
-                }}
-              />
-              {syncing ? "Syncing…" : `${institutionName ?? "Brokerage"} · Synced`}
-            </button>
-          ) : (
-            <>
-              <button onClick={startEditCash} className="tbtn" title="Update buying power" style={{ borderRadius: 99 }}>
-                {editingCash ? (
-                  <input
-                    ref={cashInputRef}
-                    value={cashInput}
-                    onChange={(e) => setCashInput(e.target.value)}
-                    onBlur={commitCash}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitCash();
-                      if (e.key === "Escape") setEditingCash(false);
-                    }}
-                    className="w-24 bg-transparent border-b border-[var(--color-accent)] focus:outline-none text-right"
-                    style={{ fontSize: 11 }}
-                    placeholder="0.00"
-                  />
-                ) : (
-                  <span>{cashBalance > 0 ? `$${fmt(cashBalance, 0)} CASH` : "ADD CASH"}</span>
-                )}
+      <PageHeader
+        title="Portfolio"
+        subtitle={`${positionLabel} · ACCOUNT OVERVIEW`}
+        actions={
+          <>
+            <ChatContextButton context="portfolio" />
+            {plaidConnected ? (
+              // Synced status pill — the little glowing dot signals a live link;
+              // the institution name comes straight from the connected brokerage.
+              // Click to re-pull holdings; the dot turns amber while syncing.
+              <button
+                onClick={handleSync}
+                className="tbtn"
+                disabled={syncing}
+                title={`Refresh holdings from ${institutionName ?? "your brokerage"}`}
+                style={{ gap: 7 }}
+              >
+                <span
+                  className="rounded-full"
+                  style={{
+                    width: 6, height: 6, flexShrink: 0,
+                    background: syncing ? "var(--color-warn)" : "var(--color-bull)",
+                    boxShadow: `0 0 0 3px color-mix(in oklab, ${syncing ? "var(--color-warn)" : "var(--color-bull)"} 22%, transparent)`,
+                  }}
+                />
+                {syncing ? "Syncing…" : `${institutionName ?? "Brokerage"} · Synced`}
               </button>
-              <ConnectBrokerageButton className="tbtn" label="Connect brokerage" onLinked={refresh} style={{ borderRadius: 99 }} />
-            </>
-          )}
-          <button
-            className="tbtn on"
-            style={{ borderRadius: 99 }}
-            onClick={() => { reset(); setPendingMessage("Give me a full portfolio analysis"); router.push("/chat"); }}
-          >
-            ASK FINAVA
-          </button>
-        </div>
-      </div>
+            ) : (
+              <>
+                <button onClick={startEditCash} className="tbtn" title="Update buying power">
+                  {editingCash ? (
+                    <input
+                      ref={cashInputRef}
+                      value={cashInput}
+                      onChange={(e) => setCashInput(e.target.value)}
+                      onBlur={commitCash}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitCash();
+                        if (e.key === "Escape") setEditingCash(false);
+                      }}
+                      className="w-24 bg-transparent border-b border-[var(--color-accent)] focus:outline-none text-right"
+                      style={{ fontSize: 11 }}
+                      placeholder="0.00"
+                    />
+                  ) : (
+                    <span>{cashBalance > 0 ? `$${fmt(cashBalance, 0)} CASH` : "ADD CASH"}</span>
+                  )}
+                </button>
+                <ConnectBrokerageButton className="tbtn" label="Connect brokerage" onLinked={refresh} />
+              </>
+            )}
+            <button
+              className="tbtn on"
+              onClick={() => { reset(); setPendingMessage("Give me a full portfolio analysis"); router.push("/chat"); }}
+            >
+              ASK FINAVA
+            </button>
+          </>
+        }
+      />
 
       {/* ── Body ── */}
       <div className="flex-1 overflow-y-auto pb-[150px]" style={{ scrollbarGutter: "stable both-edges" }}>
@@ -521,7 +514,7 @@ export default function PortfolioPage() {
         ) : (
           <div style={{
             maxWidth: 1100, margin: "0 auto",
-            padding: "26px 32px 8px",
+            padding: "26px var(--page-gutter) 8px",
             display: "flex", flexDirection: "column", gap: 22,
           }}>
 

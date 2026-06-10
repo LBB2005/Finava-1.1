@@ -98,7 +98,7 @@ export default function StockHero({ ticker, profile, fallbackQuote, initialCandl
   const modes: ChartMode[] = ["area", "line", "candles"];
 
   return (
-    <div style={{ position: "relative", padding: "22px 36px 0", background: "linear-gradient(180deg, var(--color-accent-light), transparent 80%)" }}>
+    <div style={{ position: "relative", padding: "22px var(--page-gutter) 0", background: "linear-gradient(180deg, var(--color-accent-light), transparent 80%)" }}>
       {/* Identity + actions */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>

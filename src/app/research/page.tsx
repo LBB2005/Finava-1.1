@@ -12,6 +12,7 @@ import ScreenMode from "@/components/research/ScreenMode";
 import ThemesMode from "@/components/research/ThemesMode";
 import SignalsMode from "@/components/research/SignalsMode";
 import ChatContextButton from "@/components/chat/ChatContextButton";
+import PageHeader from "@/components/layout/PageHeader";
 
 type Mode = "board" | "tune" | "compare" | "screen" | "themes" | "signals";
 
@@ -76,37 +77,36 @@ export default function ResearchPage() {
 
   return (
     <div className="research-root term vB1 flex flex-col h-full overflow-hidden">
-      {/* Seamless command bar — blends into the body, pill lens tabs + segmented
-          horizon. No hard divider (the soft fade lives in the ::after). */}
-      <div className="b-bar">
-        <div className="b-bar-mast">
-          <span className="serif b-bar-title">Research</span>
-          <span className="mono b-bar-eyebrow">SCORE ENGINE</span>
-        </div>
-
-        <div className="b-lenses b-lenses-pill">
-          {MODES.map((m) => (
-            <button key={m.key} className={"b-lens" + (mode === m.key ? " on" : "")} onClick={() => setMode(m.key)}>{m.label}</button>
-          ))}
-        </div>
-
-        <div className="b-bar-right">
-          <div className="b-hzseg">
-            {HORIZONS.map((h) => (
-              <button key={h.key} className={"b-hzbtn" + (horizon === h.key ? " on" : "")} onClick={() => setHorizon(h.key)}>
-                {h.tag}
-              </button>
+      {/* Standardized page header — pill lens tabs + segmented horizon. */}
+      <PageHeader
+        title="Research"
+        subtitle="SCORE ENGINE"
+        center={
+          <div className="b-lenses b-lenses-pill">
+            {MODES.map((m) => (
+              <button key={m.key} className={"b-lens" + (mode === m.key ? " on" : "")} onClick={() => setMode(m.key)}>{m.label}</button>
             ))}
           </div>
-          <span className="mono b-asof">{asOfLabel}</span>
-          <ChatContextButton context="research" />
-        </div>
-      </div>
+        }
+        actions={
+          <>
+            <ChatContextButton context="research" />
+            <div className="b-hzseg">
+              {HORIZONS.map((h) => (
+                <button key={h.key} className={"b-hzbtn" + (horizon === h.key ? " on" : "")} onClick={() => setHorizon(h.key)}>
+                  {h.tag}
+                </button>
+              ))}
+            </div>
+            <span className="mono b-asof">{asOfLabel}</span>
+          </>
+        }
+      />
 
       {/* Scrolling body — outer scroller stays a plain block so the inner
           flex column grows to its content height instead of shrink-clipping. */}
       <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarGutter: "stable both-edges" }}>
-        <div style={{ padding: "8px 26px 150px", display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ padding: "var(--content-pad-top) var(--page-gutter) var(--content-pad-bottom)", display: "flex", flexDirection: "column", gap: 18 }}>
           {mode === "board" && (
             <>
               {feature && <VerdictHero feature={feature} horizon={horizon} />}

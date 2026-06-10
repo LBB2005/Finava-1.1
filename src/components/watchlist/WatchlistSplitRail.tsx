@@ -12,6 +12,7 @@ import {
   type FactorScores, type Stock,
 } from "@/lib/research";
 import ChatContextButton from "@/components/chat/ChatContextButton";
+import PageHeader from "@/components/layout/PageHeader";
 
 // ─── Data helpers ────────────────────────────────────────────────────────────
 
@@ -504,88 +505,80 @@ export default function WatchlistSplitRail() {
 
   return (
     <div className="research-root term" style={{ height: "100%", background: "var(--color-bg)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      {/* Blended command bar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "13px 24px", background: "var(--color-bg)", flexShrink: 0, flexWrap: "wrap", position: "relative", zIndex: 4 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexShrink: 0 }}>
-          <span className="serif" style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.015em" }}>Watchlist</span>
-          <span className="mono" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", color: "var(--color-muted)", whiteSpace: "nowrap" }}>
-            {n} TICKER{n !== 1 ? "S" : ""} · LIVE
-          </span>
-        </div>
-
-        {/* List tabs (pill) */}
-        {watchlists.length > 0 && (
-          <div className="b-lenses b-lenses-pill" style={{ marginLeft: 4 }}>
-            {watchlists.map((w) => (
-              <button key={w.id} className={"b-lens" + (w.id === activeId ? " on" : "")} onClick={() => setActiveId(w.id)}>
-                {w.name}
+      {/* Standardized page header — list tabs + management controls, with the
+          KPI strip as the standardized second row */}
+      <PageHeader
+        title="Watchlist"
+        subtitle={`${n} TICKER${n !== 1 ? "S" : ""} · LIVE`}
+        center={
+          watchlists.length > 0 ? (
+            <div className="b-lenses b-lenses-pill">
+              {watchlists.map((w) => (
+                <button key={w.id} className={"b-lens" + (w.id === activeId ? " on" : "")} onClick={() => setActiveId(w.id)}>
+                  {w.name}
+                </button>
+              ))}
+            </div>
+          ) : undefined
+        }
+        actions={
+          <>
+            <ChatContextButton context="watchlist" />
+            {active && !renaming && (
+              <button className="mono" onClick={startRename} style={{ fontSize: 10.5, color: "var(--color-muted)", border: "none", background: "transparent", cursor: "pointer", padding: "0 8px", height: 28, display: "inline-flex", alignItems: "center", borderRadius: 3, transition: "color 120ms" }}>
+                Rename
               </button>
-            ))}
-          </div>
-        )}
-
-        {/* Right controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", flexWrap: "wrap" }}>
-          <ChatContextButton context="watchlist" />
-          {active && !renaming && (
-            <button className="mono" onClick={startRename} style={{ fontSize: 10.5, color: "var(--color-muted)", border: "none", background: "transparent", cursor: "pointer", padding: "4px 8px", borderRadius: 3, transition: "color 120ms" }}>
-              Rename
+            )}
+            {renaming && (
+              <input
+                autoFocus
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={commitRename}
+                onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenaming(false); }}
+                className="tsel mono"
+                style={{ width: 160 }}
+              />
+            )}
+            {active && !renaming && (
+              <button className="mono" onClick={handleDelete} style={{ fontSize: 10.5, color: "var(--color-muted)", border: "none", background: "transparent", cursor: "pointer", padding: "0 8px", height: 28, display: "inline-flex", alignItems: "center", borderRadius: 3, transition: "color 120ms" }}>
+                Delete
+              </button>
+            )}
+            <button className="tbtn" onClick={handleCreate}>
+              + New
             </button>
-          )}
-          {renaming && (
-            <input
-              autoFocus
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onBlur={commitRename}
-              onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenaming(false); }}
-              className="tsel mono"
-              style={{ width: 160 }}
-            />
-          )}
-          {active && !renaming && (
-            <button className="mono" onClick={handleDelete} style={{ fontSize: 10.5, color: "var(--color-muted)", border: "none", background: "transparent", cursor: "pointer", padding: "4px 8px", borderRadius: 3, transition: "color 120ms" }}>
-              Delete
+            <span className="mono b-asof">
+              {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </span>
+            <button className="tbtn on" onClick={() => router.push("/chat")}>
+              ASK AI
             </button>
-          )}
-          <button className="mono tbtn" onClick={handleCreate} style={{ fontSize: 10.5 }}>
-            + New
-          </button>
-          <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>
-            {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-          </span>
-          <button
-            className="mono"
-            onClick={() => router.push("/chat")}
-            style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", padding: "5px 12px", border: "1px solid var(--color-accent)", background: "var(--color-accent)", color: "#fff", borderRadius: 3, cursor: "pointer", whiteSpace: "nowrap" }}
-          >
-            ASK AI
-          </button>
-        </div>
-      </div>
+          </>
+        }
+        secondRow={
+          active ? (
+            <>
+              <KpiTile label="Tracked" value={`${n}`} />
+              <KpiTile label="Gainers" value={`${gainers}`} accent={gainers ? "var(--color-bull)" : undefined} />
+              <KpiTile label="Decliners" value={`${decliners}`} accent={decliners ? "var(--color-bear)" : undefined} />
+              <KpiTile
+                label="Avg day"
+                value={avg == null ? "—" : `${avg >= 0 ? "+" : ""}${avg.toFixed(2)}%`}
+                accent={avg == null ? undefined : avg >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
+              />
+              <KpiTile label="Avg score" value={`${avgScore}`} />
+              <KpiTile label="Signals" value={`${signalCount}`} accent="var(--color-accent)" last />
+              <div style={{ marginLeft: "auto" }}>
+                <AddTickerInline onAdd={(t) => active && addTicker(active.id, t)} />
+              </div>
+            </>
+          ) : undefined
+        }
+      />
 
-      {/* KPI strip — blended, shown whenever a list is active */}
-      {active && (
-        <div style={{ display: "flex", gap: 20, alignItems: "center", padding: "0 24px 12px", background: "var(--color-bg)", flexShrink: 0, flexWrap: "wrap", position: "relative", zIndex: 4 }}>
-          <KpiTile label="Tracked" value={`${n}`} />
-          <KpiTile label="Gainers" value={`${gainers}`} accent={gainers ? "var(--color-bull)" : undefined} />
-          <KpiTile label="Decliners" value={`${decliners}`} accent={decliners ? "var(--color-bear)" : undefined} />
-          <KpiTile
-            label="Avg day"
-            value={avg == null ? "—" : `${avg >= 0 ? "+" : ""}${avg.toFixed(2)}%`}
-            accent={avg == null ? undefined : avg >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
-          />
-          <KpiTile label="Avg score" value={`${avgScore}`} />
-          <KpiTile label="Signals" value={`${signalCount}`} accent="var(--color-accent)" last />
-          <div style={{ marginLeft: "auto" }}>
-            <AddTickerInline onAdd={(t) => active && addTicker(active.id, t)} />
-          </div>
-        </div>
-      )}
-
-      {/* Scroll region with top scroll-fade */}
+      {/* Scroll region — the soft top fade is owned by PageHeader */}
       <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
-        <div aria-hidden style={{ position: "absolute", top: 0, left: 0, right: 0, height: 22, background: "linear-gradient(var(--color-bg), transparent)", pointerEvents: "none", zIndex: 3 }} />
 
         {isLoading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
@@ -606,7 +599,7 @@ export default function WatchlistSplitRail() {
           </div>
         ) : (
           // Split rail layout
-          <div style={{ height: "100%", overflowY: "auto", scrollbarGutter: "stable both-edges", padding: "10px 24px 150px", display: "grid", gridTemplateColumns: "minmax(0,1fr) 268px", gap: 16, alignItems: "start" }}>
+          <div style={{ height: "100%", overflowY: "auto", scrollbarGutter: "stable both-edges", padding: "var(--content-pad-top) var(--page-gutter) var(--content-pad-bottom)", display: "grid", gridTemplateColumns: "minmax(0,1fr) 268px", gap: 16, alignItems: "start" }}>
             {/* Table */}
             <div className="b-board">
               <div className="b-boardhead">
