@@ -1,19 +1,20 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useChatStore } from "@/stores/chatStore";
-import type { ChatMode, AgentStep } from "@/types/chat";
+import { useToast } from "@/hooks/useToast";
 
 interface ConvMessage {
   id: string; role: string; content: string; mode: string; createdAt: string; agentTrace?: string;
 }
-interface Conversation {
+export interface Conversation {
   id: string; title: string | null; createdAt: string; updatedAt: string;
+  context?: string | null;
   messages: ConvMessage[];
 }
 
 import { authFetch, authFetcher } from "@/lib/authFetch";
+import { useOpenConversation } from "@/hooks/useOpenConversation";
 const fetcher = authFetcher;
 
 function formatDate(iso: string) {
@@ -44,7 +45,8 @@ function savePinned(set: Set<string>) {
 }
 
 export default function ConversationList() {
-  const router = useRouter();
+  const toast = useToast();
+  const openConversation = useOpenConversation();
   const { data: conversations, mutate, isLoading } = useSWR<Conversation[]>(
     "/api/conversations",
     fetcher,
@@ -52,38 +54,10 @@ export default function ConversationList() {
   );
   const [pinned, setPinned] = useState<Set<string>>(getPinned);
 
-  const { conversationId, setConversationId, setMessages, setStreaming, clearStreamingContent, clearAgentSteps, streamingConversationId } = useChatStore();
+  const { conversationId, streamingConversationId } = useChatStore();
 
   function loadConversation(conv: Conversation) {
-    setMessages(conv.messages.map((m) => {
-      let agentTrace: AgentStep[] | undefined;
-      if (m.agentTrace) {
-        try { agentTrace = JSON.parse(m.agentTrace); } catch { /* malformed trace — skip */ }
-      }
-      return {
-        id: m.id,
-        role: m.role as "user" | "assistant",
-        content: m.content,
-        mode: (m.mode as ChatMode) || "agent",
-        createdAt: m.createdAt,
-        agentTrace,
-      };
-    }));
-    setConversationId(conv.id);
-
-    if (conv.id === streamingConversationId) {
-      // Navigating back to the live stream — reconnect the streaming view
-      setStreaming(true);
-    } else {
-      // Navigating to a different conversation — only clear state if no background stream owns it
-      setStreaming(false);
-      if (!streamingConversationId) {
-        clearStreamingContent();
-        clearAgentSteps();
-      }
-    }
-
-    router.push("/chat");
+    openConversation(conv);
   }
 
   function togglePin(e: React.MouseEvent, id: string) {
@@ -98,9 +72,18 @@ export default function ConversationList() {
 
   async function deleteConversation(e: React.MouseEvent, id: string) {
     e.stopPropagation();
-    await authFetch(`/api/conversations/${id}`, { method: "DELETE" });
+    // Optimistic: drop the row immediately, then confirm with the server.
+    mutate((prev) => prev?.filter((c) => c.id !== id), { revalidate: false });
     if (conversationId === id) useChatStore.getState().reset();
-    mutate();
+    try {
+      const res = await authFetch(`/api/conversations/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`${res.status}`);
+      toast.success("Chat deleted");
+    } catch {
+      toast.error("Couldn't delete that chat — it's been restored.");
+    } finally {
+      mutate(); // re-sync with the server either way
+    }
   }
 
   if (isLoading && !conversations) {
@@ -178,8 +161,9 @@ export default function ConversationList() {
           </button>
           <button
             onClick={(e) => deleteConversation(e, conv.id)}
-            className="opacity-0 group-hover:opacity-60 hover:!opacity-100 p-0.5 rounded hover:text-red-400 transition-all duration-100 text-[var(--color-muted)]"
-            title="Delete"
+            className="opacity-35 group-hover:opacity-70 hover:!opacity-100 p-0.5 rounded hover:text-red-400 transition-all duration-100 text-[var(--color-muted)]"
+            title="Delete chat"
+            aria-label="Delete chat"
           >
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <path d="M18 6L6 18M6 6l12 12" />
