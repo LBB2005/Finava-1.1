@@ -11,6 +11,7 @@ import CompareMode from "@/components/research/CompareMode";
 import ScreenMode from "@/components/research/ScreenMode";
 import ThemesMode from "@/components/research/ThemesMode";
 import SignalsMode from "@/components/research/SignalsMode";
+import ChatContextButton from "@/components/chat/ChatContextButton";
 
 type Mode = "board" | "tune" | "compare" | "screen" | "themes" | "signals";
 
@@ -98,13 +99,14 @@ export default function ResearchPage() {
             ))}
           </div>
           <span className="mono b-asof">{asOfLabel}</span>
+          <ChatContextButton context="research" />
         </div>
       </div>
 
       {/* Scrolling body — outer scroller stays a plain block so the inner
           flex column grows to its content height instead of shrink-clipping. */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div style={{ padding: "8px 26px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ padding: "8px 26px 150px", display: "flex", flexDirection: "column", gap: 18 }}>
           {mode === "board" && (
             <>
               {feature && <VerdictHero feature={feature} horizon={horizon} />}
