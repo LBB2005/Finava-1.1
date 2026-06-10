@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import type { ChatMessage, ChatMode, AgentStep } from "@/types/chat";
+import type { ChatContext } from "@/lib/chatContext";
 
 interface ChatState {
   conversationId: string | null;
@@ -20,6 +21,10 @@ interface ChatState {
 
   pendingMessage: string;
   pendingFollowups: string[];
+  /** Context to stamp on the NEXT conversation created (set by the popover
+   *  "new chat" and by GlobalComposer). Consumed + cleared at create time. */
+  pendingContext: ChatContext;
+  setPendingContext: (ctx: ChatContext) => void;
   setPendingMessage: (msg: string) => void;
   setPendingCritique: (c: string) => void;
   setPendingFollowups: (q: string[]) => void;
@@ -43,7 +48,9 @@ export const useChatStore = create<ChatState>((set) => ({
   setDiscoverProgress: (p) => set({ discoverProgress: p }),
   pendingMessage: "",
   pendingFollowups: [],
+  pendingContext: null,
   pendingCritique: "",
+  setPendingContext: (ctx) => set({ pendingContext: ctx }),
   setPendingMessage: (msg) => set({ pendingMessage: msg }),
   setPendingCritique: (c) => set({ pendingCritique: c }),
   setPendingFollowups: (q) => set({ pendingFollowups: q }),
@@ -84,6 +91,7 @@ export const useChatStore = create<ChatState>((set) => ({
       ceoThinking: "",
       pendingCritique: "",
       pendingFollowups: [],
+      pendingContext: null,
       discoverProgress: null,
     }),
 }));
