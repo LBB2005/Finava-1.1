@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import * as admin from "firebase-admin";
 import { db } from "@/lib/firebase-admin";
+import { sendEmail } from "@/lib/email/client";
+import { waitlistConfirmationEmail } from "@/lib/email/templates";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -18,14 +20,34 @@ export async function POST(request: Request) {
   }
 
   try {
-    await db.collection("waitlist").doc(email).set(
+    const ref = db.collection("waitlist").doc(email);
+    const existing = await ref.get();
+    const isNew = !existing.exists;
+
+    await ref.set(
       {
         email,
         source: "landing",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        ...(isNew ? { createdAt: admin.firestore.FieldValue.serverTimestamp() } : {}),
       },
       { merge: true }
     );
+
+    // Send the confirmation only on first signup — don't re-email duplicate
+    // submits. Failures here must not fail the request (sendEmail never throws).
+    if (isNew) {
+      const result = await sendEmail(email, waitlistConfirmationEmail());
+      await ref.set(
+        {
+          confirmationSent: result.sent,
+          confirmationSentAt: result.sent
+            ? admin.firestore.FieldValue.serverTimestamp()
+            : null,
+        },
+        { merge: true }
+      );
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[waitlist POST]", err);

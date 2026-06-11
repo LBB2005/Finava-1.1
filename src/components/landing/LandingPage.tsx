@@ -38,7 +38,7 @@ const NAV_LINKS = [
 ];
 
 export default function LandingPage() {
-  const { user, loading, signIn } = useAuth();
+  const { user, loading } = useAuth();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -76,12 +76,9 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => signIn()}
-              className="text-[13.5px] font-medium text-[var(--lp-text-secondary)] hover:text-[var(--lp-text)] transition-colors px-3 py-2 rounded-lg"
-            >
-              Sign in
-            </button>
+            {/* Sign-in is intentionally hidden during private beta — visitors join
+                the waitlist, they don't sign in. The /login route still works for
+                admins who navigate to it directly. */}
             <a
               href="#waitlist"
               className="text-[13.5px] font-semibold text-[#070b16] bg-[var(--lp-accent)] hover:bg-[var(--lp-accent-2)] transition-colors px-4 py-2 rounded-lg shadow-sm"
