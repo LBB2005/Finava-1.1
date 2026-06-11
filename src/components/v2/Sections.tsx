@@ -1,23 +1,27 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import MagneticButton from "./MagneticButton";
 
-const AGENT_CARDS: { name: string; blurb: string }[] = [
-  { name: "Fundamentals", blurb: "Margins, growth and balance-sheet quality, read from primary filings." },
-  { name: "DCF Valuation", blurb: "Builds the discounted cash flow, then stress-tests every assumption." },
-  { name: "Insider Activity", blurb: "Form 4 buys and sells — clustered, weighted, contextualized." },
-  { name: "Technicals", blurb: "Trend, momentum and the levels that matter, across timeframes." },
-  { name: "Sentiment", blurb: "Real crowd signal from Reddit, X and YouTube — not keyword counting." },
-  { name: "Macro Context", blurb: "Rates, cycles and currency pressure on the thesis." },
-  { name: "Earnings", blurb: "Transcripts, guidance and the beat-miss pattern over time." },
-  { name: "Options Flow", blurb: "Unusual positioning and what smart money is paying for." },
-  { name: "Risk", blurb: "What breaks the thesis — named, ranked, quantified." },
-  { name: "Analyst Consensus", blurb: "Street targets, and the direction they're drifting." },
-  { name: "Comparables", blurb: "Multiples against true peers, not sector averages." },
-  { name: "Graham Value", blurb: "Classic margin-of-safety screens, run honestly." },
-  { name: "News & Catalysts", blurb: "What just happened, and what's on the calendar next." },
-  { name: "Competitor Analysis", blurb: "Share shifts, moats and the threats forming at the edges." },
+// `sample` is an illustrative line of agent output, revealed on hover and as
+// the idle scan walks the desk.
+const AGENT_CARDS: { name: string; blurb: string; sample: string }[] = [
+  { name: "Fundamentals", blurb: "Margins, growth and balance-sheet quality, read from primary filings.", sample: "gross margin 74.9% · FCF +32% yoy" },
+  { name: "DCF Valuation", blurb: "Builds the discounted cash flow, then stress-tests every assumption.", sample: "base $187 · bear $124 · bull $241" },
+  { name: "Insider Activity", blurb: "Form 4 buys and sells — clustered, weighted, contextualized.", sample: "3 buys / 1 sell · cluster score +0.6" },
+  { name: "Technicals", blurb: "Trend, momentum and the levels that matter, across timeframes.", sample: "above 50d & 200d · RSI 61" },
+  { name: "Sentiment", blurb: "Real crowd signal from Reddit, X and YouTube — not keyword counting.", sample: "crowd 68% bullish · velocity 2.4×" },
+  { name: "Macro Context", blurb: "Rates, cycles and currency pressure on the thesis.", sample: "rates easing · USD drag −1.2%" },
+  { name: "Earnings", blurb: "Transcripts, guidance and the beat-miss pattern over time.", sample: "6/8 beats · guidance raised twice" },
+  { name: "Options Flow", blurb: "Unusual positioning and what smart money is paying for.", sample: "call skew 1.8× · $4.2M sweep" },
+  { name: "Risk", blurb: "What breaks the thesis — named, ranked, quantified.", sample: "top risk: customer concentration 41%" },
+  { name: "Analyst Consensus", blurb: "Street targets, and the direction they're drifting.", sample: "PT drift +6% / 90d · 38 buy, 7 hold" },
+  { name: "Comparables", blurb: "Multiples against true peers, not sector averages.", sample: "EV/S 12.1× vs peer median 8.4×" },
+  { name: "Graham Value", blurb: "Classic margin-of-safety screens, run honestly.", sample: "fails margin-of-safety at 2.1× book" },
+  { name: "News & Catalysts", blurb: "What just happened, and what's on the calendar next.", sample: "earnings in 12d · keynote Mar 18" },
+  { name: "Competitor Analysis", blurb: "Share shifts, moats and the threats forming at the edges.", sample: "share +3.1pts · moat: ecosystem lock-in" },
 ];
+
+const CEO_SAMPLE = "weighing 14 reports · forming conviction…";
 
 const COMPARE_ROWS: { label: string; cells: (string | boolean)[] }[] = [
   { label: "Annual cost", cells: ["$240–$1,200", "$32,000", "~$300", "$240"] },
@@ -51,10 +55,94 @@ const TIERS = [
   },
 ];
 
+// The desk grid, alive: a cursor-tracked spotlight per card, and an idle
+// "scan" that walks the cards in order (ending on CEO Synthesis) revealing
+// each agent's sample output line — the desk looks like it's working even
+// before anyone hovers. Both effects sit out under reduced motion.
+function AgentDesk() {
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const cards = Array.from(grid.querySelectorAll<HTMLElement>(".v2-agent-card"));
+
+    const onMove = (e: PointerEvent) => {
+      const card = (e.target as HTMLElement).closest<HTMLElement>(".v2-agent-card");
+      if (!card) return;
+      const r = card.getBoundingClientRect();
+      card.style.setProperty("--mx", `${e.clientX - r.left}px`);
+      card.style.setProperty("--my", `${e.clientY - r.top}px`);
+    };
+    grid.addEventListener("pointermove", onMove);
+
+    let timer: number | undefined;
+    let hovering = false;
+    const clearLive = () => cards.forEach((c) => c.classList.remove("is-live"));
+    const onEnter = () => {
+      hovering = true;
+      clearLive();
+    };
+    const onLeave = () => {
+      hovering = false;
+    };
+    grid.addEventListener("pointerenter", onEnter);
+    grid.addEventListener("pointerleave", onLeave);
+
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      let i = 0;
+      timer = window.setInterval(() => {
+        if (hovering || document.hidden) return;
+        clearLive();
+        cards[i % cards.length]?.classList.add("is-live");
+        i++;
+      }, 2200);
+    }
+
+    return () => {
+      grid.removeEventListener("pointermove", onMove);
+      grid.removeEventListener("pointerenter", onEnter);
+      grid.removeEventListener("pointerleave", onLeave);
+      if (timer) window.clearInterval(timer);
+    };
+  }, []);
+
+  return (
+    <div ref={gridRef} className="v2-agent-grid">
+      {AGENT_CARDS.map((a, i) => (
+        <div key={a.name} className="v2-agent-card" data-reveal>
+          <span className="v2-agent-idx v2-mono">{String(i + 1).padStart(2, "0")}</span>
+          <h3>{a.name}</h3>
+          <p>{a.blurb}</p>
+          <span className="v2-agent-sample v2-mono">{a.sample}</span>
+        </div>
+      ))}
+      <div className="v2-agent-card v2-agent-card--ceo" data-reveal>
+        <span className="v2-agent-idx v2-mono" style={{ color: "#7cc0ff" }}>15</span>
+        <h3>CEO Synthesis</h3>
+        <p>
+          Reads all fourteen reports, weighs the conflicts, and delivers one conviction-driven
+          view — with a confidence level you can hold it to.
+        </p>
+        <span className="v2-agent-sample v2-mono">{CEO_SAMPLE}</span>
+      </div>
+    </div>
+  );
+}
+
 function Check() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-label="Yes">
+    <svg className="v2-cell-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-label="Yes">
       <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function Cross() {
+  return (
+    <svg className="v2-cell-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.75" aria-label="No">
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" />
     </svg>
   );
 }
@@ -150,23 +238,7 @@ export default function Sections() {
           Every briefing starts with fourteen specialists working the same ticker at once.
           A fifteenth — the CEO Synthesis agent — weighs their disagreements and issues the verdict.
         </p>
-        <div className="v2-agent-grid">
-          {AGENT_CARDS.map((a, i) => (
-            <div key={a.name} className="v2-agent-card" data-reveal>
-              <span className="v2-agent-idx v2-mono">{String(i + 1).padStart(2, "0")}</span>
-              <h3>{a.name}</h3>
-              <p>{a.blurb}</p>
-            </div>
-          ))}
-          <div className="v2-agent-card v2-agent-card--ceo" data-reveal>
-            <span className="v2-agent-idx v2-mono" style={{ color: "#7cc0ff" }}>15</span>
-            <h3>CEO Synthesis</h3>
-            <p>
-              Reads all fourteen reports, weighs the conflicts, and delivers one conviction-driven
-              view — with a confidence level you can hold it to.
-            </p>
-          </div>
-        </div>
+        <AgentDesk />
       </section>
 
       {/* ——— Comparison ——— */}
@@ -190,7 +262,7 @@ export default function Sections() {
                   <td className="v2-table-label">{row.label}</td>
                   {row.cells.map((cell, i) => (
                     <td key={i} className={i === 0 ? "v2-table-finava" : undefined}>
-                      {cell === true ? <Check /> : cell === false ? <span style={{ color: "#6f7f97" }}>—</span> : <span className="v2-mono" style={{ fontSize: 13 }}>{cell}</span>}
+                      {cell === true ? <Check /> : cell === false ? <Cross /> : <span className="v2-mono" style={{ fontSize: 13 }}>{cell}</span>}
                     </td>
                   ))}
                 </tr>

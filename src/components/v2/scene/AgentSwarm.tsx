@@ -176,7 +176,7 @@ export default function AgentSwarm({ onHover }: { onHover: (name: string | null)
       new THREE.MeshStandardMaterial({
         color: new THREE.Color("#0b1120"),
         emissive: new THREE.Color("#4d9cf8"),
-        emissiveIntensity: 2.2,
+        emissiveIntensity: 1.1,
         roughness: 0.4,
         transparent: true,
       }),
@@ -187,7 +187,7 @@ export default function AgentSwarm({ onHover }: { onHover: (name: string | null)
       new THREE.MeshStandardMaterial({
         color: new THREE.Color("#0b1120"),
         emissive: new THREE.Color("#7cc0ff"),
-        emissiveIntensity: 2.8,
+        emissiveIntensity: 1.5,
         roughness: 0.35,
         transparent: true,
       }),
@@ -198,7 +198,7 @@ export default function AgentSwarm({ onHover }: { onHover: (name: string | null)
       new THREE.SpriteMaterial({
         map: glowTex,
         transparent: true,
-        opacity: 0.44,
+        opacity: 0.16,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
       }),
@@ -257,7 +257,7 @@ export default function AgentSwarm({ onHover }: { onHover: (name: string | null)
 
     orbMat.opacity = fade;
     ceoMat.opacity = fade;
-    glowMat.opacity = 0.44 * fade;
+    glowMat.opacity = 0.16 * fade;
     coreMat.opacity = fade;
     coreWireMat.opacity = 0.4 * fade;
 

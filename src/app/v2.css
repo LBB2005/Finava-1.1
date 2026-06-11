@@ -450,17 +450,66 @@ main:has(.v2-root) {
   margin-top: 52px;
 }
 .v2-agent-card {
+  --mx: 50%;
+  --my: 40%;
   position: relative;
+  overflow: hidden;
   border: 1px solid var(--v2-border);
   border-radius: 14px;
   background: linear-gradient(165deg, var(--v2-surface) 0%, var(--v2-bg) 100%);
-  padding: 22px 20px 20px;
+  padding: 22px 20px 18px;
   transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+/* Cursor-tracked spotlight (centered fallback when scanned, not hovered) */
+.v2-agent-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(240px circle at var(--mx) var(--my), rgba(77, 156, 248, 0.12), transparent 65%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.v2-agent-card:hover::after,
+.v2-agent-card.is-live::after {
+  opacity: 1;
 }
 .v2-agent-card:hover {
   border-color: var(--v2-border-hi);
   transform: translateY(-3px);
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35), 0 0 28px var(--v2-glow);
+}
+/* Idle scan: the desk works one agent at a time */
+.v2-agent-card.is-live {
+  border-color: rgba(77, 156, 248, 0.45);
+  box-shadow: 0 0 26px rgba(77, 156, 248, 0.1);
+}
+.v2-agent-card.is-live .v2-agent-idx {
+  color: var(--v2-hi);
+}
+/* Sample output line — space always reserved so the grid never shifts */
+.v2-agent-sample {
+  display: block;
+  margin-top: 12px;
+  height: 16px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--v2-hi);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.v2-agent-sample::before {
+  content: "▸ ";
+  color: var(--v2-accent);
+}
+.v2-agent-card:hover .v2-agent-sample,
+.v2-agent-card.is-live .v2-agent-sample {
+  opacity: 1;
+  transform: none;
 }
 .v2-agent-idx {
   font-size: 11px;
@@ -528,6 +577,12 @@ main:has(.v2-root) {
   padding-top: 22px;
 }
 .v2-table tbody tr:last-child td { border-bottom: none; }
+/* Center the check/cross icons within their cells (Check is also used in
+   pricing list items, so scope the block centering to table cells only). */
+.v2-table td .v2-cell-icon {
+  display: block;
+  margin: 0 auto;
+}
 .v2-table-label {
   text-align: left !important;
   color: var(--v2-text) !important;
@@ -708,8 +763,15 @@ main:has(.v2-root) {
   .v2-scrollcue-line { animation: none; }
   .v2-nav,
   .v2-agent-card,
+  .v2-agent-card::after,
+  .v2-agent-sample,
   .v2-price-card,
   .v2-cta {
     transition: none;
+  }
+  /* No idle scan under reduced motion (JS also skips it); show samples statically */
+  .v2-agent-sample {
+    opacity: 1;
+    transform: none;
   }
 }
