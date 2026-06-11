@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import Modal from "@/components/ui/Modal";
 import { useToast } from "@/hooks/useToast";
 import type { HoldingFormData } from "@/types/portfolio";
 
@@ -43,8 +44,7 @@ export default function AddHoldingModal({ onClose, onAdd }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 mx-4">
+    <Modal onClose={onClose} label="Add holding">
         <h2 className="text-lg font-semibold text-[var(--color-text)] mb-5">Add Holding</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
@@ -97,7 +97,6 @@ export default function AddHoldingModal({ onClose, onAdd }: Props) {
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidTicker } from "@/lib/tickers";
 
 /**
  * Body schema for `POST /api/portfolio` (add / upsert a holding).
@@ -8,7 +9,11 @@ import { z } from "zod";
  * are optional and may be explicitly null.
  */
 export const AddHoldingSchema = z.object({
-  ticker: z.string().min(1, "ticker is required"),
+  ticker: z
+    .string()
+    .min(1, "ticker is required")
+    .transform((t) => t.trim().toUpperCase())
+    .refine(isValidTicker, "ticker must be a valid symbol (e.g. AAPL, BRK.B)"),
   companyName: z.string().nullable().optional(),
   shares: z.number().positive("shares must be positive"),
   avgCost: z.number().min(0, "avgCost cannot be negative"),

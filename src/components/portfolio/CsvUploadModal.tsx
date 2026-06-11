@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import { useToast } from "@/hooks/useToast";
 
 interface Props {
@@ -39,8 +40,7 @@ export default function CsvUploadModal({ onClose, onUpload }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 mx-4">
+    <Modal onClose={onClose} label="Import holdings from CSV">
         <h2 className="text-lg font-semibold text-[var(--color-text)] mb-2">Import from CSV</h2>
         <p className="text-sm text-[var(--color-muted)] mb-5">
           Upload a broker export. We detect common column names (Symbol, Shares, Avg Cost, etc.).
@@ -90,7 +90,6 @@ export default function CsvUploadModal({ onClose, onUpload }: Props) {
             {result ? "Done" : "Cancel"}
           </Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

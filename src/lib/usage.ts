@@ -209,6 +209,8 @@ export async function checkUsageLimit(
   const ent = await resolvePlan(userId);
   // Fail OPEN on a degraded read: a Firestore blip must not lock users out.
   if (ent.degraded) return null;
+  // Admin/dev access is uncapped — usage is still recorded, never blocked.
+  if (ent.source === "admin" || ent.source === "dev") return null;
   const limits = ent.config;
 
   let days: Record<string, number> = {};
@@ -384,7 +386,11 @@ function pct(used: number, limit: number): number {
 
 export async function getUsageSummary(userId: string): Promise<UsageSummary> {
   const ent = await resolvePlan(userId);
-  const limits = ent.config;
+  // Admin/dev access has no credit caps — surface unlimited to the UI.
+  const uncapped = ent.source === "admin" || ent.source === "dev";
+  const limits = uncapped
+    ? { ...ent.config, daily: Infinity, weekly: Infinity, monthly: Infinity }
+    : ent.config;
 
   const usageSnap = await db.collection("userUsage").doc(userId).get();
   const data = usageSnap.data() as UsageDoc | undefined;

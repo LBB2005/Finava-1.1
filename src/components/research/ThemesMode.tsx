@@ -4,6 +4,7 @@ import { composite, grade, type RankedStock, type Stock } from "@/lib/research";
 import { useThemes } from "@/hooks/useThemes";
 import type { Theme } from "@/lib/researchAI";
 import LadderRow from "./LadderRow";
+import { LensErrorState } from "./primitives";
 
 /** Average year-horizon Finava score of a theme's resolved constituents. */
 function themeStrength(stocks: Stock[]): number {
@@ -12,7 +13,7 @@ function themeStrength(stocks: Stock[]): number {
 }
 
 export default function ThemesMode({ universe }: { universe: Stock[] }) {
-  const { themes, isLoading, error } = useThemes();
+  const { themes, isLoading, error, retry } = useThemes();
   const [open, setOpen] = useState<string | null>(null);
 
   const byTicker = useMemo(() => new Map(universe.map((s) => [s.ticker, s])), [universe]);
@@ -28,10 +29,12 @@ export default function ThemesMode({ universe }: { universe: Stock[] }) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center" style={{ minHeight: 280, gap: 8, textAlign: "center" }}>
-        <p style={{ fontSize: 13, color: "var(--color-bear)" }}>Themes are unavailable right now.</p>
-        <p style={{ fontSize: 12, color: "var(--color-muted)" }}>The theme generator failed — try refreshing in a moment.</p>
-      </div>
+      <LensErrorState
+        title="Themes are unavailable right now."
+        detail="The theme generator failed — give it another go."
+        onRetry={retry}
+        minHeight={280}
+      />
     );
   }
 

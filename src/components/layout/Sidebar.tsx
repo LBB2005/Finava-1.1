@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import useSWR from "swr";
@@ -9,7 +9,7 @@ import { useQuotes } from "@/hooks/useQuotes";
 import { useWatchlists } from "@/hooks/useWatchlists";
 import { useWatchlistStore } from "@/stores/watchlistStore";
 import { useAuth } from "@/context/AuthContext";
-import ConversationList from "./ConversationList";
+import ConversationList, { type Conversation } from "./ConversationList";
 import ChatSearchModal from "./ChatSearchModal";
 import PortfolioList from "./PortfolioList";
 import WatchlistBoard from "@/components/watchlist/WatchlistBoard";
@@ -168,6 +168,22 @@ function NavLink({
   );
 }
 
+/** Pulsing accent dot — marks a nav item whose page has a prompt still streaming. */
+function StreamPulse({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`w-[7px] h-[7px] rounded-full ${className}`}
+      role="img"
+      aria-label="Generating"
+      style={{
+        background: "var(--color-accent)",
+        boxShadow: "0 0 0 3px color-mix(in oklab, var(--color-accent) 22%, transparent)",
+        animation: "pulse-dot 1.4s infinite ease-in-out",
+      }}
+    />
+  );
+}
+
 /** Chevron used on expandable rows. */
 function Chevron({ open, size = 13 }: { open: boolean; size?: number }) {
   return (
@@ -198,10 +214,12 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
    ============================================================ */
 function PortfolioNavItem({
   active,
+  live = false,
   onAddClick,
   onNavigate,
 }: {
   active: boolean;
+  live?: boolean;
   onAddClick: () => void;
   onNavigate?: () => void;
 }) {
@@ -260,6 +278,7 @@ function PortfolioNavItem({
           </span>
         </Link>
 
+        {live && <StreamPulse className="mt-[6px] flex-shrink-0" />}
         {hasHoldings && (
           <button
             onClick={() => setOpen((v) => !v)}
@@ -329,9 +348,11 @@ function WatchlistGroup({
 
 function WatchlistNavItem({
   active,
+  live = false,
   onNavigate,
 }: {
   active: boolean;
+  live?: boolean;
   onNavigate?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -363,6 +384,7 @@ function WatchlistNavItem({
             <span className="text-[11px] font-semibold" style={{ color: "var(--color-muted)", fontFamily: "var(--font-mono)" }}>{totalLists}</span>
           )}
         </Link>
+        {live && <StreamPulse className="flex-shrink-0" />}
         {hasLists && (
           <button
             onClick={() => setOpen((v) => !v)}
@@ -650,9 +672,25 @@ export default function Sidebar({
   const pathname = usePathname();
 
   const reset = useChatStore((s) => s.reset);
-  const streamingConversationId = useChatStore((s) => s.streamingConversationId);
+  const streamsByConv = useChatStore((s) => s.streamsByConv);
   const conversationId = useChatStore((s) => s.conversationId);
-  const hasBackgroundStream = !!streamingConversationId && streamingConversationId !== conversationId;
+  // Any conversation other than the one on screen is streaming in the background.
+  const hasBackgroundStream = Object.entries(streamsByConv).some(
+    ([id, slice]) => slice.isStreaming && id !== conversationId
+  );
+
+  // Which page each streaming conversation was fired from — so the originating
+  // nav item (Portfolio / Research / Watchlist) pulses while its prompt runs,
+  // even after you've navigated away. Shares the conversations cache the recents
+  // list already fetches; `context` is stamped on the conversation at send time.
+  const { data: conversations } = useSWR<Conversation[]>("/api/conversations", fetcher);
+  const liveContexts = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of conversations ?? []) {
+      if (c.context && streamsByConv[c.id]?.isStreaming) set.add(c.context);
+    }
+    return set;
+  }, [conversations, streamsByConv]);
   const { addHolding, uploadCsv, setCashBalance } = usePortfolio();
 
   const isDragging = useRef(false);
@@ -730,7 +768,7 @@ export default function Sidebar({
             title="Search chats"
             className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors duration-150"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
           </button>
@@ -739,7 +777,7 @@ export default function Sidebar({
             title="New chat"
             className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors duration-150"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M12 5v14M5 12h14" />
             </svg>
           </button>
@@ -785,15 +823,11 @@ export default function Sidebar({
               </svg>
             }
             label="Chat"
-            trailing={
-              hasBackgroundStream ? (
-                <span className="w-[7px] h-[7px] rounded-full" style={{ background: "var(--color-accent)", boxShadow: "0 0 0 3px color-mix(in oklab, var(--color-accent) 22%, transparent)", animation: "pulse-dot 1.4s infinite ease-in-out" }} />
-              ) : undefined
-            }
+            trailing={hasBackgroundStream ? <StreamPulse /> : undefined}
           />
 
           {/* Portfolio (expandable) */}
-          <PortfolioNavItem active={isOnPortfolio} onAddClick={() => setShowAddMenu(true)} onNavigate={onNavigate} />
+          <PortfolioNavItem active={isOnPortfolio} live={liveContexts.has("portfolio")} onAddClick={() => setShowAddMenu(true)} onNavigate={onNavigate} />
 
           {/* Research */}
           <NavLink
@@ -808,10 +842,11 @@ export default function Sidebar({
               </svg>
             }
             label="Research"
+            trailing={liveContexts.has("research") ? <StreamPulse /> : undefined}
           />
 
           {/* Watchlist (expandable) */}
-          <WatchlistNavItem active={isOnWatchlist} onNavigate={onNavigate} />
+          <WatchlistNavItem active={isOnWatchlist} live={liveContexts.has("watchlist")} onNavigate={onNavigate} />
 
           {/* Hedge Fund — hidden for now, restore when feature is ready */}
           {/* <NavLink

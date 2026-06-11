@@ -57,6 +57,7 @@ function hoverDate(unixSec: number, range: ChartRange) {
 export default function StockChart({ candles, range, mode, height = 300, loading, error }: Props) {
   const [hover, setHover] = useState<number | null>(null);
   const ref = useRef<SVGSVGElement>(null);
+  const rafRef = useRef<number | null>(null);
 
   const data = useMemo(() => {
     if (!candles || candles.s !== "ok" || !candles.c?.length) return null;
@@ -112,12 +113,19 @@ export default function StockChart({ candles, range, mode, height = 300, loading
   const lastY = data.y(data.c[data.n - 1]);
   const isCandle = mode === "candles";
 
+  // Gate hover updates to one per animation frame — mousemove fires far more
+  // often than the readout can usefully repaint.
   function onMove(e: React.MouseEvent<SVGSVGElement>) {
-    if (!ref.current || !data) return;
-    const r = ref.current.getBoundingClientRect();
-    const relX = ((e.clientX - r.left) / r.width) * VW;
-    const frac = Math.max(0, Math.min(1, (relX - PADX) / data.innerW));
-    setHover(Math.round(frac * (data.n - 1)));
+    if (!ref.current || !data || rafRef.current != null) return;
+    const { clientX } = e;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      if (!ref.current || !data) return;
+      const r = ref.current.getBoundingClientRect();
+      const relX = ((clientX - r.left) / r.width) * VW;
+      const frac = Math.max(0, Math.min(1, (relX - PADX) / data.innerW));
+      setHover(Math.round(frac * (data.n - 1)));
+    });
   }
 
   const cw = (VW - PADX - PADR) / data.n;
@@ -137,7 +145,13 @@ export default function StockChart({ candles, range, mode, height = 300, loading
         width="100%"
         height="100%"
         onMouseMove={onMove}
-        onMouseLeave={() => setHover(null)}
+        onMouseLeave={() => {
+          if (rafRef.current != null) {
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = null;
+          }
+          setHover(null);
+        }}
         style={{ display: "block", cursor: "crosshair" }}
       >
         <defs>

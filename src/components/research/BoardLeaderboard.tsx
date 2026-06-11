@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ranked, fmtPct1, fmtMktCap, type HorizonKey, type RankedStock, type Stock } from "@/lib/research";
 import { GradeBadge } from "./primitives";
@@ -13,7 +13,9 @@ function ShowMore({ expanded, onToggle, more }: { expanded: boolean; onToggle: (
   );
 }
 
-function Row({ s, onOpen }: { s: RankedStock; onOpen: (t: string) => void }) {
+// Ranked rows are rebuilt as fresh objects on every 30s live-data poll, so a
+// plain memo never bails — compare the fields the row actually renders.
+const Row = memo(function Row({ s, onOpen }: { s: RankedStock; onOpen: (t: string) => void }) {
   const up = s.chg >= 0;
   return (
     <tr
@@ -43,7 +45,16 @@ function Row({ s, onOpen }: { s: RankedStock; onOpen: (t: string) => void }) {
       <td style={{ textAlign: "center" }}><GradeBadge grade={s.grade} size="sm" /></td>
     </tr>
   );
-}
+}, (prev, next) =>
+  prev.onOpen === next.onOpen &&
+  prev.s.ticker === next.s.ticker &&
+  prev.s.rank === next.s.rank &&
+  prev.s.price === next.s.price &&
+  prev.s.chg === next.s.chg &&
+  prev.s.marketCap === next.s.marketCap &&
+  prev.s.score === next.s.score &&
+  prev.s.grade === next.s.grade
+);
 
 /** B1 leaderboard — the horizon-weighted board, collapsed to the top names with
  *  a Show more / Show less control. */
@@ -65,7 +76,7 @@ export default function BoardLeaderboard({
   const rows = useMemo(() => ranked(horizon, universe), [horizon, universe]);
   const shown = rows.slice(0, expanded ? expandTo : collapsed);
   const more = Math.min(expandTo, rows.length) - collapsed;
-  const onOpen = (t: string) => router.push(`/stock/${t}`);
+  const onOpen = useCallback((t: string) => router.push(`/stock/${t}`), [router]);
 
   return (
     <div className="b-board">

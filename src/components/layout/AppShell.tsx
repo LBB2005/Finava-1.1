@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Sidebar from "./Sidebar";
 import GlobalComposer from "@/components/chat/GlobalComposer";
+import ChatEngine from "@/components/chat/ChatEngine";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -30,10 +31,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isLogin = pathname === "/login";
   const isLanding = pathname === "/";
   const isSettings = pathname === "/settings";
+  // Public share pages are standalone for logged-out visitors.
+  const isShare = pathname.startsWith("/share/");
 
   // Marketing landing is always full-bleed, even mid auth-resolution, so the
   // sidebar never flashes for an authed user before the /chat redirect lands.
-  if (isLanding) {
+  if (isLanding || isShare) {
     return <main className="h-full w-full overflow-y-auto">{children}</main>;
   }
 
@@ -105,6 +108,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <main key={pathname} className="flex-1 flex flex-col min-h-0 overflow-hidden route-fade">{children}</main>
         {/* Persistent floating composer — outside the keyed <main>, never unmounts. */}
         {!isSettings && <GlobalComposer />}
+        {/* Headless streaming engine — drives all chat streams, survives navigation
+            so multiple conversations can generate concurrently. */}
+        <ChatEngine />
       </div>
     </div>
   );

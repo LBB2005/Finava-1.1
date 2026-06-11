@@ -1,6 +1,45 @@
 "use client";
 import { FACTORS, factorColor, gradeClass, type FactorScores } from "@/lib/research";
 
+/** Quiet failure state for a research lens — muted copy plus a retry. */
+export function LensErrorState({
+  title = "This lens is unavailable right now.",
+  detail,
+  onRetry,
+  minHeight = 240,
+}: {
+  title?: string;
+  detail?: string;
+  onRetry?: () => void;
+  minHeight?: number;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center" style={{ minHeight, gap: 8, padding: 24, textAlign: "center" }}>
+      <p style={{ fontSize: 13, color: "var(--color-text)" }}>{title}</p>
+      {detail && <p style={{ fontSize: 12, color: "var(--color-muted)", maxWidth: 340, lineHeight: 1.5 }}>{detail}</p>}
+      {onRetry && <button className="tbtn" onClick={onRetry}>Retry</button>}
+    </div>
+  );
+}
+
+/** Quiet empty state for a research lens. */
+export function LensEmptyState({
+  title,
+  detail,
+  minHeight = 200,
+}: {
+  title: string;
+  detail?: string;
+  minHeight?: number;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center" style={{ minHeight, gap: 6, padding: 24, textAlign: "center" }}>
+      <p className="serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)" }}>{title}</p>
+      {detail && <p style={{ fontSize: 12, color: "var(--color-muted)", maxWidth: 340, lineHeight: 1.5 }}>{detail}</p>}
+    </div>
+  );
+}
+
 type BadgeSize = "sm" | "md" | "lg" | "xl";
 
 const BADGE_DIMS: Record<BadgeSize, { w: number; h: number; f: number; r: number }> = {

@@ -16,7 +16,7 @@ const fetcher = (url: string) =>
 /** AI-generated S&P 500 themes. Server-cached (6h) and editorial, so we don't
  *  poll — fetch once and keep it for the session. */
 export function useThemes() {
-  const { data, error, isLoading } = useSWR<ThemesResponse>("/api/research/themes", fetcher, {
+  const { data, error, isLoading, mutate } = useSWR<ThemesResponse>("/api/research/themes", fetcher, {
     revalidateOnFocus: false,
     revalidateIfStale: false,
     dedupingInterval: 60 * 60 * 1000,
@@ -26,5 +26,6 @@ export function useThemes() {
     asOf: data?.asOf ?? null,
     error,
     isLoading,
+    retry: () => mutate(),
   };
 }

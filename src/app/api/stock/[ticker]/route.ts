@@ -6,16 +6,25 @@
 
 import { NextResponse } from "next/server";
 import { getStockBundle } from "@/lib/stockData";
+import { rateLimitGuard } from "@/lib/rateLimit";
+import { isValidTicker } from "@/lib/tickers";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ ticker: string }> }
 ) {
+  const limited = rateLimitGuard(req, "stock", { capacity: 20, refillPerSec: 0.5 });
+  if (limited) return limited;
+
   const { ticker } = await params;
   const symbol = (ticker ?? "").trim().toUpperCase();
 
   if (!symbol) {
     return NextResponse.json({ error: "Missing ticker." }, { status: 400 });
+  }
+
+  if (!isValidTicker(symbol)) {
+    return NextResponse.json({ error: "Invalid ticker symbol." }, { status: 400 });
   }
 
   if (!process.env.FINNHUB_API_KEY) {

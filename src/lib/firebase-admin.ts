@@ -13,6 +13,21 @@ if (!admin.apps.length) {
 export const adminAuth = admin.auth();
 export const db = admin.firestore();
 
+/**
+ * Delete document refs in chunked batches. Firestore batches cap at 500
+ * operations, so an unchunked batch.commit() throws on larger collections.
+ */
+export async function deleteRefsInBatches(
+  refs: admin.firestore.DocumentReference[],
+  chunkSize = 450
+): Promise<void> {
+  for (let i = 0; i < refs.length; i += chunkSize) {
+    const batch = db.batch();
+    refs.slice(i, i + chunkSize).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+}
+
 /** Convert a Firestore Timestamp (or Date) to an ISO string, or null. */
 export function tsToISO(
   val: admin.firestore.Timestamp | Date | null | undefined

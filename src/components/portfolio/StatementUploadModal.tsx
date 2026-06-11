@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import { authFetch } from "@/lib/authFetch";
+import Modal from "@/components/ui/Modal";
 import { useToast } from "@/hooks/useToast";
 
 interface ExtractedHolding {
@@ -84,8 +85,11 @@ export default function StatementUploadModal({ onClose, onAdd }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+    <Modal
+      onClose={onClose}
+      label="Upload portfolio statement"
+      className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
+    >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
           <div>
@@ -251,7 +255,6 @@ export default function StatementUploadModal({ onClose, onAdd }: Props) {
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

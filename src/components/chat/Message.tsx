@@ -28,6 +28,7 @@ import AgentDetailModal from "@/components/agent/AgentDetailModal";
 import { AGENT_LABELS } from "@/types/chat";
 import type { ChatMessage, AgentStep } from "@/types/chat";
 import BacktestResult from "./BacktestResult";
+import { ResponseReceipt } from "./ResponseTiming";
 import type { BacktestResult as BacktestResultType } from "@/app/api/backtest/route";
 import DiscoverResult from "./DiscoverResult";
 import type { DiscoverMessageContent } from "@/lib/scoutTypes";
@@ -84,10 +85,9 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
 
   return (
     <div
+      className="frost-card"
       style={{
-        background: expanded ? "var(--color-bg)" : "var(--color-surface)",
-        border: `1px solid ${expanded ? "var(--color-border-strong)" : "var(--color-border)"}`,
-        borderRadius: 12,
+        borderRadius: 14,
         overflow: "hidden",
         transition: "border-color 200ms, background 200ms",
       }}
@@ -109,20 +109,18 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
           transition: "background 140ms",
         }}
       >
-        {/* Stack glyph */}
+        {/* Stack glyph — Frost f4: bare accent, no plate */}
         <span
           style={{
-            width: 22, height: 22,
-            borderRadius: 6,
-            background: "var(--color-accent)",
-            color: "white",
+            width: 24, height: 24,
+            color: "var(--color-accent)",
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
           }}
         >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2L2 7l10 5 10-5-10-5z" />
             <path d="M2 17l10 5 10-5" />
             <path d="M2 12l10 5 10-5" />
@@ -215,8 +213,8 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
       {expanded && (
         <div
           style={{
-            borderTop: "1px solid var(--color-border)",
-            background: "var(--color-bg)",
+            borderTop: "1px solid color-mix(in oklab, var(--color-text) 8%, transparent)",
+            background: "color-mix(in oklab, var(--color-bg) 70%, transparent)",
             padding: "16px 16px 14px",
             animation: "thinking-fadein 220ms ease-out",
           }}
@@ -429,6 +427,7 @@ function VerdictBlock({
             {message.mode === "deep_research" ? "Deep Research" : "Agent"}
           </span>
         )}
+        <ResponseReceipt durationMs={message.durationMs} />
       </div>
     </div>
   );
@@ -525,13 +524,15 @@ function SkepticCritique({ critique }: { critique: string }) {
 
 /* ── Simple chat avatar ─────────────────────────────────────────────── */
 function FinavaAvatar() {
+  // Frost f4: bare accent mark — no solid plate behind the brand letter.
   return (
     <div
-      className="flex-shrink-0 flex items-center justify-center text-white text-[13px] font-black"
+      className="flex-shrink-0 flex items-center justify-center text-[15px] font-black"
       style={{
         width: 30, height: 30,
         borderRadius: 9,
-        background: "var(--color-accent)",
+        background: "transparent",
+        color: "var(--color-accent)",
         fontFamily: "var(--font-serif)",
         letterSpacing: "0.04em",
       }}
@@ -612,8 +613,11 @@ function MessageInner({
         <FinavaAvatar />
         <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
           <Markdown>{message.content}</Markdown>
-          <div style={{ fontSize: 11, color: "var(--color-muted)", marginTop: 10, fontVariantNumeric: "tabular-nums" }}>
-            {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <span style={{ fontSize: 11, color: "var(--color-muted)", fontVariantNumeric: "tabular-nums" }}>
+              {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+            <ResponseReceipt durationMs={message.durationMs} />
           </div>
           {message.followups && message.followups.length > 0 && onSuggestion && (
             <div style={{ marginTop: 14 }}>

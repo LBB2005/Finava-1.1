@@ -4,8 +4,8 @@
 // the server-only usage module).
 export interface UsageSummary {
   plan: string;
-  daily: { used: number; limit: number; pct: number };
-  weekly: { used: number; limit: number; pct: number };
+  daily: { used: number; limit: number | null; pct: number };
+  weekly: { used: number; limit: number | null; pct: number };
   series: { date: string; credits: number }[];
   resets: { daily: string; weekly: string };
 }
@@ -19,10 +19,11 @@ function Meter({
 }: {
   label: string;
   used: number;
-  limit: number;
+  limit: number | null;
   pct: number;
   over: boolean;
 }) {
+  const unlimited = limit === null;
   return (
     <div>
       <div className="flex justify-between items-baseline mb-1">
@@ -30,15 +31,16 @@ function Meter({
           {label}
         </span>
         <span className="text-[10.5px]" style={{ color: "var(--color-text-secondary)" }}>
-          {Math.round(used)} / {limit}
+          {unlimited ? `${Math.round(used)} · Unlimited` : `${Math.round(used)} / ${limit}`}
         </span>
       </div>
       <div className="h-[5px] rounded-full overflow-hidden" style={{ background: "var(--color-surface-2)" }}>
         <div
           className="h-full rounded-full transition-[width] duration-500 ease-out"
           style={{
-            width: `${Math.min(100, pct)}%`,
+            width: unlimited ? "100%" : `${Math.min(100, pct)}%`,
             background: over ? "var(--color-bear)" : "var(--color-accent)",
+            opacity: unlimited ? 0.25 : 1,
           }}
         />
       </div>

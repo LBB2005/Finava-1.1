@@ -189,10 +189,31 @@ body {
   outline: none;
 }
 
-/* Chat composer box — focus cue driven by CSS (was imperative onFocus/onBlur). */
+/* Frost glass card — shared surface recipe for chat-page panels (crew panel,
+   agent ribbon). Same material as the composer: translucent surface + blur,
+   firm edge, top sheen, lifted shadow. */
+.frost-card {
+  border: 1px solid var(--color-border-strong);
+  background: color-mix(in oklab, var(--color-surface) 82%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+  backdrop-filter: blur(16px) saturate(1.25);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, #fff 45%, transparent),
+    0 10px 26px -14px rgba(15, 23, 42, 0.26);
+}
+
+/* Translucent header/footer strips inside a frost card, with hairline rules. */
+.frost-strip {
+  background: color-mix(in oklab, var(--color-bg) 45%, transparent);
+}
+.frost-hairline {
+  border-color: color-mix(in oklab, var(--color-text) 8%, transparent) !important;
+}
+
+/* Chat composer box — Frost: focus only firms the border (accent tint, no glow);
+   the frosted drop shadow set inline on the box is left untouched. */
 .chat-input-box:focus-within {
-  border-color: var(--color-border-strong) !important;
-  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.07) !important;
+  border-color: color-mix(in oklab, var(--color-accent) 42%, transparent) !important;
 }
 
 /* Template list item hover (was imperative onMouseEnter/Leave). */
@@ -240,6 +261,38 @@ body {
 /* Portfolio table row hover (was imperative hover). */
 .portfolio-row:hover {
   background: var(--color-accent-light);
+}
+
+/* Portfolio page grids — two-column on desktop, stacked on tablet/mobile. */
+.portfolio-hero {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.9fr) 1.4fr;
+}
+.portfolio-hero-chart {
+  border-left: 1px solid var(--color-border);
+}
+.portfolio-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.portfolio-alloc-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+}
+@media (max-width: 900px) {
+  .portfolio-hero {
+    grid-template-columns: 1fr;
+  }
+  .portfolio-hero-chart {
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+  }
+  .portfolio-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .portfolio-alloc-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Settings action button (was imperative hover; the old JS also had a
@@ -322,6 +375,38 @@ body {
 }
 .typing-dot { animation: pulse-dot 1.4s infinite ease-in-out; }
 .typing-dot:nth-child(2) { animation-delay: 0.16s; }
+
+/* Market status dot — pulsing glow ring (green = open, red = closed) */
+@keyframes status-dot-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--status-dot-color) 45%, transparent); }
+  70% { box-shadow: 0 0 0 5px color-mix(in oklab, var(--status-dot-color) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--status-dot-color) 0%, transparent); }
+}
+.status-dot {
+  background: var(--status-dot-color);
+  animation: status-dot-pulse 2s infinite ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-dot { animation: none; }
+}
+
+/* Streaming "ticker bars" equalizer — recents-row live indicator */
+@keyframes ticker-bar {
+  0%, 100% { height: 30%; opacity: 0.5; }
+  50% { height: 100%; opacity: 1; }
+}
+.ticker-bars { display: inline-flex; align-items: flex-end; gap: 1.5px; height: 12px; }
+.ticker-bars i {
+  width: 2px; border-radius: 1px; background: currentColor;
+  animation: ticker-bar 2.08s infinite ease-in-out;
+}
+.ticker-bars i:nth-child(1) { animation-delay: 0s; }
+.ticker-bars i:nth-child(2) { animation-delay: 0.31s; }
+.ticker-bars i:nth-child(3) { animation-delay: 0.62s; }
+.ticker-bars i:nth-child(4) { animation-delay: 0.42s; }
+@media (prefers-reduced-motion: reduce) {
+  .ticker-bars i { animation: none; height: 65%; }
+}
 .typing-dot:nth-child(3) { animation-delay: 0.32s; }
 
 /* Fade-in utility */
@@ -404,16 +489,20 @@ body {
   100% { transform: scale(1) rotate(0); }
 }
 
-/* Composer "+" attach button — bordered surface chip with accent hover. */
-.cmp-plus {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
+/* Composer secondary buttons (Frost) — "+" and the mode pill sit bare in ink,
+   no plate or border; hover lifts to a soft accent-tinted chip. */
+.cmp-plus,
+.cmp-mode-btn {
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--color-text-secondary);
   transition: background 140ms, border-color 140ms, color 140ms;
 }
-.cmp-plus:hover:not(:disabled) {
+.cmp-plus:hover:not(:disabled),
+.cmp-mode-btn:hover:not(:disabled) {
   background: var(--color-accent-light);
-  border-color: var(--color-accent-medium);
+}
+.cmp-plus:hover:not(:disabled) {
   color: var(--color-accent);
 }
 
@@ -1737,8 +1826,8 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 /* ── Command-bar vocabulary (mast/title/eyebrow/right still used by the
    stock page's sticky tab bar; the page-level bar itself is .page-header) ── */
 .research-root .b-bar-mast { display: flex; align-items: baseline; gap: 10px; }
-.research-root .b-bar-title { font-size: 21px; font-weight: 800; letter-spacing: -0.015em; color: var(--color-text); }
-.research-root .b-bar-eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 0.16em; color: var(--color-muted); white-space: nowrap; }
+.research-root .b-bar-title { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: var(--color-text); }
+.research-root .b-bar-eyebrow { font-size: 10.5px; font-weight: 400; letter-spacing: 0.04em; color: var(--color-muted); white-space: nowrap; }
 .research-root .b-bar-right { display: flex; align-items: center; gap: 14px; margin-left: auto; }
 .research-root .b-asof { font-size: 10.5px; color: var(--color-muted); white-space: nowrap; }
 
@@ -1834,4 +1923,21 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 @media (max-width: 640px) {
   .research-root.vB1 .b1-hero { grid-template-columns: 1fr; }
   .research-root.vB1 .b1-px { border-left: none; border-top: 1px solid var(--color-border); }
+}
+
+/* ── Print / Export PDF ──────────────────────────────────────────────────────
+   The chat header's "Export PDF" triggers window.print(); these rules isolate
+   the transcript (.print-transcript) so the saved PDF is just the conversation. */
+@media print {
+  * { overflow: visible !important; }
+  html, body { height: auto !important; }
+  body * { visibility: hidden; }
+  .print-transcript, .print-transcript * { visibility: visible; }
+  .print-transcript {
+    position: absolute !important;
+    inset: 0 auto auto 0;
+    width: 100%;
+    height: auto !important;
+  }
+  .print-transcript > div { padding-bottom: 24px !important; }
 }

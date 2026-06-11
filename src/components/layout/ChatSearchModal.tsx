@@ -1,18 +1,9 @@
 "use client";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { useChatStore } from "@/stores/chatStore";
 import { authFetcher } from "@/lib/authFetch";
-import type { ChatMode, AgentStep } from "@/types/chat";
-
-interface ConvMessage {
-  id: string; role: string; content: string; mode: string; createdAt: string; agentTrace?: string;
-}
-interface Conversation {
-  id: string; title: string | null; createdAt: string; updatedAt: string;
-  messages: ConvMessage[];
-}
+import { useOpenConversation } from "@/hooks/useOpenConversation";
+import type { Conversation } from "@/components/layout/ConversationList";
 
 function getTitle(conv: Conversation): string {
   if (conv.title) return conv.title;
@@ -31,16 +22,12 @@ function snippet(conv: Conversation, q: string): string | null {
 }
 
 export default function ChatSearchModal({ onClose }: { onClose: () => void }) {
-  const router = useRouter();
-  const { data: conversations } = useSWR<Conversation[]>("/api/conversations", authFetcher);
+  // `full=1` so search can match message bodies, not just the title preview.
+  const { data: conversations } = useSWR<Conversation[]>("/api/conversations?full=1", authFetcher);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const {
-    setConversationId, setMessages, setStreaming,
-    clearStreamingContent, clearAgentSteps, streamingConversationId,
-  } = useChatStore();
+  const openConversation = useOpenConversation();
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -62,31 +49,7 @@ export default function ChatSearchModal({ onClose }: { onClose: () => void }) {
   }
 
   function loadConversation(conv: Conversation) {
-    setMessages(conv.messages.map((m) => {
-      let agentTrace: AgentStep[] | undefined;
-      if (m.agentTrace) {
-        try { agentTrace = JSON.parse(m.agentTrace); } catch { /* malformed trace — skip */ }
-      }
-      return {
-        id: m.id,
-        role: m.role as "user" | "assistant",
-        content: m.content,
-        mode: (m.mode as ChatMode) || "agent",
-        createdAt: m.createdAt,
-        agentTrace,
-      };
-    }));
-    setConversationId(conv.id);
-    if (conv.id === streamingConversationId) {
-      setStreaming(true);
-    } else {
-      setStreaming(false);
-      if (!streamingConversationId) {
-        clearStreamingContent();
-        clearAgentSteps();
-      }
-    }
-    router.push("/chat");
+    openConversation(conv);
     onClose();
   }
 

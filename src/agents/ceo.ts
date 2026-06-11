@@ -429,8 +429,18 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
     // Extract all tool_use blocks and dispatch in parallel
     const toolUseBlocks = response.content.filter((b) => b.type === "tool_use");
 
-    // Emit starts for all agents in this batch. The scout is orchestration, not a
-    // crew member — it emits its own discovery events, so don't show it as an agent.
+    // Announce the whole crew first so the UI pops the panel up pre-sized with
+    // every agent shown as "queued", then transitions each to running below.
+    // The scout is orchestration, not a crew member — it emits its own discovery
+    // events, so don't show it as an agent.
+    const crewAgents = toolUseBlocks
+      .filter((b) => b.name !== "scout_universe")
+      .map((b) => b.name as AgentName);
+    if (crewAgents.length > 0) {
+      emit({ type: "crew_planned", agents: crewAgents });
+    }
+
+    // Now flip each queued agent to running.
     for (const block of toolUseBlocks) {
       if (block.name === "scout_universe") continue;
       emit({ type: "agent_start", agent: block.name as AgentName });

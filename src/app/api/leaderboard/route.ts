@@ -8,14 +8,29 @@
 import { NextResponse } from "next/server";
 import { getBoardData } from "@/lib/leaderboardData";
 import { UNIVERSE } from "@/lib/research";
+import { rateLimitGuard } from "@/lib/rateLimit";
+import { parseTickersParam } from "@/lib/tickers";
+
+// One call covers the full ~500-ticker universe, so the request itself is heavy;
+// keep the sustained rate well below the quotes route.
+const LIMITS = { capacity: 10, refillPerSec: 0.2 };
+
+// The board never legitimately needs more than the seed universe.
+const MAX_TICKERS = 600;
 
 export async function GET(req: Request) {
+  const limited = rateLimitGuard(req, "leaderboard", LIMITS);
+  if (limited) return limited;
+
   const { searchParams } = new URL(req.url);
-  const raw = searchParams.get("tickers") ?? "";
-  const requested = raw
-    .split(",")
-    .map((t) => t.trim().toUpperCase())
-    .filter(Boolean);
+  const requested = parseTickersParam(searchParams.get("tickers") ?? "");
+
+  if (requested.length > MAX_TICKERS) {
+    return NextResponse.json(
+      { error: `Too many tickers — max ${MAX_TICKERS} per request.` },
+      { status: 400 }
+    );
+  }
 
   // Default to the full seed universe when the client sends no explicit list.
   const tickers = requested.length ? requested : UNIVERSE.map((s) => s.ticker);

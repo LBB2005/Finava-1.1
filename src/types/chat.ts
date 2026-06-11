@@ -22,6 +22,9 @@ export interface ChatMessage {
   agentTrace?: AgentStep[];
   critique?: string;
   followups?: string[];
+  /** How long the response took to generate, in ms — shown as the "Analyzed in
+   *  Ns" receipt. Only set on completed assistant messages. */
+  durationMs?: number;
   /** Discovery: the scout's picks, kept so the "Go deeper" button can re-seed a deep run. */
   scoutPicks?: ScoutPick[];
   /** Discovery: which tier produced this message. */
@@ -75,6 +78,9 @@ export interface AgentStep {
 }
 
 export type AgentEvent =
+  // Emitted once, right after the CEO decides the crew — lets the UI pop the
+  // panel up pre-sized with every agent shown as "queued" before any runs.
+  | { type: "crew_planned"; agents: AgentName[] }
   | { type: "agent_start"; agent: AgentName }
   | { type: "agent_complete"; agent: AgentName; result: string }
   | { type: "agent_error"; agent: AgentName; error: string }

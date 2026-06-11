@@ -3,6 +3,14 @@ import { useRef, useEffect, useState, useCallback, type KeyboardEvent } from "re
 import type { ChatMode } from "@/types/chat";
 import { AGENT_COUNT, PROMPT_TEMPLATES } from "@/types/chat";
 import { useWatchlists } from "@/hooks/useWatchlists";
+import useSWR from "swr";
+import { authFetcher } from "@/lib/authFetch";
+
+interface Playbook {
+  id: string;
+  title: string;
+  steps: string[];
+}
 
 interface WatchlistRef {
   id: string;
@@ -108,6 +116,9 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
   const [launching, setLaunching] = useState(false);
 
   const { watchlists } = useWatchlists();
+  // User-saved playbooks (from the chat header's "Save as Playbook"). Fetched
+  // lazily — only once the "+" popover is first opened.
+  const { data: playbooks } = useSWR<Playbook[]>(popoverOpen ? "/api/playbooks" : null, authFetcher);
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
@@ -260,13 +271,20 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
           <div
             className="chat-input-box relative flex items-end gap-1.5 transition-all duration-200"
             style={{
-              background: "var(--color-bg)",
-              border: "1px solid var(--color-border)",
+              // Frost composer — translucent frosted surface (theme-token driven),
+              // soft blur so page content reads softly behind it. A faint cool tint
+              // (surface over the page) + firm edge + lifted shadow keep the glass
+              // pill legible even on a near-white page. Focus firms the border (no
+              // glow) via .chat-input-box:focus-within.
+              background: "color-mix(in oklab, var(--color-surface) 82%, transparent)",
+              border: "1px solid var(--color-border-strong)",
               borderRadius: 16,
-              padding: 8,
+              padding: 9,
+              backdropFilter: "blur(16px) saturate(1.25)",
+              WebkitBackdropFilter: "blur(16px) saturate(1.25)",
               boxShadow: floating
-                ? "0 8px 28px rgba(15,23,42,0.13), 0 2px 8px rgba(15,23,42,0.07)"
-                : disabled ? "none" : "0 1px 4px rgba(15,23,42,0.04)",
+                ? "inset 0 1px 0 color-mix(in oklab, var(--color-bg) 30%, #fff), 0 14px 36px -14px rgba(15,23,42,0.34)"
+                : disabled ? "none" : "inset 0 1px 0 color-mix(in oklab, var(--color-bg) 30%, #fff), 0 10px 26px -14px rgba(15,23,42,0.26)",
               opacity: disabled ? 0.6 : 1,
             }}
           >
@@ -290,8 +308,8 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                 disabled={disabled}
                 title={cfg.label}
                 aria-label={`Mode: ${cfg.label}`}
-                className="inline-flex items-center gap-1 h-8 px-2 mb-[1px] rounded-[9px] text-[12px] font-semibold"
-                style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)", color: cfg.color }}
+                className="cmp-mode-btn inline-flex items-center gap-1 h-8 px-2 mb-[1px] rounded-[9px] text-[12px] font-semibold"
+                style={{ border: "1px solid transparent", background: "transparent", color: cfg.color }}
               >
                 {cfg.icon}
                 <span
@@ -352,8 +370,16 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
               disabled={!canSend}
               className="flex-shrink-0 w-8 h-8 mb-[1px] rounded-full flex items-center justify-center transition-colors duration-150"
               style={{
-                background: canSend ? sendBgColor : "var(--color-surface-2)",
-                color: canSend ? "white" : "var(--color-muted)",
+                // Frost send — always reads as a navy puck (mock keeps it solid).
+                // At rest it's a softened accent; ready state is full accent + a soft
+                // accent glow. Disabled (streaming) falls back to a neutral disc.
+                background: disabled
+                  ? "var(--color-surface-2)"
+                  : canSend
+                    ? sendBgColor
+                    : `color-mix(in oklab, ${sendBgColor} 42%, var(--color-surface))`,
+                color: disabled ? "var(--color-muted)" : "white",
+                boxShadow: canSend ? `0 4px 12px -5px color-mix(in oklab, ${sendBgColor} 55%, transparent)` : "none",
                 animation: launching ? "send-launch 360ms ease-out" : "none",
               }}
             >
@@ -443,6 +469,26 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+
+              {/* PLAYBOOKS — saved from past conversations via the ⋯ menu */}
+              {Array.isArray(playbooks) && playbooks.length > 0 && (
+                <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--color-border)" }}>
+                  <p className="eyebrow-label mb-1.5" style={{ color: "var(--color-muted)" }}>Your Playbooks</p>
+                  <div className="flex flex-col gap-0.5 max-h-[148px] overflow-y-auto">
+                    {playbooks.map((pb) => (
+                      <button key={pb.id} onClick={() => applyTemplate(pb.steps[0] ?? "")}
+                        className="template-btn w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[7px] text-left text-[12px] transition-colors duration-100"
+                        style={{ color: "var(--color-text-secondary)" }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                          style={{ color: "var(--color-accent)", flexShrink: 0 }}>
+                          <path d="M19 21l-7-4-7 4V5a2 2 0 012-2h10a2 2 0 012 2v16z" />
+                        </svg>
+                        <span className="flex-1 min-w-0 truncate">{pb.title}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}

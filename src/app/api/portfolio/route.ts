@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, serializeDoc } from "@/lib/firebase-admin";
+import { db, serializeDoc, deleteRefsInBatches } from "@/lib/firebase-admin";
 import { withRoute } from "@/lib/withRoute";
 import { AddHoldingSchema } from "@/lib/schemas/portfolio";
 
@@ -15,9 +15,7 @@ export const GET = withRoute({}, async ({ userId }) => {
 
 export const DELETE = withRoute({}, async ({ userId }) => {
   const snap = await holdingsCol(userId).get();
-  const batch = db.batch();
-  snap.docs.forEach((doc) => batch.delete(doc.ref));
-  await batch.commit();
+  await deleteRefsInBatches(snap.docs.map((doc) => doc.ref));
   return NextResponse.json({ ok: true });
 });
 

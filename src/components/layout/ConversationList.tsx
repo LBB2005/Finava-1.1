@@ -5,7 +5,7 @@ import { useChatStore } from "@/stores/chatStore";
 import { useToast } from "@/hooks/useToast";
 
 interface ConvMessage {
-  id: string; role: string; content: string; mode: string; createdAt: string; agentTrace?: string;
+  id: string; role: string; content: string; mode: string; createdAt: string; agentTrace?: string; durationMs?: number;
 }
 export interface Conversation {
   id: string; title: string | null; createdAt: string; updatedAt: string;
@@ -15,6 +15,7 @@ export interface Conversation {
 
 import { authFetch, authFetcher } from "@/lib/authFetch";
 import { useOpenConversation } from "@/hooks/useOpenConversation";
+import { abortConversationStream } from "@/components/chat/ChatEngine";
 const fetcher = authFetcher;
 
 function formatDate(iso: string) {
@@ -54,7 +55,8 @@ export default function ConversationList() {
   );
   const [pinned, setPinned] = useState<Set<string>>(getPinned);
 
-  const { conversationId, streamingConversationId } = useChatStore();
+  const conversationId = useChatStore((s) => s.conversationId);
+  const streamsByConv = useChatStore((s) => s.streamsByConv);
 
   function loadConversation(conv: Conversation) {
     openConversation(conv);
@@ -74,7 +76,8 @@ export default function ConversationList() {
     e.stopPropagation();
     // Optimistic: drop the row immediately, then confirm with the server.
     mutate((prev) => prev?.filter((c) => c.id !== id), { revalidate: false });
-    if (conversationId === id) useChatStore.getState().reset();
+    abortConversationStream(id);
+    useChatStore.getState().dropConversation(id);
     try {
       const res = await authFetch(`/api/conversations/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`${res.status}`);
@@ -122,7 +125,7 @@ export default function ConversationList() {
   function ConvRow({ conv }: { conv: Conversation }) {
     const isPinned = pinned.has(conv.id);
     const isActive = conversationId === conv.id;
-    const isLive = streamingConversationId === conv.id;
+    const isLive = streamsByConv[conv.id]?.isStreaming ?? false;
     return (
       <div
         role="button"
@@ -136,9 +139,9 @@ export default function ConversationList() {
         }`}
       >
         {isLive ? (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 animate-spin opacity-70" style={{ animationDuration: "1s" }}>
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round" />
-          </svg>
+          <span className="ticker-bars flex-shrink-0 text-[var(--color-accent)]" role="img" aria-label="Generating">
+            <i></i><i></i><i></i><i></i>
+          </span>
         ) : (
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="flex-shrink-0 opacity-40">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />

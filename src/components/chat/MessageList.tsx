@@ -4,11 +4,14 @@ import Markdown from "./Markdown";
 import StreamingMarkdown, { useSmoothStream } from "./StreamingMarkdown";
 import Message from "./Message";
 import TypingIndicator from "./TypingIndicator";
+import { LiveElapsed } from "./ResponseTiming";
 import AgentDetailModal from "@/components/agent/AgentDetailModal";
 import { AGENT_LABELS } from "@/types/chat";
 import type { ChatMessage, ChatMode, AgentStep } from "@/types/chat";
 import { useMarketPulse } from "@/hooks/useMarketPulse";
 import { usMarketStatus } from "@/lib/marketHours";
+import useSWR from "swr";
+import { authFetcher } from "@/lib/authFetch";
 
 /* ── Starter prompts with tags ──────────────────────────────────────────── */
 const SUGGESTIONS = [
@@ -20,10 +23,11 @@ const SUGGESTIONS = [
 
 /* ── Tiny helpers ───────────────────────────────────────────────────────── */
 function FinavaAvatar() {
+  // Frost f4: bare accent mark — no solid plate behind the brand letter.
   return (
     <div
-      className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center flex-shrink-0 text-white text-[13px] font-black"
-      style={{ background: "var(--color-accent)", fontFamily: "var(--font-serif)", letterSpacing: "0.04em" }}
+      className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center flex-shrink-0 text-[15px] font-black"
+      style={{ background: "transparent", color: "var(--color-accent)", fontFamily: "var(--font-serif)", letterSpacing: "0.04em" }}
     >
       L
     </div>
@@ -40,7 +44,7 @@ function Spinner() {
 }
 
 /* ── Agent activity panel ("Research crew") ─────────────────────────────── */
-function AgentActivityPanel({ steps, ceoThinking }: { steps: AgentStep[]; ceoThinking?: string }) {
+function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentStep[]; ceoThinking?: string; startedAt?: number | null }) {
   const [detailStep, setDetailStep] = useState<AgentStep | null>(null);
   const complete  = steps.filter((s) => s.status === "complete").length;
   const running   = steps.filter((s) => s.status === "running").length;
@@ -50,7 +54,7 @@ function AgentActivityPanel({ steps, ceoThinking }: { steps: AgentStep[]; ceoThi
   // Before any agent reports in, show the same Calm Orb "thinking" beat as
   // Simple chat — a gentle breathing wait while the crew is being deployed.
   if (!total) {
-    return <TypingIndicator label="Assembling your research crew" />;
+    return <TypingIndicator label="Assembling your research crew" startedAt={startedAt} />;
   }
 
   return (
@@ -60,10 +64,7 @@ function AgentActivityPanel({ steps, ceoThinking }: { steps: AgentStep[]; ceoThi
       )}
 
       {/* Mobile compact bar */}
-      <div
-        className="flex sm:hidden items-center gap-3 px-4 py-3 rounded-[var(--radius-md)] fade-in"
-        style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}
-      >
+      <div className="frost-card flex sm:hidden items-center gap-3 px-4 py-3 rounded-[14px] fade-in">
         <span className="flex gap-1 flex-shrink-0">
           {[0, 1, 2].map((i) => (
             <span key={i} className="typing-dot inline-block w-[5px] h-[5px] rounded-full" style={{ background: "var(--color-accent)", animationDelay: `${i * 160}ms` }} />
@@ -81,20 +82,17 @@ function AgentActivityPanel({ steps, ceoThinking }: { steps: AgentStep[]; ceoThi
       <div className="hidden sm:flex gap-[14px]">
       <FinavaAvatar />
       <div className="flex-1 min-w-0 pt-0">
-        <div
-          className="rounded-[var(--radius-lg)] overflow-hidden fade-in"
-          style={{ border: "1px solid var(--color-border-strong)", boxShadow: "var(--shadow-card)" }}
-        >
-          {/* Header */}
+        <div className="frost-card rounded-[18px] overflow-hidden fade-in">
+          {/* Header — translucent strip, bare accent crew mark (Frost f4) */}
           <div
-            className="flex items-center gap-3 px-[14px] py-[11px]"
-            style={{ borderBottom: "1px solid var(--color-border)", background: "var(--color-surface)" }}
+            className="frost-strip frost-hairline flex items-center gap-3 px-[14px] py-[11px]"
+            style={{ borderBottom: "1px solid" }}
           >
             <div
-              className="w-[22px] h-[22px] rounded-[6px] flex items-center justify-center text-white flex-shrink-0"
-              style={{ background: "var(--color-accent)" }}
+              className="w-[24px] h-[24px] flex items-center justify-center flex-shrink-0"
+              style={{ color: "var(--color-accent)" }}
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2L2 7l10 5 10-5-10-5z" />
                 <path d="M2 17l10 5 10-5" />
                 <path d="M2 12l10 5 10-5" />
@@ -110,18 +108,19 @@ function AgentActivityPanel({ steps, ceoThinking }: { steps: AgentStep[]; ceoThi
             </div>
             {/* Progress meter */}
             <div className="ml-auto flex items-center gap-[10px]">
+              <LiveElapsed startedAt={startedAt ?? null} className="text-[11px] text-[var(--color-muted)]" />
               <span className="text-[11.5px] font-semibold text-[var(--color-text-secondary)] tabular-nums">
                 {complete}/{total}
               </span>
               <div
                 className="rounded-full overflow-hidden"
-                style={{ width: 80, height: 4, background: "var(--color-surface-2)" }}
+                style={{ width: 80, height: 4, background: "color-mix(in oklab, var(--color-text) 10%, transparent)" }}
               >
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${(complete / total) * 100}%`,
-                    background: "var(--color-accent)",
+                    background: "linear-gradient(90deg, color-mix(in oklab, var(--color-accent) 70%, #6ea2dd), var(--color-accent))",
                   }}
                 />
               </div>
@@ -138,10 +137,18 @@ function AgentActivityPanel({ steps, ceoThinking }: { steps: AgentStep[]; ceoThi
                 return (
                   <div
                     key={step.agent}
-                    className="flex items-center gap-3 px-[14px] py-[9px]"
+                    className="flex items-center gap-3 px-[14px] py-[9px] transition-colors duration-300"
                     style={{
-                      borderBottom: "1px solid var(--color-border)",
+                      borderBottom: "1px solid color-mix(in oklab, var(--color-text) 7%, transparent)",
                       borderTop: isSkeptic ? "1px solid color-mix(in oklab, #f59e0b 30%, transparent)" : undefined,
+                      // Frost: the analyzing row lifts gently off the glass.
+                      ...(step.status === "running"
+                        ? {
+                            background: "color-mix(in oklab, var(--color-bg) 60%, transparent)",
+                            borderRadius: 9,
+                            boxShadow: "0 2px 10px -8px rgba(15, 23, 42, 0.3)",
+                          }
+                        : {}),
                     }}
                   >
                     {/* Status icon */}
@@ -212,17 +219,11 @@ function AgentActivityPanel({ steps, ceoThinking }: { steps: AgentStep[]; ceoThi
           {/* Footer: compiling / synthesizing */}
           {(isCompiling || (total > 0 && running > 0)) && (
             <div
-              className="px-[14px] py-[10px] flex items-center gap-2"
-              style={{ background: "var(--color-surface)", borderTop: "1px solid var(--color-border)" }}
+              className="frost-strip frost-hairline px-[14px] py-[10px] flex items-center gap-2"
+              style={{ borderTop: "1px solid" }}
             >
-              <span className="flex gap-1">
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="typing-dot inline-block w-[6px] h-[6px] rounded-full"
-                    style={{ background: "var(--color-accent)", animationDelay: `${i * 160}ms` }}
-                  />
-                ))}
+              <span className="ticker-bars flex-shrink-0 text-[var(--color-accent)]" role="img" aria-label="Analyzing">
+                <i></i><i></i><i></i><i></i>
               </span>
               <span className="text-[11.5px] italic text-[var(--color-text-secondary)] ml-1">
                 {isCompiling ? "CEO is synthesizing findings…" : "Agents running in parallel…"}
@@ -273,10 +274,9 @@ function MarketPulse() {
         </span>
         <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-muted)]">
           <span
-            className="inline-block w-[6px] h-[6px] rounded-full"
+            className="status-dot inline-block w-[6px] h-[6px] rounded-full"
             style={{
-              background: market.open ? "var(--color-bull)" : "var(--color-muted)",
-              boxShadow: market.open ? "0 0 0 3px color-mix(in oklab, var(--color-bull) 22%, transparent)" : "none",
+              ["--status-dot-color" as string]: market.open ? "var(--color-bull)" : "var(--color-bear)",
             }}
           />
           {isLoading ? "Loading…" : market.label}
@@ -332,7 +332,15 @@ function MarketPulse() {
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */
+interface PlaybookRef {
+  id: string;
+  title: string;
+  steps: string[];
+}
+
 function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void }) {
+  // Saved playbooks (chat ⋯ menu → "Save as Playbook") surface here as chips.
+  const { data: playbooks } = useSWR<PlaybookRef[]>("/api/playbooks", authFetcher);
   const now = new Date();
   const hour = now.getHours();
   const greeting =
@@ -358,6 +366,38 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
         </div>
 
         <MarketPulse />
+
+        {/* Saved playbooks */}
+        {Array.isArray(playbooks) && playbooks.length > 0 && (
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+                Your playbooks
+              </span>
+              <span className="text-[11px] text-[var(--color-muted)]">Saved from past chats</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-[10px]">
+              {playbooks.slice(0, 4).map((pb) => (
+                <button
+                  key={pb.id}
+                  onClick={() => onSuggestion?.(pb.steps[0] ?? "")}
+                  className="followup-chip text-left px-[16px] py-[14px] rounded-[12px] flex gap-[10px] items-start transition-all duration-120 group"
+                  style={{ fontSize: "13.5px", lineHeight: 1.4 }}
+                >
+                  <span
+                    className="flex-shrink-0 mt-[1px]"
+                    style={{ color: "var(--color-accent)" }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 21l-7-4-7 4V5a2 2 0 012-2h10a2 2 0 012 2v16z" />
+                    </svg>
+                  </span>
+                  <span className="flex-1 truncate">{pb.title}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Suggestion tiles */}
         <div className="mb-3">
@@ -398,6 +438,7 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
 interface Props {
   messages: ChatMessage[];
   isStreaming: boolean;
+  streamStartedAt?: number | null;
   streamingContent: string;
   mode: ChatMode;
   onSuggestion?: (text: string) => void;
@@ -409,6 +450,7 @@ interface Props {
 export default function MessageList({
   messages,
   isStreaming,
+  streamStartedAt = null,
   streamingContent,
   mode,
   onSuggestion,
@@ -434,7 +476,7 @@ export default function MessageList({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto" style={{ scrollbarGutter: "stable both-edges" }}>
+    <div className="flex-1 overflow-y-auto print-transcript" style={{ scrollbarGutter: "stable both-edges" }}>
       <div className="mx-auto max-w-[720px] px-4 pt-8 pb-[150px] flex flex-col gap-7">
         {messages.map((msg) => (
           <Message key={msg.id} message={msg} onSuggestion={onSuggestion} onDiscoverDeeper={onDiscoverDeeper} />
@@ -442,7 +484,7 @@ export default function MessageList({
 
         {/* Agent activity panel */}
         {showAgentActivity && (
-          <AgentActivityPanel steps={agentSteps} ceoThinking={ceoThinking} />
+          <AgentActivityPanel steps={agentSteps} ceoThinking={ceoThinking} startedAt={streamStartedAt} />
         )}
 
         {/* Streaming response — Claude-style word-by-word fade + steady pacing */}
@@ -459,12 +501,12 @@ export default function MessageList({
 
         {/* Simple mode waiting — Calm Orb thinking indicator */}
         {mode === "simple" && isStreaming && !streamingContent && (
-          <TypingIndicator label="Thinking it through" />
+          <TypingIndicator label="Thinking it through" startedAt={streamStartedAt} />
         )}
 
         {/* Discover mode waiting — scanning / wave progress */}
         {mode === "discover" && isStreaming && !streamingContent && (
-          <TypingIndicator label={ceoThinking || "Scanning the S&P 500…"} />
+          <TypingIndicator label={ceoThinking || "Scanning the S&P 500…"} startedAt={streamStartedAt} />
         )}
 
         <div ref={bottomRef} />

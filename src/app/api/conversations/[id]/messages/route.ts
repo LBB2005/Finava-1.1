@@ -11,7 +11,7 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { role, content, mode = "simple", agentTrace } = body;
+    const { role, content, mode = "simple", agentTrace, durationMs } = body;
 
     // Verify the conversation belongs to this user
     const convRef = db.collection("users").doc(userId).collection("conversations").doc(id);
@@ -27,6 +27,7 @@ export async function POST(
       content,
       mode,
       agentTrace: agentTrace ? JSON.stringify(agentTrace) : null,
+      durationMs: typeof durationMs === "number" ? durationMs : null,
       createdAt: now,
     });
 

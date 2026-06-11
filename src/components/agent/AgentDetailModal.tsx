@@ -56,7 +56,7 @@ export default function AgentDetailModal({ step, onClose }: Props) {
         {/* Header */}
         <div
           style={{
-            padding: "15px 20px",
+            padding: "18px 28px",
             borderBottom: "1px solid var(--color-border)",
             display: "flex",
             alignItems: "center",
@@ -113,7 +113,7 @@ export default function AgentDetailModal({ step, onClose }: Props) {
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, overflow: "auto", padding: "20px 24px" }}>
+        <div style={{ flex: 1, overflow: "auto", padding: "28px 32px" }}>
           {step.result ? (
             <Markdown>{step.result}</Markdown>
           ) : step.error ? (

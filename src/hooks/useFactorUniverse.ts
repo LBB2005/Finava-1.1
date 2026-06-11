@@ -23,7 +23,7 @@ const fetcher = (url: string) =>
  * scores come from the network.
  */
 export function useFactorUniverse() {
-  const { data, error, isLoading } = useSWR<FactorResponse>(
+  const { data, error, isLoading, mutate } = useSWR<FactorResponse>(
     "/api/research/factors",
     fetcher,
     {
@@ -41,5 +41,6 @@ export function useFactorUniverse() {
     error,
     isLoading,
     loaded: !!data,
+    retry: () => mutate(),
   };
 }

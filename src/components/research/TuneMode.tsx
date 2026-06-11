@@ -12,12 +12,13 @@ import {
 import { useFactorUniverse } from "@/hooks/useFactorUniverse";
 import WeightRadar from "./WeightRadar";
 import LadderRow from "./LadderRow";
+import { LensErrorState } from "./primitives";
 
 const sameWeights = (a: FactorScores, b: FactorScores) => FACTORS.every((f) => a[f.key] === b[f.key]);
 const DEFAULT_VISIBLE = 25;
 
 export default function TuneMode() {
-  const { universe, coverage, isLoading, error } = useFactorUniverse();
+  const { universe, coverage, isLoading, error, retry } = useFactorUniverse();
 
   const [weights, setWeights] = useState<FactorScores>(NEUTRAL_WEIGHTS);
   // The weighting the user last ran (null until they hit the button).
@@ -125,7 +126,14 @@ export default function TuneMode() {
           {dirty && <span className="mono" style={{ fontSize: 10, color: "var(--color-warn)", letterSpacing: "0.04em" }}>● lens changed</span>}
         </div>
 
-        {results == null ? (
+        {error && !universe ? (
+          <LensErrorState
+            title="Couldn't load the scored S&P 500."
+            detail="The factor data didn't come back — retry in a moment."
+            onRetry={retry}
+            minHeight={320}
+          />
+        ) : results == null ? (
           <div className="flex flex-col items-center justify-center" style={{ minHeight: 320, padding: 24, textAlign: "center", gap: 8 }}>
             {ranButWaiting || isLoading ? (
               <>

@@ -2,6 +2,7 @@
 import type { ChatMode } from "@/types/chat";
 import { AGENT_COUNT } from "@/types/chat";
 import PageHeader from "@/components/layout/PageHeader";
+import ChatHeaderMenu from "./ChatHeaderMenu";
 
 interface Props {
   mode: ChatMode;
@@ -19,5 +20,5 @@ export default function ChatHeader({ mode }: Props) {
     mode === "backtest" ? "FINAVA AI · BACKTEST ENGINE" :
     "FINAVA AI · CONVERSATIONAL";
 
-  return <PageHeader title="Chat" subtitle={subtitle} />;
+  return <PageHeader title="Chat" subtitle={subtitle} actions={<ChatHeaderMenu />} />;
 }

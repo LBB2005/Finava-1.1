@@ -1,7 +1,13 @@
 "use client";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLiveBoard } from "@/hooks/useLiveBoard";
 import { NAME_BY_TICKER } from "@/lib/research";
+
+// Window very large lists: render the first chunk and reveal the rest on
+// demand, so a 200-ticker watchlist doesn't render (and poll-rerender) 200
+// rows at once.
+const WINDOW_SIZE = 50;
 
 function pct(n: number | null): string {
   if (n === null) return "—";
@@ -25,6 +31,9 @@ export default function WatchlistBoard({
 }) {
   const router = useRouter();
   const { liveMap, isLoading } = useLiveBoard(tickers);
+  const [showAll, setShowAll] = useState(false);
+  const visibleTickers = showAll ? tickers : tickers.slice(0, WINDOW_SIZE);
+  const hidden = tickers.length - visibleTickers.length;
 
   if (tickers.length === 0) {
     if (compact) {
@@ -53,7 +62,7 @@ export default function WatchlistBoard({
   if (compact) {
     return (
       <div className="flex flex-col">
-        {tickers.map((t) => {
+        {visibleTickers.map((t) => {
           const row = liveMap.get(t);
           const chg = row?.changePct ?? null;
           const up = (chg ?? 0) >= 0;
@@ -93,6 +102,15 @@ export default function WatchlistBoard({
             </div>
           );
         })}
+        {hidden > 0 && (
+          <button
+            onClick={() => setShowAll(true)}
+            className="pl-[42px] pr-[14px] py-[7px] text-left text-[11px]"
+            style={{ color: "var(--color-muted)" }}
+          >
+            Show {hidden} more…
+          </button>
+        )}
       </div>
     );
   }
@@ -114,7 +132,7 @@ export default function WatchlistBoard({
         </tr>
       </thead>
       <tbody>
-        {tickers.map((t) => {
+        {visibleTickers.map((t) => {
           const row = liveMap.get(t);
           const chg = row?.changePct ?? null;
           const up = (chg ?? 0) >= 0;
@@ -167,6 +185,19 @@ export default function WatchlistBoard({
             </tr>
           );
         })}
+        {hidden > 0 && (
+          <tr>
+            <td colSpan={onRemove ? 6 : 5} className="px-4 py-3 text-center">
+              <button
+                onClick={() => setShowAll(true)}
+                className="text-[11.5px]"
+                style={{ color: "var(--color-muted)" }}
+              >
+                Show {hidden} more…
+              </button>
+            </td>
+          </tr>
+        )}
       </tbody>
     </table>
   );

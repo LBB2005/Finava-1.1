@@ -13,11 +13,17 @@ import ChatInput from "./ChatInput";
 export default function GlobalComposer() {
   const pathname = usePathname() ?? "";
   const router = useRouter();
-  const { mode, setMode, isStreaming, setPendingMessage, setPendingContext } = useChatStore();
+  const { mode, setMode, setPendingMessage, setPendingContext } = useChatStore();
   const { watchlists } = useWatchlists();
   const { activeId } = useWatchlistStore();
 
   const isChat = pathname.startsWith("/chat");
+  // Disabled only while the VIEWED conversation is streaming — a new chat (no
+  // conversationId) is always sendable, so you can start a second chat while the
+  // first is still generating.
+  const viewedStreaming = useChatStore((s) =>
+    s.conversationId ? (s.streamsByConv[s.conversationId]?.isStreaming ?? false) : false
+  );
 
   function handleSend(text: string) {
     const val = text.trim();
@@ -37,7 +43,7 @@ export default function GlobalComposer() {
       <ChatInput
         floating
         onSend={handleSend}
-        disabled={isChat && isStreaming}
+        disabled={isChat && viewedStreaming}
         mode={mode}
         onModeChange={setMode}
         autoFocus={false}

@@ -3,11 +3,18 @@
  * Claude Design "Calm Orb" handoff: a gently breathing Finava avatar beside a
  * breathing navy dot and a shimmering label. Used for the Simple Chat waiting
  * state (Agent / Deep Research keep their richer "Research crew" panel).
+ *
+ * When `startedAt` is supplied it appends a faint live "· Ns" timer that counts
+ * up while thinking (design A).
  */
+import { LiveElapsed } from "./ResponseTiming";
+
 export default function TypingIndicator({
   label = "Thinking through your portfolio",
+  startedAt = null,
 }: {
   label?: string;
+  startedAt?: number | null;
 }) {
   return (
     <div className="flex gap-[14px] fade-in">
@@ -24,7 +31,14 @@ export default function TypingIndicator({
         <span className="relative flex-shrink-0" style={{ width: 11, height: 11 }}>
           <span className="calm-orb-dot absolute inset-0 rounded-full" style={{ background: "var(--color-accent)" }} />
         </span>
-        <span className="shimmer-text text-[14px] font-medium">{label}</span>
+        <span className="flex items-baseline gap-[6px]">
+          <span className="shimmer-text text-[14px] font-medium">{label}</span>
+          {startedAt != null && (
+            <span className="text-[13px]" style={{ color: "var(--color-muted)" }}>
+              · <LiveElapsed startedAt={startedAt} />
+            </span>
+          )}
+        </span>
       </div>
     </div>
   );

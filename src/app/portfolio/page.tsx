@@ -334,13 +334,62 @@ function TrendSparkline({ ticker, gainLossPct }: { ticker: string; gainLossPct: 
   );
 }
 
+// Quiet shimmer block for in-cell and layout placeholders while data loads.
+function Shimmer({ w, h = 12, style }: { w: number | string; h?: number; style?: React.CSSProperties }) {
+  return (
+    <span
+      className="animate-pulse"
+      style={{
+        display: "inline-block", width: w, height: h, borderRadius: 4,
+        background: "var(--color-border)", ...style,
+      }}
+    />
+  );
+}
+
+// Full-page placeholder mirroring the hero + KPI + table layout, shown while
+// holdings load so the "no holdings" empty state can't flash first.
+function PortfolioSkeleton() {
+  return (
+    <div style={{
+      maxWidth: 1100, margin: "0 auto", padding: "26px 32px 8px",
+      display: "flex", flexDirection: "column", gap: 22,
+    }}>
+      <div className="animate-pulse" style={{
+        height: 220, border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-xl)", background: "var(--color-surface)",
+      }} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 28, padding: "0 4px" }}>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <Shimmer w="55%" h={9} />
+            <Shimmer w="75%" h={22} />
+          </div>
+        ))}
+      </div>
+      <div style={{
+        border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)",
+        overflow: "hidden", padding: "12px 18px",
+        display: "flex", flexDirection: "column", gap: 14,
+      }}>
+        {[88, 70, 80, 64, 76].map((w, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <Shimmer w={52} h={18} />
+            <Shimmer w={`${w}%`} h={12} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function PortfolioPage() {
   const router = useRouter();
   const toast = useToast();
   const {
     holdings, cashBalance, setCashBalance, refresh,
     plaidConnected, plaidInstitutions, syncPlaid,
-    error: portfolioError,
+    error: portfolioError, isLoading: holdingsLoading,
   } = usePortfolio();
   const [syncing, setSyncing] = useState(false);
   const [period, setPeriod] = useState<Period>("YTD");
@@ -351,7 +400,7 @@ export default function PortfolioPage() {
     try { await syncPlaid(); } catch { /* surfaced via SWR */ } finally { setSyncing(false); }
   }
 
-  const { quoteMap, error: quotesError } = useQuotes(holdings.map((h) => h.ticker));
+  const { quoteMap, error: quotesError, isLoading: quotesLoading } = useQuotes(holdings.map((h) => h.ticker));
   const { setPendingMessage, reset } = useChatStore();
 
   useEffect(() => {
@@ -489,7 +538,9 @@ export default function PortfolioPage() {
 
       {/* ── Body ── */}
       <div className="flex-1 overflow-y-auto pb-[150px]" style={{ scrollbarGutter: "stable both-edges" }}>
-        {holdings.length === 0 ? (
+        {holdingsLoading && holdings.length === 0 ? (
+          <PortfolioSkeleton />
+        ) : holdings.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
             {plaidConnected ? (
               <>
@@ -519,9 +570,7 @@ export default function PortfolioPage() {
           }}>
 
             {/* ── HERO: editorial serif value + benchmark chart ── */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(300px, 0.9fr) 1.4fr",
+            <div className="portfolio-hero" style={{
               border: "1px solid var(--color-border)",
               borderRadius: "var(--radius-xl)",
               overflow: "hidden",
@@ -583,9 +632,8 @@ export default function PortfolioPage() {
               </div>
 
               {/* Right: benchmark chart */}
-              <div style={{
+              <div className="portfolio-hero-chart" style={{
                 padding: "20px 28px 18px",
-                borderLeft: "1px solid var(--color-border)",
                 background: "var(--color-bg)",
                 display: "flex", flexDirection: "column", justifyContent: "center",
               }}>
@@ -601,10 +649,7 @@ export default function PortfolioPage() {
             </div>
 
             {/* ── KPI strip ── */}
-            <div style={{
-              display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
-              gap: 28, padding: "0 4px",
-            }}>
+            <div className="portfolio-kpis" style={{ gap: 28, padding: "0 4px" }}>
               <KpiStat
                 label="Buying power"
                 value={cashBalance > 0 ? `$${fmt0(cashBalance)}` : "—"}
@@ -630,7 +675,7 @@ export default function PortfolioPage() {
             </div>
 
             {/* ── Allocation + Holdings ── */}
-            <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 18, alignItems: "start" }}>
+            <div className="portfolio-alloc-grid" style={{ gap: 18, alignItems: "start" }}>
 
               {/* Allocation donut */}
               <div style={{
@@ -759,7 +804,7 @@ export default function PortfolioPage() {
                             textAlign: "right", padding: "10px 16px",
                             fontSize: 12.5, color: "var(--color-text)",
                           }}>
-                            {r.quote?.price ? `$${fmt(r.quote.price)}` : "—"}
+                            {r.quote?.price ? `$${fmt(r.quote.price)}` : quotesLoading ? <Shimmer w={48} /> : "—"}
                           </td>
                           {/* Day % */}
                           <td className="mono" style={{
@@ -769,7 +814,7 @@ export default function PortfolioPage() {
                               ? isDayPos ? "var(--color-bull)" : "var(--color-bear)"
                               : "var(--color-muted)",
                           }}>
-                            {r.quote ? `${isDayPos ? "+" : ""}${fmt(dayPct, 2)}%` : "—"}
+                            {r.quote ? `${isDayPos ? "+" : ""}${fmt(dayPct, 2)}%` : quotesLoading ? <Shimmer w={40} /> : "—"}
                           </td>
                           {/* Market value */}
                           <td className="mono" style={{
