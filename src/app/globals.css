@@ -1838,6 +1838,27 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 .research-root .b-lenses-pill .b-lens:hover { color: var(--color-text); }
 .research-root .b-lenses-pill .b-lens.on { background: var(--color-bg); color: var(--color-accent); box-shadow: var(--shadow-card); }
 
+/* ── ticker chip (sticky tab bar, F2d) ───────────────────────────────────── */
+.research-root .ticker-chip {
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--color-accent); padding: 2px 9px; border-radius: 99px;
+  background: #fff; border: 1px solid var(--color-accent-medium); white-space: nowrap;
+}
+
+/* ── F2d editorial hero ──────────────────────────────────────────────────── */
+/* Below the md breakpoint the split hero stacks: identity over chart, and the
+   12-stat terminal band drops to three columns so labels keep breathing room. */
+@media (max-width: 900px) {
+  .stock-hero { grid-template-columns: 1fr !important; }
+  .stock-hero-id { border-right: none !important; border-bottom: 1px solid var(--color-border); }
+  .stat-strip { grid-template-columns: repeat(3, 1fr) !important; }
+  .stat-strip > div:nth-child(3n+1) { border-left: none !important; }
+}
+@media (max-width: 560px) {
+  .stat-strip { grid-template-columns: repeat(2, 1fr) !important; }
+  .stat-strip > div:nth-child(2n+1) { border-left: none !important; }
+}
+
 /* horizon — segmented */
 .research-root .b-hzseg { display: flex; gap: 2px; background: var(--color-surface); border-radius: 99px; padding: 3px; }
 .research-root .b-hzbtn { background: none; border: none; padding: 4px 11px; border-radius: 99px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; line-height: 16px; letter-spacing: 0.03em; color: var(--color-text-secondary); cursor: pointer; transition: background 130ms, color 130ms; }

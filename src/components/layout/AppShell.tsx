@@ -29,7 +29,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [mobileOpen]);
 
   const isLogin = pathname === "/login";
-  const isLanding = pathname === "/";
+  const isLanding = pathname === "/" || pathname === "/v2"; // /v2 = experimental landing
   const isSettings = pathname === "/settings";
   // Public share pages are standalone for logged-out visitors.
   const isShare = pathname.startsWith("/share/");

@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useStockBundle } from "@/hooks/useStock";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useToast } from "@/hooks/useToast";
-import StockHero from "@/components/stock/StockHero";
+import StockHero, { StatStrip } from "@/components/stock/StockHero";
 import { OverviewTab, FinancialsTab, AnalystsTab, NewsTab } from "@/components/stock/StockTabs";
 import { DcfTab } from "@/components/stock/DcfTab";
 import { FinavaTab } from "@/components/stock/FinavaTab";
@@ -87,47 +87,42 @@ export default function StockPage() {
         fallbackQuote={bundle.quote}
         initialCandles={bundle.candles}
         initialRange={bundle.candleRange}
+        sentiment={bundle.sentiment}
       />
 
-      {/* Sticky command bar — research b-bar vocabulary (mast + pill lenses) */}
+      {/* 12-stat terminal strip (F2d) */}
+      <StatStrip keyStats={bundle.keyStats} quote={bundle.quote} analysts={bundle.analysts} />
+
+      {/* Sticky tab bar — pill lenses + mini ticker/price (F2d) */}
       <div
         style={{
-          display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap", rowGap: 12,
-          padding: "12px var(--page-gutter)",
-          borderTop: "1px solid var(--color-border)",
+          display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", rowGap: 12,
+          padding: "10px var(--page-gutter)",
           borderBottom: "1px solid var(--color-border)",
-          background: "var(--color-surface)",
+          background: "color-mix(in oklab, var(--color-surface) 92%, transparent)",
+          backdropFilter: "blur(8px)",
           position: "sticky", top: 0, zIndex: 5,
         }}
       >
-        <div className="b-bar-mast">
-          <span className="b-bar-title">{ticker}</span>
-          <span className="b-bar-eyebrow">
-            {(bundle.profile?.name ?? ticker).toUpperCase()}
-            {bundle.profile?.exchange ? ` · ${bundle.profile.exchange}` : ""}
-          </span>
-        </div>
-
         <div className="b-lenses b-lenses-pill">
           {TABS.map((t) => (
             <button key={t} className={"b-lens" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>
-              {t.toUpperCase()}
+              {t}
             </button>
           ))}
         </div>
 
-        <div className="b-bar-right">
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+          <span className="ticker-chip">{ticker}</span>
           {livePrice != null && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.15 }}>
-              <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text)" }}>
-                ${livePrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              {chg != null && (
-                <span className="mono" style={{ fontSize: 9.5, fontWeight: 600, color: chg >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
-                  {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
-                </span>
-              )}
-            </div>
+            <span className="serif" style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text)" }}>
+              ${livePrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          )}
+          {chg != null && (
+            <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: chg >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
+              {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
+            </span>
           )}
           <span style={{ width: 1, height: 22, background: "var(--color-border)" }} />
           <ChatContextButton context={`stock:${ticker}`} />

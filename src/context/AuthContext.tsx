@@ -38,7 +38,7 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 // Routes a logged-out visitor is allowed to see (no redirect to /login).
-const PUBLIC_ROUTES = ["/", "/login"];
+const PUBLIC_ROUTES = ["/", "/login", "/v2"];
 
 // Dev-only auth bypass: never available in a production build.
 const DEV_ENABLED = process.env.NODE_ENV !== "production";

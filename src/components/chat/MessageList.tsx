@@ -19,6 +19,18 @@ const SUGGESTIONS = [
   { tag: "VALUE", text: "Run a full DCF on my largest holding" },
   { tag: "TRIM",  text: "Which positions should I consider trimming?" },
   { tag: "MACRO", text: "How does today's macro environment affect my book?" },
+  { tag: "DIVERSIFY", text: "Where is my portfolio over-concentrated?" },
+  { tag: "EARNINGS", text: "Which of my holdings report earnings this week?" },
+  { tag: "THESIS", text: "Is my thesis on my top position still intact?" },
+  { tag: "HEDGE",  text: "How could I hedge my downside without selling?" },
+  { tag: "SCREEN", text: "Find quality stocks I don't already own" },
+  { tag: "DIVIDEND", text: "What's my blended dividend yield and growth?" },
+  { tag: "TAX",    text: "Any tax-loss harvesting opportunities right now?" },
+  { tag: "SECTOR", text: "How is my sector exposure tilted vs the S&P 500?" },
+  { tag: "MOMENTUM", text: "Which holdings have the strongest momentum?" },
+  { tag: "VALUATION", text: "Which of my positions look most overvalued?" },
+  { tag: "CASH",   text: "How should I deploy my idle cash?" },
+  { tag: "REBALANCE", text: "Suggest a rebalance back to my targets" },
 ];
 
 /* ── Tiny helpers ───────────────────────────────────────────────────────── */
@@ -405,9 +417,17 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
             <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
               Starter prompts
             </span>
-            <span className="text-[11px] text-[var(--color-muted)]">Tailored to your book</span>
+            <span className="text-[11px] text-[var(--color-muted)]">Tailored to your book · scroll for more</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[10px]">
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 gap-[10px] overflow-y-auto pr-1"
+            style={{
+              maxHeight: "232px",
+              scrollbarGutter: "stable",
+              maskImage: "linear-gradient(to bottom, black calc(100% - 28px), transparent 100%)",
+              WebkitMaskImage: "linear-gradient(to bottom, black calc(100% - 28px), transparent 100%)",
+            }}
+          >
             {SUGGESTIONS.map((s) => (
               <button
                 key={s.text}
