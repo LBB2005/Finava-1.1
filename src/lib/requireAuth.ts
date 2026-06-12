@@ -2,6 +2,20 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase-admin";
 
+// Private-beta lockdown: when BETA_ADMIN_ONLY is set, only UIDs in ADMIN_UIDS may
+// authenticate, so every requireAuth-gated route is admins-only without per-route
+// edits. Flip the env var off to reopen the app to all signed-in users.
+function betaBlocked(userId: string): boolean {
+  if (process.env.BETA_ADMIN_ONLY !== "1") return false;
+  const admins = new Set(
+    (process.env.ADMIN_UIDS ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
+  return !admins.has(userId);
+}
+
 export async function requireAuth(): Promise<
   { userId: string; error?: never } | { userId?: never; error: NextResponse }
 > {
@@ -24,6 +38,9 @@ export async function requireAuth(): Promise<
 
   try {
     const decoded = await adminAuth.verifyIdToken(token);
+    if (betaBlocked(decoded.uid)) {
+      return { error: NextResponse.json({ error: "Private beta" }, { status: 403 }) };
+    }
     return { userId: decoded.uid };
   } catch {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };

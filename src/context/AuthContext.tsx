@@ -25,6 +25,8 @@ interface AuthContextValue {
   devEnabled: boolean;
   devBypass: boolean;
   toggleDevBypass: () => void;
+  /** True after a real, non-admin user was bounced by the private-beta gate. */
+  betaDenied: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -35,6 +37,7 @@ const AuthContext = createContext<AuthContextValue>({
   devEnabled: false,
   devBypass: false,
   toggleDevBypass: () => {},
+  betaDenied: false,
 });
 
 // Routes a logged-out visitor is allowed to see (no redirect to /login).
@@ -42,6 +45,16 @@ const PUBLIC_ROUTES = ["/", "/login"];
 
 // Dev-only auth bypass: never available in a production build.
 const DEV_ENABLED = process.env.NODE_ENV !== "production";
+
+// Private-beta lockdown (mirrors the server gate in requireAuth). When on, only
+// admin UIDs may use the app; any other signed-in Google user is signed back out.
+const BETA_ADMIN_ONLY = process.env.NEXT_PUBLIC_BETA_ADMIN_ONLY === "1";
+const ADMIN_UIDS = new Set(
+  (process.env.NEXT_PUBLIC_ADMIN_UIDS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+);
 
 // Stand-in for a Firebase user. Has no real UID/token, so authenticated
 // Firestore reads and token-gated API calls will not work under it.
@@ -57,11 +70,19 @@ const MOCK_USER = {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [realUser, setRealUser] = useState<User | null>(null);
   const [devBypass, setDevBypass] = useState(false);
+  const [betaDenied, setBetaDenied] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
-  const user = realUser ?? (DEV_ENABLED && devBypass ? MOCK_USER : null);
+  // A real, non-admin user under the beta lockdown is treated as not-signed-in:
+  // the server rejects their token anyway, so never mount the app shell for them.
+  const betaLockedOut =
+    BETA_ADMIN_ONLY && realUser !== null && !ADMIN_UIDS.has(realUser.uid);
+
+  const user = betaLockedOut
+    ? null
+    : realUser ?? (DEV_ENABLED && devBypass ? MOCK_USER : null);
 
   // localStorage is client-only; reading it in an effect (not render) is the
   // hydration-safe way to pick up the dev-auth bypass flag without an SSR mismatch.
@@ -85,13 +106,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (loading) return;
+    // Private-beta gate: a non-admin signed in with a valid Google account. Sign
+    // them straight back out and show the "private beta" notice on /login.
+    if (betaLockedOut) {
+      setBetaDenied(true);
+      firebaseSignOut(auth).catch(() => {});
+      if (pathname !== "/login") router.push("/login");
+      return;
+    }
     if (!user && !PUBLIC_ROUTES.includes(pathname)) {
       router.push("/login");
     }
     if (user && (pathname === "/login" || pathname === "/")) {
       router.push("/chat");
     }
-  }, [user, loading, pathname, router]);
+  }, [user, loading, pathname, router, betaLockedOut]);
 
   function toggleDevBypass() {
     if (!DEV_ENABLED) return;
@@ -106,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signIn() {
+    setBetaDenied(false);
     try {
       // Try popup first (works in most desktop browsers)
       await signInWithPopup(auth, googleProvider);
@@ -131,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, signIn, signOut, devEnabled: DEV_ENABLED, devBypass, toggleDevBypass }}
+      value={{ user, loading, signIn, signOut, devEnabled: DEV_ENABLED, devBypass, toggleDevBypass, betaDenied }}
     >
       {children}
     </AuthContext.Provider>

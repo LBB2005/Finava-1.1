@@ -2,7 +2,7 @@
 import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
-  const { signIn, loading } = useAuth();
+  const { signIn, loading, betaDenied } = useAuth();
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center px-4">
@@ -26,6 +26,13 @@ export default function LoginPage() {
           <p className="text-sm text-[var(--color-muted)] text-center mb-7">
             Sign in to your AI research platform
           </p>
+
+          {betaDenied && (
+            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-800">
+              Finava is in private beta. Your account isn&apos;t on the list yet —
+              join the waitlist and we&apos;ll be in touch.
+            </div>
+          )}
 
           <button
             onClick={signIn}
