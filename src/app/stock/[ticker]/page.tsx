@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useStockBundle } from "@/hooks/useStock";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useToast } from "@/hooks/useToast";
-import StockHero, { StatStrip } from "@/components/stock/StockHero";
+import StockHero from "@/components/stock/StockHero";
 import { OverviewTab, FinancialsTab, AnalystsTab, NewsTab } from "@/components/stock/StockTabs";
 import { DcfTab } from "@/components/stock/DcfTab";
 import { FinavaTab } from "@/components/stock/FinavaTab";
@@ -87,11 +87,7 @@ export default function StockPage() {
         fallbackQuote={bundle.quote}
         initialCandles={bundle.candles}
         initialRange={bundle.candleRange}
-        sentiment={bundle.sentiment}
       />
-
-      {/* 12-stat terminal strip (F2d) */}
-      <StatStrip keyStats={bundle.keyStats} quote={bundle.quote} analysts={bundle.analysts} />
 
       {/* Sticky tab bar — pill lenses + mini ticker/price (F2d) */}
       <div
