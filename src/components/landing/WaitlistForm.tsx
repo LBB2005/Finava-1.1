@@ -91,7 +91,9 @@ export default function WaitlistForm() {
               <p className="mt-3 text-[13px] text-[var(--lp-bear)]">{message}</p>
             )}
             <p className="mt-4 text-[12.5px] text-[var(--lp-muted)]">
-              No spam. We&apos;ll only email you when access is ready.
+              By joining, you agree to receive a confirmation and a short weekly update from Finava.
+              Unsubscribe anytime. See our{" "}
+              <a href="/privacy" className="underline hover:text-[var(--lp-text)]">Privacy Policy</a>.
             </p>
           </>
         )}

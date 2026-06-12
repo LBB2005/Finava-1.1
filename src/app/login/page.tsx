@@ -51,7 +51,9 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-[var(--color-muted)] mt-6">
-          Your data stays private and is never shared.
+          By continuing, you confirm you are 18 or older and agree to our{" "}
+          <a href="/terms" className="underline hover:text-[var(--color-text)]">Terms of Service</a> and{" "}
+          <a href="/privacy" className="underline hover:text-[var(--color-text)]">Privacy Policy</a>.
         </p>
       </div>
     </div>

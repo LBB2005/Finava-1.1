@@ -107,7 +107,13 @@ export default function LandingPage() {
 }
 
 function Footer() {
-  const links = ["About", "Pricing", "Privacy Policy", "Terms of Service", "Contact"];
+  const links = [
+    { label: "Pricing", href: "#pricing" },
+    { label: "FAQ", href: "#faq" },
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Terms of Service", href: "/terms" },
+    { label: "Contact", href: "mailto:hello@finava.ai" },
+  ];
   return (
     <footer className="border-t border-[var(--lp-border)] bg-[var(--lp-bg-2)]">
       <div className="max-w-[1140px] mx-auto px-5 sm:px-8 py-14">
@@ -121,11 +127,11 @@ function Footer() {
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             {links.map((l) => (
               <a
-                key={l}
-                href="#"
+                key={l.label}
+                href={l.href}
                 className="text-[13px] text-[var(--lp-muted)] hover:text-[var(--lp-text)] transition-colors"
               >
-                {l}
+                {l.label}
               </a>
             ))}
           </div>

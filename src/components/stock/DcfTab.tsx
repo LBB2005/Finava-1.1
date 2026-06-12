@@ -157,7 +157,7 @@ export function DcfTab({ ticker }: { ticker: string }) {
         <Fact l="Base free cash flow" v={compact(inputs.baseFcf)} />
 
         <p className="mono" style={{ margin: "16px 0 0", fontSize: 10.5, color: "var(--color-muted)" }}>
-          A transparent 5-year DCF on EDGAR filing data · drag the sliders to test assumptions · research color, not investment advice.
+          A transparent 5-year DCF on EDGAR filing data · drag the sliders to test assumptions · AI-assisted, may contain errors · research color, not investment advice.
         </p>
       </div>
     </div>

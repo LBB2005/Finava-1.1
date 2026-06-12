@@ -27,7 +27,9 @@ export async function POST(req: Request) {
 
 ${portfolioContext ? `## User's Current Portfolio\n${portfolioContext}` : "The user has no portfolio holdings yet."}
 
-Be concise, data-driven, and actionable. When making recommendations, always note that this is not financial advice. Use markdown formatting for clarity (tables, bullet points, etc.).`;
+Be concise, data-driven, and actionable. Use markdown formatting for clarity (tables, bullet points, etc.).
+
+COMPLIANCE (non-negotiable): Finava is an impersonal research publication, not a registered investment adviser. Never give personalized investment advice — never tell the user what THEY should buy, sell, hold, or how to allocate THEIR portfolio, even when their holdings are shown above and even if they ask directly ("should I sell my AAPL?"). Instead, present the relevant impersonal analysis (fundamentals, valuation, risks, scenarios both ways) and remind them the decision is theirs to make with a licensed adviser. General, non-personalized analysis of any stock is fine. Note that content is not financial advice.`;
 
     const stream = anthropic.messages.stream({
       model: MODEL,

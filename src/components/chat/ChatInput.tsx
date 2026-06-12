@@ -512,7 +512,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
           className="text-center text-[10.5px] text-[var(--color-muted)] tracking-[0.04em]"
           style={{ marginTop: "var(--composer-footer-gap, 12px)" }}
         >
-          Not financial advice · Always do your own research
+          Responses are AI-generated and may contain errors · Not financial advice · Always do your own research
         </p>
       </div>
     </div>

@@ -224,7 +224,7 @@ export function FinavaTab({ ticker }: { ticker: string }) {
         )}
 
         <p className="mono" style={{ margin: "20px 0 0", fontSize: 10.5, color: "var(--color-muted)" }}>
-          Five AI signals synthesised from fundamentals, price action, news, analyst coverage &amp; insider filings · research color, not investment advice.
+          Five AI signals synthesised from fundamentals, price action, news, analyst coverage &amp; insider filings · AI-generated, may contain errors · research color, not investment advice.
         </p>
       </div>
     </div>

@@ -17,6 +17,11 @@ const TEXT = "#e8edf7";
 const TEXT_DIM = "#9aa7c2";
 const MUTED = "#5d6b8a";
 
+// CAN-SPAM requires a valid physical postal address in every commercial email.
+// Set COMPANY_POSTAL_ADDRESS in the environment (a registered-agent or virtual
+// mailbox address is fine). TODO: set this in prod before sending the weekly email.
+const POSTAL_ADDRESS = process.env.COMPANY_POSTAL_ADDRESS ?? "";
+
 /** Shared chrome: dark canvas, centered card, wordmark header, legal footer. */
 function shell(opts: { preview: string; body: string }): string {
   return `<!doctype html>
@@ -53,8 +58,10 @@ function shell(opts: { preview: string; body: string }): string {
             </p>
             <p style="margin:0;font-size:11.5px;color:${MUTED};">
               © 2026 Finava · You're receiving this because you joined the Finava waitlist.
-              <a href="{{unsubscribe_url}}" style="color:${MUTED};text-decoration:underline;">Unsubscribe</a>
+              <a href="{{unsubscribe_url}}" style="color:${MUTED};text-decoration:underline;">Unsubscribe</a> ·
+              <a href="https://finava.ai/privacy" style="color:${MUTED};text-decoration:underline;">Privacy Policy</a>
             </p>
+            ${POSTAL_ADDRESS ? `<p style="margin:6px 0 0;font-size:11.5px;color:${MUTED};">Finava · ${POSTAL_ADDRESS}</p>` : ""}
           </td>
         </tr>
       </table>

@@ -550,6 +550,11 @@ function ProfileSection({ userData, mutate }: { userData: UserData | undefined; 
 }
 
 function PrivacySection({ userData, mutate }: { userData: UserData | undefined; mutate: () => void }) {
+  const { signOut } = useAuth();
+  const [exporting, setExporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [privacyError, setPrivacyError] = useState("");
+
   async function patch(key: string, value: boolean) {
     await authFetch("/api/user", {
       method: "PATCH",
@@ -557,6 +562,43 @@ function PrivacySection({ userData, mutate }: { userData: UserData | undefined; 
       body: JSON.stringify({ [key]: value }),
     });
     mutate();
+  }
+
+  async function exportData() {
+    setExporting(true);
+    setPrivacyError("");
+    try {
+      const res = await authFetch("/api/user/export");
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `finava-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setPrivacyError("Export failed. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function deleteAccount() {
+    const confirmed = window.confirm(
+      "Permanently delete your Finava account?\n\nThis deletes your conversations, watchlists, portfolio data, and brokerage connections, and cancels any subscription. This cannot be undone."
+    );
+    if (!confirmed) return;
+    setDeleting(true);
+    setPrivacyError("");
+    try {
+      const res = await authFetch("/api/user/delete", { method: "POST" });
+      if (!res.ok) throw new Error("Delete failed");
+      await signOut();
+    } catch {
+      setPrivacyError("Account deletion failed. Please try again or contact hello@finava.ai.");
+      setDeleting(false);
+    }
   }
 
   return (
@@ -572,8 +614,8 @@ function PrivacySection({ userData, mutate }: { userData: UserData | undefined; 
         <Toggle checked={userData?.locationMetadata ?? true} onChange={(v) => patch("locationMetadata", v)} />
       </Row>
       <Row label="Export data" description="Download a copy of your conversations, portfolio, and preferences.">
-        <Btn variant="soft">
-          <Icon name="download" size={14} /> Export
+        <Btn variant="soft" onClick={exportData} disabled={exporting}>
+          <Icon name="download" size={14} /> {exporting ? "Exporting…" : "Export"}
         </Btn>
       </Row>
       <Row
@@ -581,10 +623,13 @@ function PrivacySection({ userData, mutate }: { userData: UserData | undefined; 
         description="Permanently delete your account and all associated data. This cannot be undone."
         danger
       >
-        <Btn variant="danger">
-          <Icon name="trash" size={14} /> Delete account
+        <Btn variant="danger" onClick={deleteAccount} disabled={deleting}>
+          <Icon name="trash" size={14} /> {deleting ? "Deleting…" : "Delete account"}
         </Btn>
       </Row>
+      {privacyError && (
+        <p style={{ marginTop: 10, fontSize: 12.5, color: "var(--color-bear, #f87171)" }}>{privacyError}</p>
+      )}
     </div>
   );
 }
