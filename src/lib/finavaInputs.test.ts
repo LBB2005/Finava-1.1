@@ -1,4 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// Mock the one I/O import that drags in firebase-admin (grok → usage → firebase-admin),
+// so importing this module for the pure-helper tests doesn't crash on a missing RSA key.
+// assembleScoreInputs is not exercised here; the four helpers under test are pure.
+vi.mock("@/lib/sentiment/grok", () => ({ getGrokSentiment: vi.fn() }));
+
 import { metricsToFundamentalInputs, surpriseAvg, ratingSkew, computeRelStrength } from "@/lib/finavaInputs";
 
 describe("metricsToFundamentalInputs", () => {
@@ -51,5 +57,16 @@ describe("computeRelStrength", () => {
   });
   it("returns null with too few points", () => {
     expect(computeRelStrength([100], [100])).toBeNull();
+  });
+  it("does not rebase the window when the first bar is non-positive (returns null)", () => {
+    // A leading 0 must not silently shrink the window and overstate the return.
+    expect(computeRelStrength([0, 110, 130], [100, 105, 110])).toBeNull();
+  });
+});
+
+describe("surpriseAvg edge cases", () => {
+  it("ignores rows with a zero estimate (avoids divide-by-zero)", () => {
+    const rows = [{ actual: 1.1, estimate: 0 }, { actual: 1.2, estimate: 1.0 }];
+    expect(surpriseAvg(rows)).toBeCloseTo(0.2, 5); // only the second row counts
   });
 });

@@ -53,10 +53,12 @@ export function ratingSkew(rec: Array<Record<string, number>> | null): number | 
 
 /** 6-month relative strength: stock window-return minus benchmark window-return. */
 export function computeRelStrength(stockCloses: number[], benchCloses: number[]): number | null {
+  // Guard the endpoints rather than filtering mid-array: filtering would silently
+  // rebase the window to the first non-zero bar and overstate the return.
   const ret = (c: number[]) => {
-    const v = c.filter((x) => x > 0);
-    if (v.length < 2) return null;
-    return v[v.length - 1] / v[0] - 1;
+    if (c.length < 2) return null;
+    const start = c[0], end = c[c.length - 1];
+    return start > 0 && end > 0 ? end / start - 1 : null;
   };
   const a = ret(stockCloses), b = ret(benchCloses);
   return a != null && b != null ? a - b : null;

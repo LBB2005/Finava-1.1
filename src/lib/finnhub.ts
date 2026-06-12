@@ -259,7 +259,9 @@ export async function getPeerMetrics(
   );
   const median = (xs: (number | null)[]) => {
     const v = xs.filter((x): x is number => x != null && x > 0).sort((a, b) => a - b);
-    return v.length ? v[Math.floor(v.length / 2)] : null;
+    if (!v.length) return null;
+    const mid = Math.floor(v.length / 2);
+    return v.length % 2 === 1 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
   };
   return { peerPe: median(metrics.map((m) => m.pe)), peerPs: median(metrics.map((m) => m.ps)) };
 }
