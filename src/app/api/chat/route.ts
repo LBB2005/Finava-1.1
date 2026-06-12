@@ -4,6 +4,7 @@ import { generate } from "@/lib/llm";
 import { withAuthRaw } from "@/lib/withRoute";
 import { ChatRequestSchema } from "@/lib/schemas/chat";
 import { checkUsageLimit, recordUsage, usageStore } from "@/lib/usage";
+import { userRateLimit } from "@/lib/rateLimit";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 
 export const runtime = "nodejs";
@@ -15,6 +16,11 @@ export async function POST(req: Request) {
 
   const { userId, body } = res;
   const { messages, portfolioContext } = body;
+
+  // Per-user burst throttle, then the hard credit cap. The throttle caps
+  // concurrent/scripted bursts the read-then-act meter could otherwise overshoot.
+  const throttled = userRateLimit(userId, "chat");
+  if (throttled) return throttled;
 
   // Hard cap: block before any model spend if the user is over their allowance.
   const limited = await checkUsageLimit(userId);

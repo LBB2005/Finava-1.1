@@ -3,10 +3,17 @@ import * as admin from "firebase-admin";
 import { db } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/email/client";
 import { waitlistConfirmationEmail } from "@/lib/email/templates";
+import { rateLimitGuard } from "@/lib/rateLimit";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
+  // Public, unauthenticated, and sends an email + writes Firestore on first
+  // signup — throttle per client IP so it can't be scripted into a mail-bomb or
+  // unbounded write spam against Resend/Firestore.
+  const limited = rateLimitGuard(request, "waitlist", { capacity: 5, refillPerSec: 0.05 });
+  if (limited) return limited;
+
   let email: string;
   try {
     const body = await request.json();

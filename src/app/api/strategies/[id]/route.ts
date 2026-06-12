@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db, serializeDoc } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
+import { requireEntitlement } from "@/lib/entitlements";
+import { isPaperTradingHost } from "@/lib/alpaca";
 import fs from "fs";
 import path from "path";
 import type { Strategy } from "@/components/hedge-fund/types";
@@ -41,6 +43,8 @@ export async function PATCH(
 ) {
   const { userId, error } = await requireAuth();
   if (error) return error;
+  const gate = await requireEntitlement(userId, "quantSuite");
+  if (gate) return gate;
   try {
     const { id } = await params;
     const body = await req.json();
@@ -72,6 +76,8 @@ export async function DELETE(
 ) {
   const { userId, error } = await requireAuth();
   if (error) return error;
+  const gate = await requireEntitlement(userId, "quantSuite");
+  if (gate) return gate;
   try {
     const { id } = await params;
 
@@ -83,8 +89,10 @@ export async function DELETE(
     const strategy = stratSnap.data()!;
     const tickers: string[] = JSON.parse(strategy.tickers || "[]");
 
-    // Cancel open Alpaca orders for this strategy's tickers
-    if (ALPACA_KEY && ALPACA_SECRET && tickers.length > 0) {
+    // Cancel open Alpaca orders for this strategy's tickers. Refuse to touch a
+    // live trading host — cancellation runs against the one shared brokerage
+    // account, so it is allowed only against the paper sandbox.
+    if (ALPACA_KEY && ALPACA_SECRET && tickers.length > 0 && isPaperTradingHost(ALPACA_BASE)) {
       try {
         const ordersRes = await fetch(`${ALPACA_BASE}/v2/orders?status=open&limit=500`, {
           headers: ALPACA_HEADERS,

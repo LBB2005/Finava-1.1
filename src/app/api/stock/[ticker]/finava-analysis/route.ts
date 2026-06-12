@@ -13,6 +13,7 @@
 import { generate } from "@/lib/llm";
 import { requireAuth } from "@/lib/requireAuth";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { userRateLimit } from "@/lib/rateLimit";
 import { getStockBundle } from "@/lib/stockData";
 import {
   getCikByTicker,
@@ -95,6 +96,8 @@ export async function POST(
 ) {
   const { userId, error: authError } = await requireAuth();
   if (authError) return authError;
+  const throttled = userRateLimit(userId, "finava-analysis");
+  if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;
   usageStore.enterWith({ userId });
