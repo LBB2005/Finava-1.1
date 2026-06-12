@@ -1,5 +1,6 @@
 "use client";
 import useSWR from "swr";
+import { authFetcher } from "@/lib/authFetch";
 import type { Theme } from "@/lib/researchAI";
 
 interface ThemesResponse {
@@ -7,16 +8,11 @@ interface ThemesResponse {
   asOf: string;
 }
 
-const fetcher = (url: string) =>
-  fetch(url).then((r) => {
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return r.json();
-  });
-
 /** AI-generated S&P 500 themes. Server-cached (6h) and editorial, so we don't
- *  poll — fetch once and keep it for the session. */
+ *  poll — fetch once and keep it for the session. The route is authenticated,
+ *  so send the Firebase token via authFetcher. */
 export function useThemes() {
-  const { data, error, isLoading, mutate } = useSWR<ThemesResponse>("/api/research/themes", fetcher, {
+  const { data, error, isLoading, mutate } = useSWR<ThemesResponse>("/api/research/themes", authFetcher, {
     revalidateOnFocus: false,
     revalidateIfStale: false,
     dedupingInterval: 60 * 60 * 1000,

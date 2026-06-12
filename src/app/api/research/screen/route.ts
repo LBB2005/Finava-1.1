@@ -9,6 +9,7 @@
 import { generate } from "@/lib/llm";
 import { requireAuth } from "@/lib/requireAuth";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { userRateLimit } from "@/lib/rateLimit";
 import { FACTORS } from "@/lib/research";
 import { coerceFilter } from "@/lib/screen";
 import type { ScreenCommentary, SuggestedScreen } from "@/lib/researchAI";
@@ -103,6 +104,8 @@ async function handleSuggest(summary: unknown) {
 export async function POST(req: Request) {
   const { userId, error: authError } = await requireAuth();
   if (authError) return authError;
+  const throttled = userRateLimit(userId, "research-screen");
+  if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;
   usageStore.enterWith({ userId });

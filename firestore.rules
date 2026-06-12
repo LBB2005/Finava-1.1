@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// Finava Firestore security rules — DEFENSE IN DEPTH.
+//
+// Every read and write in this app goes through server API routes using the
+// Firebase Admin SDK, which bypasses these rules entirely. No client ever talks
+// to Firestore directly (no client Firebase SDK Firestore calls exist in the
+// codebase). These rules therefore deny ALL direct client access: if a client
+// SDK path is ever added by mistake, it fails closed instead of exposing user
+// data (conversations, holdings, Plaid access tokens, Stripe ids, usage).
+//
+// Deploy with:  firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

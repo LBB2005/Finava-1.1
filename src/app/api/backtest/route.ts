@@ -4,6 +4,7 @@ import { getCandles } from "@/lib/finnhub";
 import { requireAuth } from "@/lib/requireAuth";
 import { requireEntitlement } from "@/lib/entitlements";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { userRateLimit } from "@/lib/rateLimit";
 import { db } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
@@ -39,6 +40,8 @@ export async function POST(req: Request) {
   if (error) return error;
   const gate = await requireEntitlement(userId, "quantSuite");
   if (gate) return gate;
+  const throttled = userRateLimit(userId, "backtest");
+  if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;
   usageStore.enterWith({ userId });

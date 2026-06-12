@@ -1,5 +1,20 @@
 import type { CandleResponse } from "@/lib/finnhub";
 
+// ── Trading host guard ────────────────────────────────────────────────────────
+// The trading API host (paper vs live) is set by ALPACA_BASE_URL. ALL Alpaca
+// trading currently runs against ONE shared brokerage account, so order
+// MUTATIONS (e.g. cancel) must never reach the live host — a misconfigured
+// ALPACA_BASE_URL would otherwise let any entitled user cancel real-money orders
+// on the firm account. Mutating routes call isPaperTradingHost() and refuse
+// unless the configured host is the paper sandbox.
+export const ALPACA_TRADING_BASE =
+  process.env.ALPACA_BASE_URL ?? "https://paper-api.alpaca.markets";
+
+/** True only when the configured trading host is Alpaca's paper sandbox. */
+export function isPaperTradingHost(base: string = ALPACA_TRADING_BASE): boolean {
+  return base.includes("paper-api.alpaca.markets");
+}
+
 // Alpaca market-data API is always served from data.alpaca.markets, regardless of
 // whether trading uses the paper or live host. Keys are the same as the trading API.
 const DATA_BASE = "https://data.alpaca.markets";

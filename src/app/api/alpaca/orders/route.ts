@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Order, OrderSide, OrderStatus } from "@/components/hedge-fund/types";
 import { requireAuth } from "@/lib/requireAuth";
 import { requireEntitlement } from "@/lib/entitlements";
+import { isPaperTradingHost } from "@/lib/alpaca";
 
 const KEY    = process.env.ALPACA_API_KEY    ?? "";
 const SECRET = process.env.ALPACA_API_SECRET ?? "";
@@ -86,6 +87,16 @@ export async function DELETE(req: Request): Promise<NextResponse> {
 
   if (!KEY || !SECRET) {
     return NextResponse.json({ error: "Alpaca not configured" }, { status: 400 });
+  }
+
+  // Cancellation runs against the single shared brokerage account, so it is
+  // refused unless the configured host is the paper sandbox — never cancel
+  // real-money orders, even for an entitled user, on a misconfigured live host.
+  if (!isPaperTradingHost(BASE)) {
+    return NextResponse.json(
+      { error: "Order cancellation is disabled on the live trading host." },
+      { status: 403 }
+    );
   }
 
   const { searchParams } = new URL(req.url);

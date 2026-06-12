@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/requireAuth";
 import { requireEntitlement } from "@/lib/entitlements";
 import { generate } from "@/lib/llm";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { userRateLimit } from "@/lib/rateLimit";
 import { runRiskAgent } from "@/agents/sub-agents/risk-agent";
 import { runNewsAgent } from "@/agents/sub-agents/news-agent";
 import { runMacroAgent } from "@/agents/sub-agents/macro-agent";
@@ -32,6 +33,8 @@ export async function POST(req: Request) {
     userId = authResult.userId;
     const gate = await requireEntitlement(userId, "weeklyBriefings");
     if (gate) return gate;
+    const throttled = userRateLimit(userId, "briefing-generate");
+    if (throttled) return throttled;
     const limited = await checkUsageLimit(userId);
     if (limited) return limited;
     return generateForUser(userId);

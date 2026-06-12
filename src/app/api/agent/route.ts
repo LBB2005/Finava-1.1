@@ -1,6 +1,9 @@
+import { NextResponse } from "next/server";
 import { runCeoAgent } from "@/agents/ceo";
 import { runDiscoveryWave, runDiscoverySynthesis } from "@/agents/discovery";
-import { requireAuth } from "@/lib/requireAuth";
+import { withAuthRaw } from "@/lib/withRoute";
+import { AgentRequestSchema } from "@/lib/schemas/agent";
+import { userRateLimit } from "@/lib/rateLimit";
 import {
   checkUsageLimit,
   checkDeepResearchAllowed,
@@ -14,8 +17,10 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
-  const { userId, error } = await requireAuth();
-  if (error) return error;
+  // Auth + validate/bound the body (caps prompt/history sizes — cost control).
+  const res = await withAuthRaw({ body: AgentRequestSchema })(req);
+  if (res instanceof NextResponse) return res;
+  const { userId, body } = res;
 
   const {
     userPrompt,
@@ -26,7 +31,13 @@ export async function POST(req: Request) {
     discover,
     tier,
     wave,
-  } = await req.json();
+  } = body;
+
+  // Per-user burst throttle: each run is a long, expensive crew, so cap
+  // concurrent/scripted bursts before the read-then-act credit meter can be
+  // overshot. Tighter than the chat default since one run does far more work.
+  const throttled = userRateLimit(userId, "agent", { capacity: 4, refillPerSec: 0.1 });
+  if (throttled) return throttled;
 
   // Hard cap: block before any model spend if the user is over their allowance.
   const limited = await checkUsageLimit(userId);
@@ -59,18 +70,27 @@ export async function POST(req: Request) {
 
         try {
           if (wave && wave.synthesize) {
-            // Final discovery synthesis — one Sonnet pass, no crew.
-            await runDiscoverySynthesis(wave as SynthesizeRequest, emit);
+            // Final discovery synthesis — one Sonnet pass, no crew. Shape is
+            // validated inside runDiscoverySynthesis; cast through unknown.
+            await runDiscoverySynthesis(wave as unknown as SynthesizeRequest, emit);
           } else if (wave) {
             // One deterministic crew wave over ≤5 names.
-            await runDiscoveryWave(wave as WaveRequest, emit);
+            await runDiscoveryWave(wave as unknown as WaveRequest, emit);
           } else {
             // Normal CEO turn (incl. quick discover + deep shortlist emit).
-            await runCeoAgent(userPrompt, portfolioContext ?? "", emit, {
+            await runCeoAgent(userPrompt ?? "", portfolioContext ?? "", emit, {
               deepResearch: !!deepResearch,
-              conversationHistory: conversationHistory ?? [],
+              // Length-capped by the schema; element shape is consumed loosely
+              // downstream, so cast to the expected param types.
+              conversationHistory: (conversationHistory ?? []) as {
+                role: "user" | "assistant";
+                content: string;
+              }[],
               userId,
-              holdings: Array.isArray(holdings) ? holdings : [],
+              holdings: (Array.isArray(holdings) ? holdings : []) as {
+                ticker: string;
+                shares: number;
+              }[],
               discover: !!discover,
               tier: tier === "deep" ? "deep" : "quick",
             });

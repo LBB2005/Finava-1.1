@@ -8,6 +8,8 @@
 
 import { generate } from "@/lib/llm";
 import { SP500 } from "@/lib/sp500";
+import { requireAuth } from "@/lib/requireAuth";
+import { rateLimitGuard } from "@/lib/rateLimit";
 import type { Theme } from "@/lib/researchAI";
 
 export const runtime = "nodejs";
@@ -94,7 +96,15 @@ async function load(): Promise<ThemesPayload> {
   return inflight;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Authenticated, like the other research lenses — this fires a Sonnet call, so
+  // it must not be open to the internet. A per-client rate limit caps cold-path
+  // abuse even though warm results are served from the shared in-process cache.
+  const { error } = await requireAuth();
+  if (error) return error;
+  const limited = rateLimitGuard(req, "research-themes", { capacity: 5, refillPerSec: 0.1 });
+  if (limited) return limited;
+
   if (!process.env.OPENROUTER_API_KEY) {
     return Response.json({ error: "AI service not configured (OPENROUTER_API_KEY missing)." }, { status: 503 });
   }

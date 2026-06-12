@@ -8,6 +8,7 @@
 import { generate } from "@/lib/llm";
 import { requireAuth } from "@/lib/requireAuth";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { userRateLimit } from "@/lib/rateLimit";
 import {
   SIGNAL_CATEGORY_LABEL,
   type SignalEvent,
@@ -42,6 +43,8 @@ function leanSentiment(lean: number): SignalFeedItem["sentiment"] {
 export async function POST(req: Request) {
   const { userId, error: authError } = await requireAuth();
   if (authError) return authError;
+  const throttled = userRateLimit(userId, "research-signals");
+  if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;
   usageStore.enterWith({ userId });
