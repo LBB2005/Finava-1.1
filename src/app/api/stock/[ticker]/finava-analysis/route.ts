@@ -69,6 +69,7 @@ function pillarToSignal(p: PillarScore): FinavaSignal {
     key: p.key as SignalKey,
     label: p.label,
     score,
+    isNoData: p.score == null, // dark pillar: UI renders N/A instead of a 50 bar
     stance: stanceFromScore(score),
     headline: p.score == null ? "No data yet" : topFactorHeadline(p),
     detail:
@@ -94,7 +95,13 @@ export async function POST(
     return new Response(JSON.stringify({ error: "Missing ticker." }), { status: 400 });
   }
 
-  const bundle = await getStockBundle(symbol);
+  let bundle;
+  try {
+    bundle = await getStockBundle(symbol);
+  } catch (err) {
+    console.error("[finava bundle]", symbol, err);
+    return new Response(JSON.stringify({ error: "Failed to load stock data." }), { status: 500 });
+  }
   if (!bundle.quote && !bundle.profile) {
     return new Response(JSON.stringify({ error: `Couldn't find ${symbol}.` }), { status: 404 });
   }
@@ -103,37 +110,42 @@ export async function POST(
   const price = bundle.quote?.price ?? null;
   const street = bundle.analysts?.targetMean ?? null;
   const newsSentiment = bundle.sentiment?.score ?? null;
-
-  // ── Deterministic score ──────────────────────────────────────────────────────
-  const inputs = await assembleScoreInputs(symbol, price, bundle.insider, newsSentiment, name);
-  const result = computeFinavaScore(inputs);
-  const dcfFair = inputs.dcfFair;
-  const fairValue = blendFairValue({ dcf: dcfFair, street });
-  const upsidePct =
-    fairValue != null && price && price > 0 ? ((fairValue - price) / price) * 100 : null;
+  const insiderTrades = bundle.insider;
 
   const encoder = new TextEncoder();
+  // Assembly (incl. a Grok call up to ~30s) runs INSIDE start() so the HTTP response
+  // opens immediately — the client shows its streaming/skeleton state instead of a
+  // pending request, and a slow ticker can't trip a client-side fetch timeout. The
+  // score is still computed deterministically before any signal is sent.
   const stream = new ReadableStream({
     async start(controller) {
       const send = (e: FinavaEvent) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
 
-      // Stream the six pillar signals in display order.
-      const byKey = new Map<PillarKey, PillarScore>(result.pillars.map((p) => [p.key, p]));
-      for (const key of SIGNAL_ORDER) {
-        const p = byKey.get(key as PillarKey);
-        if (p) send({ type: "signal", signal: pillarToSignal(p) });
-      }
-
-      // ── Narrative (LLM only writes prose around the decided numbers) ──────────
-      let take = `Finava scores ${name} ${result.score}/100 (${verdictLabel(result.score)}), confidence ${result.confidence}. See the signal breakdown above. Informational research, not advice.`;
-      let catalysts: string[] = [];
-      let risks: string[] = [];
       try {
-        const pillarLine = result.pillars
-          .map((p) => `${p.label} ${p.score == null ? "n/a" : Math.round(p.score)}`)
-          .join(", ");
-        const synthPrompt = `You are Finava's lead equity analyst writing research color (not advice) for a retail investor. We have ALREADY computed a deterministic Finava Score for ${name} (${symbol}) — do NOT invent a different score.
+        const inputs = await assembleScoreInputs(symbol, price, insiderTrades, newsSentiment, name);
+        const result = computeFinavaScore(inputs);
+        const dcfFair = inputs.dcfFair;
+        const fairValue = blendFairValue({ dcf: dcfFair, street });
+        const upsidePct =
+          fairValue != null && price && price > 0 ? ((fairValue - price) / price) * 100 : null;
+
+        // Stream the six pillar signals in display order.
+        const byKey = new Map<PillarKey, PillarScore>(result.pillars.map((p) => [p.key, p]));
+        for (const key of SIGNAL_ORDER) {
+          const p = byKey.get(key as PillarKey);
+          if (p) send({ type: "signal", signal: pillarToSignal(p) });
+        }
+
+        // ── Narrative (LLM only writes prose around the decided numbers) ────────
+        let take = `Finava scores ${name} ${result.score}/100 (${verdictLabel(result.score)}), confidence ${result.confidence}. See the signal breakdown above. Informational research, not advice.`;
+        let catalysts: string[] = [];
+        let risks: string[] = [];
+        try {
+          const pillarLine = result.pillars
+            .map((p) => `${p.label} ${p.score == null ? "n/a" : Math.round(p.score)}`)
+            .join(", ");
+          const synthPrompt = `You are Finava's lead equity analyst writing research color (not advice) for a retail investor. We have ALREADY computed a deterministic Finava Score for ${name} (${symbol}) — do NOT invent a different score.
 
 Finava Score: ${result.score}/100 (${verdictLabel(result.score)}), confidence ${result.confidence}.
 Pillar scores: ${pillarLine}.
@@ -142,31 +154,36 @@ Current price: ${price != null ? `$${price.toFixed(2)}` : "n/a"}. Blended fair v
 Explain WHY the score is what it is, grounded in the pillar scores and valuation gap. Respond with ONLY this JSON (no markdown):
 {"take":"<2-3 sentences, specific to these pillar numbers>","catalysts":["<short>","<short>"],"risks":["<short>","<short>"]}`;
 
-        const raw = await generate({ agent: "finavaSynthesis", maxTokens: 700, prompt: synthPrompt });
-        const p = parseJson(raw);
-        if (p) {
-          if (typeof p.take === "string" && p.take.trim()) take = p.take.trim();
-          catalysts = toStrings(p.catalysts);
-          risks = toStrings(p.risks);
+          const raw = await generate({ agent: "finavaSynthesis", maxTokens: 700, prompt: synthPrompt });
+          const p = parseJson(raw);
+          if (p) {
+            if (typeof p.take === "string" && p.take.trim()) take = p.take.trim();
+            catalysts = toStrings(p.catalysts);
+            risks = toStrings(p.risks);
+          }
+        } catch (err) {
+          console.error("[finava take]", symbol, err);
+          // Keep the templated take — the deterministic verdict still ships.
         }
-      } catch (err) {
-        console.error("[finava take]", symbol, err);
-        // Keep the templated take — the deterministic verdict still ships.
-      }
 
-      const verdict: FinavaVerdict = {
-        score: result.score,
-        stance: verdictLabel(result.score),
-        confidence: result.confidence,
-        fairValue,
-        upsidePct,
-        take,
-        catalysts,
-        risks,
-        comparison: { finava: fairValue, street, dcf: dcfFair },
-      };
-      send({ type: "verdict", verdict });
-      controller.close();
+        const verdict: FinavaVerdict = {
+          score: result.score,
+          stance: verdictLabel(result.score),
+          confidence: result.confidence,
+          fairValue,
+          upsidePct,
+          take,
+          catalysts,
+          risks,
+          comparison: { finava: fairValue, street, dcf: dcfFair },
+        };
+        send({ type: "verdict", verdict });
+      } catch (err) {
+        console.error("[finava assemble]", symbol, err);
+        send({ type: "error", message: "Failed to compute the Finava Score." });
+      } finally {
+        controller.close();
+      }
     },
   });
 

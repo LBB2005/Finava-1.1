@@ -69,9 +69,9 @@ export function computeRelStrength(stockCloses: number[], benchCloses: number[])
 async function computeDcfBundle(
   symbol: string,
   price: number | null
-): Promise<{ dcfFair: number | null; fcfConversion: number | null }> {
+): Promise<{ dcfFair: number | null; fcfConversion: number | null; revenueCagr3y: number | null }> {
   const cik = await getCikByTicker(symbol);
-  if (!cik) return { dcfFair: null, fcfConversion: null };
+  if (!cik) return { dcfFair: null, fcfConversion: null, revenueCagr3y: null };
   const facts = await getCompanyFacts(cik);
   const mm = extractFinancialMetrics(facts);
   const series = extractFundamentalTimeSeries(facts, 6);
@@ -83,6 +83,10 @@ async function computeDcfBundle(
   const rev = series.revenue;
   const cagr = rev.length >= 2 && rev[0].value > 0 && rev.at(-1)!.value > 0
     ? Math.pow(rev.at(-1)!.value / rev[0].value, 1 / (rev.length - 1)) - 1 : null;
+  // True 3-year revenue CAGR for the growth factor (distinct from the full-series
+  // CAGR used for DCF growth above).
+  const revenueCagr3y = rev.length >= 4 && rev.at(-4)!.value > 0 && rev.at(-1)!.value > 0
+    ? Math.pow(rev.at(-1)!.value / rev.at(-4)!.value, 1 / 3) - 1 : null;
   const inputs: DcfInputs = {
     baseFcf,
     fcfIsProxy: capex == null,
@@ -93,7 +97,7 @@ async function computeDcfBundle(
     currentPrice: price,
     currency: "USD",
   };
-  return { dcfFair: defaultFairValue(inputs), fcfConversion };
+  return { dcfFair: defaultFairValue(inputs), fcfConversion, revenueCagr3y };
 }
 
 /** Full assembly. Failure-isolated per source; missing fields stay null (excluded).
@@ -127,7 +131,7 @@ export async function assembleScoreInputs(
     getGrokSentiment(symbol, companyName).catch(() => null),
     getCandles(symbol, "D", now - 300 * day, now).catch(() => null),
     getCandles("SPY", "D", now - 300 * day, now).catch(() => null),
-    computeDcfBundle(symbol, price).catch(() => ({ dcfFair: null, fcfConversion: null })),
+    computeDcfBundle(symbol, price).catch(() => ({ dcfFair: null, fcfConversion: null, revenueCagr3y: null })),
   ]);
 
   const m = (metricRaw as { metric?: Metric } | null)?.metric ?? {};
@@ -138,6 +142,7 @@ export async function assembleScoreInputs(
   base.ratingSkew = ratingSkew(recRaw as Array<Record<string, number>> | null);
   base.dcfFair = dcf.dcfFair;
   base.fcfConversion = dcf.fcfConversion;
+  base.revenueCagr3y = dcf.revenueCagr3y;
 
   // Insider flow normalized against absolute share count (Finnhub reports millions).
   const sharesAbs = n(m.sharesOutstanding) != null ? (m.sharesOutstanding as number) * 1e6 : null;

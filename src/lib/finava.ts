@@ -17,6 +17,7 @@ export interface FinavaSignal {
   key: SignalKey;
   label: string;
   score: number; // 0–100 (50 = neutral)
+  isNoData?: boolean; // true when the pillar has no usable data (UI renders N/A, not the 50)
   stance: Stance;
   headline: string; // one short line
   detail: string; // 1–2 sentences
