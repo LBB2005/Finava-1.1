@@ -130,6 +130,15 @@ export async function POST(
         const upsidePct =
           fairValue != null && price && price > 0 ? ((fairValue - price) / price) * 100 : null;
 
+        // Steady peer-relative read: avg premium/discount of P/E & P/S vs the peer
+        // group. Headlined on the card until a Street anchor makes fairValue credible.
+        const pePrem = inputs.peTTM != null && inputs.peTTM > 0 && inputs.peerPe != null && inputs.peerPe > 0
+          ? inputs.peTTM / inputs.peerPe - 1 : null;
+        const psPrem = inputs.psTTM != null && inputs.psTTM > 0 && inputs.peerPs != null && inputs.peerPs > 0
+          ? inputs.psTTM / inputs.peerPs - 1 : null;
+        const prems = [pePrem, psPrem].filter((x): x is number => x != null);
+        const peerPremiumPct = prems.length ? (prems.reduce((a, b) => a + b, 0) / prems.length) * 100 : null;
+
         // Stream the six pillar signals in display order.
         const byKey = new Map<PillarKey, PillarScore>(result.pillars.map((p) => [p.key, p]));
         for (const key of SIGNAL_ORDER) {
@@ -172,6 +181,7 @@ Explain WHY the score is what it is, grounded in the pillar scores and valuation
           confidence: result.confidence,
           fairValue,
           upsidePct,
+          peerPremiumPct,
           take,
           catalysts,
           risks,

@@ -28,8 +28,12 @@ export interface FinavaVerdict {
   score: number; // 0–100 overall Finava score
   stance: string; // human label, e.g. "Moderately Bullish"
   confidence: "Low" | "Moderate" | "High";
-  fairValue: number | null; // Finava's own fair value estimate
+  fairValue: number | null; // blended fair value — only credible when a Street anchor exists
   upsidePct: number | null; // vs current price
+  // Premium/discount of the stock's multiples vs its peer group (P/E & P/S), as a
+  // percentage. Positive = pricier than peers. The steady valuation read shown on the
+  // card until the (premium-gated) analyst-target feed lands and fairValue is credible.
+  peerPremiumPct: number | null;
   take: string; // 2–3 sentence written verdict
   catalysts: string[];
   risks: string[];

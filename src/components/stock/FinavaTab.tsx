@@ -283,30 +283,50 @@ export function FinavaTab({ ticker }: { ticker: string }) {
           <span className="mono" style={{ fontSize: 10, color: "var(--color-muted)", letterSpacing: "0.05em" }}>ANALYSING…</span>
         )}
 
-        <div style={{ width: "100%", background: "var(--color-bg)", border: "1px solid var(--color-border)", borderRadius: 8, padding: "9px 11px" }}>
-          <div className="mono" style={{ fontSize: 9, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Fair Value</div>
-          <div className="serif" style={{ fontSize: 18, fontWeight: 700, color: "var(--color-text)", marginTop: 1 }}>{verdict ? fmtMoney(verdict.fairValue) : "—"}</div>
-          {/* Sign-aware upside/downside label */}
-          <div
-            className="mono"
-            style={{
-              fontSize: 9.5,
-              marginTop: 1,
-              color:
-                verdict?.upsidePct == null
-                  ? "var(--color-muted)"
-                  : verdict.upsidePct >= 0
-                  ? "var(--color-bull)"
-                  : "var(--color-bear)",
-            }}
-          >
-            {verdict?.upsidePct != null
-              ? verdict.upsidePct >= 0
-                ? `${signedPct(verdict.upsidePct)} upside`
-                : `${signedPct(verdict.upsidePct)} downside`
-              : "—"}
-          </div>
-        </div>
+        {(() => {
+          // Only headline a dollar fair value when a Street analyst anchor corroborates
+          // it; otherwise the number is a lone DCF, which is too noisy to show as a
+          // confident target. Until then, headline the steadier peer-relative read.
+          const hasStreet = verdict?.comparison?.street != null;
+          const showFair = !!verdict && hasStreet && verdict.fairValue != null;
+          const prem = verdict?.peerPremiumPct ?? null;
+          const cardStyle = { width: "100%", background: "var(--color-bg)", border: "1px solid var(--color-border)", borderRadius: 8, padding: "9px 11px" } as const;
+          const labelStyle = { fontSize: 9, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.07em" } as const;
+
+          if (showFair) {
+            return (
+              <div style={cardStyle}>
+                <div className="mono" style={labelStyle}>Fair Value</div>
+                <div className="serif" style={{ fontSize: 18, fontWeight: 700, color: "var(--color-text)", marginTop: 1 }}>{fmtMoney(verdict!.fairValue)}</div>
+                <div className="mono" style={{ fontSize: 9.5, marginTop: 1, color: verdict!.upsidePct == null ? "var(--color-muted)" : verdict!.upsidePct >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
+                  {verdict!.upsidePct != null ? `${signedPct(verdict!.upsidePct)} ${verdict!.upsidePct >= 0 ? "upside" : "downside"}` : "—"}
+                </div>
+              </div>
+            );
+          }
+
+          if (verdict && prem != null) {
+            // A qualitative band, not a precise % — the blended premium is too noisy
+            // (peer-list quality, volatile P/S) to headline a number. Exact multiples
+            // live in the expandable Valuation breakdown. Cheaper-than-peers = attractive.
+            const band = prem <= -20 ? "Discount to peers" : prem >= 20 ? "Premium to peers" : "In line with peers";
+            const color = prem <= -20 ? "var(--color-bull)" : prem >= 20 ? "var(--color-bear)" : "var(--color-muted)";
+            return (
+              <div style={cardStyle}>
+                <div className="mono" style={labelStyle}>Valuation vs Peers</div>
+                <div className="serif" style={{ fontSize: 16, fontWeight: 700, marginTop: 1, color }}>{band}</div>
+                <div className="mono" style={{ fontSize: 9.5, marginTop: 1, color: "var(--color-muted)" }}>on P/E &amp; P/S · see breakdown</div>
+              </div>
+            );
+          }
+
+          return (
+            <div style={cardStyle}>
+              <div className="mono" style={labelStyle}>Fair Value</div>
+              <div className="serif" style={{ fontSize: 18, fontWeight: 700, color: "var(--color-text)", marginTop: 1 }}>—</div>
+            </div>
+          );
+        })()}
 
         {verdict && <ConfDots confidence={verdict.confidence} />}
       </div>
