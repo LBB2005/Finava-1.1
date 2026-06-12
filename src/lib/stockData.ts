@@ -317,6 +317,7 @@ export async function runPooled<T>(
   tasks: Array<() => Promise<T>>,
   limit: number
 ): Promise<Array<T | null>> {
+  if (limit < 1) throw new RangeError(`runPooled: limit must be >= 1, got ${limit}`);
   const out = new Array<T | null>(tasks.length).fill(null);
   let cursor = 0;
   async function worker() {
@@ -347,7 +348,12 @@ export function insiderNetFlow(
   sharesOutstanding: number | null
 ): number | null {
   if (!trades || trades.length === 0) return null;
-  const net = trades.reduce((a, t) => a + (Number.isFinite(t.shares) ? t.shares : 0), 0);
+  let net = 0;
+  let hasFinite = false;
+  for (const t of trades) {
+    if (Number.isFinite(t.shares)) { net += t.shares; hasFinite = true; }
+  }
+  if (!hasFinite) return null;
   if (net === 0) return 0;
   if (!sharesOutstanding || sharesOutstanding <= 0) {
     return Math.sign(net) * 0.1;

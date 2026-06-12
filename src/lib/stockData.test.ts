@@ -13,6 +13,7 @@ describe("runPooled", () => {
     };
     await runPooled([make(), make(), make(), make(), make(), make()], 2);
     expect(peak).toBeLessThanOrEqual(2);
+    expect(peak).toBeGreaterThanOrEqual(2);
   });
 
   it("returns results index-aligned and isolates failures to null", async () => {
@@ -53,5 +54,12 @@ describe("insiderNetFlow", () => {
   it("returns null when there are no trades", () => {
     expect(insiderNetFlow([], sharesOut)).toBeNull();
     expect(insiderNetFlow(null, sharesOut)).toBeNull();
+  });
+  it("returns null when all trade shares are NaN", () => {
+    expect(insiderNetFlow([{ shares: NaN }], sharesOut)).toBeNull();
+  });
+  it("uses sign-only fallback when sharesOutstanding is null", () => {
+    const f = insiderNetFlow([{ shares: 100_000 }], null);
+    expect(f).toBeCloseTo(0.1);
   });
 });
