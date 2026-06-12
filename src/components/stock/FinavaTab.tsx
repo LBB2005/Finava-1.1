@@ -1,10 +1,11 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useFinava } from "@/hooks/useFinava";
 import { useQuotes } from "@/hooks/useQuotes";
 import {
   SIGNAL_ORDER,
   SIGNAL_LABELS,
+  type FinavaFactor,
   type FinavaSignal,
   type Stance,
   type SignalKey,
@@ -71,8 +72,46 @@ function ScoreRing({ score, color, pending }: { score: number | null; color: str
   );
 }
 
+/* ── factor breakdown row ─────────────────────────────────────────────────── */
+function FactorRow({ factor }: { factor: FinavaFactor }) {
+  const hasScore = factor.score !== null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "5px 0 5px 106px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 10.5, color: "var(--color-text-secondary)", width: 80, flexShrink: 0 }}>{factor.label}</span>
+        {hasScore ? (
+          <>
+            <div style={{ flex: 1, height: 3, borderRadius: 99, background: "var(--color-surface-2)", overflow: "hidden" }}>
+              <div style={{ width: `${factor.score}%`, height: "100%", background: factor.score! >= 60 ? "var(--color-bull)" : factor.score! <= 40 ? "var(--color-bear)" : "var(--color-warn)", borderRadius: 99, transition: "width 0.4s ease" }} />
+            </div>
+            <span className="mono" style={{ fontSize: 9.5, color: "var(--color-muted)", width: 22, textAlign: "right" }}>{factor.score}</span>
+          </>
+        ) : (
+          <>
+            <div style={{ flex: 1, height: 3, borderRadius: 99, background: "var(--color-surface-2)" }} />
+            <span className="mono" style={{ fontSize: 9.5, color: "var(--color-muted)", width: 22, textAlign: "right" }}>—</span>
+          </>
+        )}
+      </div>
+      {factor.detail && (
+        <p style={{ margin: 0, fontSize: 10, color: "var(--color-muted)", lineHeight: 1.4, paddingLeft: 88 }}>{factor.detail}</p>
+      )}
+    </div>
+  );
+}
+
 /* ── one signal bar (progressive) ─────────────────────────────────────────── */
-function SignalBar({ signalKey, signal }: { signalKey: SignalKey; signal: FinavaSignal | undefined }) {
+function SignalBar({
+  signalKey,
+  signal,
+  expanded,
+  onToggle,
+}: {
+  signalKey: SignalKey;
+  signal: FinavaSignal | undefined;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const label = SIGNAL_LABELS[signalKey];
   if (!signal) {
     return (
@@ -83,17 +122,86 @@ function SignalBar({ signalKey, signal }: { signalKey: SignalKey; signal: Finava
       </div>
     );
   }
+
+  const isNoData = signal.isNoData === true;
   const color = stanceColor(signal.stance);
+  const hasFactors = Array.isArray(signal.factors) && signal.factors.length > 0;
+
   return (
     <div className="fade-in" style={{ margin: "9px 0" }}>
+      {/* Main row */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ fontSize: 11.5, color: "var(--color-text-secondary)", width: 96, flexShrink: 0 }}>{label}</span>
+
+        {/* Bar track */}
         <div style={{ flex: 1, height: 4, borderRadius: 99, background: "var(--color-surface-2)", overflow: "hidden" }}>
-          <div style={{ width: `${signal.score}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.5s ease" }} />
+          {isNoData ? null : (
+            <div style={{ width: `${signal.score}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.5s ease" }} />
+          )}
         </div>
-        <span className="mono" style={{ fontSize: 10.5, fontWeight: 600, color: "var(--color-text)", width: 24, textAlign: "right" }}>{signal.score}</span>
+
+        {/* Score / N/A + optional chevron */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, width: 40, justifyContent: "flex-end" }}>
+          {isNoData ? (
+            <span className="mono" style={{ fontSize: 10, color: "var(--color-muted)", fontStyle: "italic" }}>N/A</span>
+          ) : (
+            <span className="mono" style={{ fontSize: 10.5, fontWeight: 600, color: "var(--color-text)", width: 24, textAlign: "right" }}>{signal.score}</span>
+          )}
+          {hasFactors && (
+            <button
+              onClick={onToggle}
+              aria-expanded={expanded}
+              aria-label={`${expanded ? "Collapse" : "Expand"} ${label} factors`}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                color: "var(--color-muted)",
+                display: "flex",
+                alignItems: "center",
+                lineHeight: 1,
+                transition: "color 0.2s ease",
+              }}
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="none"
+                style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }}
+              >
+                <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
-      <p style={{ margin: "3px 0 0 106px", fontSize: 11, color: "var(--color-muted)", lineHeight: 1.4 }}>{signal.headline}</p>
+
+      {/* Headline / no-data pill */}
+      {isNoData ? (
+        <p style={{ margin: "3px 0 0 106px", fontSize: 11, color: "var(--color-muted)", lineHeight: 1.4, fontStyle: "italic" }}>No data available</p>
+      ) : (
+        <p style={{ margin: "3px 0 0 106px", fontSize: 11, color: "var(--color-muted)", lineHeight: 1.4 }}>{signal.headline}</p>
+      )}
+
+      {/* Factor breakdown — subtle height/opacity transition */}
+      {hasFactors && (
+        <div
+          style={{
+            overflow: "hidden",
+            maxHeight: expanded ? `${signal.factors!.length * 54}px` : 0,
+            opacity: expanded ? 1 : 0,
+            transition: "max-height 0.25s ease, opacity 0.2s ease",
+          }}
+        >
+          <div style={{ borderLeft: "1px solid var(--color-border)", marginLeft: 106, marginTop: 4, paddingLeft: 0 }}>
+            {signal.factors!.map((f) => (
+              <FactorRow key={f.key} factor={f} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -129,6 +237,21 @@ export function FinavaTab({ ticker }: { ticker: string }) {
   const { quoteMap } = useQuotes([ticker]);
   const price = quoteMap.get(ticker)?.price ?? null;
 
+  // Track which signal rows are expanded (by key).
+  const [expandedKeys, setExpandedKeys] = useState<Set<SignalKey>>(new Set());
+
+  function toggleExpanded(key: SignalKey) {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
   // Tab click mounts this component — fire the run (no-op if already cached).
   useEffect(() => {
     run();
@@ -163,8 +286,25 @@ export function FinavaTab({ ticker }: { ticker: string }) {
         <div style={{ width: "100%", background: "var(--color-bg)", border: "1px solid var(--color-border)", borderRadius: 8, padding: "9px 11px" }}>
           <div className="mono" style={{ fontSize: 9, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Fair Value</div>
           <div className="serif" style={{ fontSize: 18, fontWeight: 700, color: "var(--color-text)", marginTop: 1 }}>{verdict ? fmtMoney(verdict.fairValue) : "—"}</div>
-          <div className="mono" style={{ fontSize: 9.5, marginTop: 1, color: verdict?.upsidePct == null ? "var(--color-muted)" : verdict.upsidePct >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
-            {verdict?.upsidePct != null ? `${signedPct(verdict.upsidePct)} upside` : "—"}
+          {/* Sign-aware upside/downside label */}
+          <div
+            className="mono"
+            style={{
+              fontSize: 9.5,
+              marginTop: 1,
+              color:
+                verdict?.upsidePct == null
+                  ? "var(--color-muted)"
+                  : verdict.upsidePct >= 0
+                  ? "var(--color-bull)"
+                  : "var(--color-bear)",
+            }}
+          >
+            {verdict?.upsidePct != null
+              ? verdict.upsidePct >= 0
+                ? `${signedPct(verdict.upsidePct)} upside`
+                : `${signedPct(verdict.upsidePct)} downside`
+              : "—"}
           </div>
         </div>
 
@@ -175,7 +315,13 @@ export function FinavaTab({ ticker }: { ticker: string }) {
       <div style={{ minWidth: 0 }}>
         <Rule>Signal Breakdown</Rule>
         {SIGNAL_ORDER.map((k) => (
-          <SignalBar key={k} signalKey={k} signal={byKey.get(k)} />
+          <SignalBar
+            key={k}
+            signalKey={k}
+            signal={byKey.get(k)}
+            expanded={expandedKeys.has(k)}
+            onToggle={() => toggleExpanded(k)}
+          />
         ))}
 
         <div style={{ marginTop: 18 }}>
@@ -224,7 +370,7 @@ export function FinavaTab({ ticker }: { ticker: string }) {
         )}
 
         <p className="mono" style={{ margin: "20px 0 0", fontSize: 10.5, color: "var(--color-muted)" }}>
-          Five AI signals synthesised from fundamentals, price action, news, analyst coverage &amp; insider filings · AI-generated, may contain errors · research color, not investment advice.
+          Six signals scored from real fundamentals, valuation, analyst, momentum, sentiment &amp; insider data · AI-generated, may contain errors · research color, not investment advice.
         </p>
       </div>
     </div>
