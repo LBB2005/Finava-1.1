@@ -106,7 +106,9 @@ export function scoreFactors(i: ScoreInputs): FactorScore[] {
 
   const upside = i.price != null && i.price > 0 && i.dcfFair != null
     ? (i.dcfFair - i.price) / i.price : null;
-  const absoluteVal = interp(upside, [[-0.4, 18], [-0.2, 35], [0, 55], [0.2, 72], [0.5, 88]]);
+  // Softened curve: a single-stock DCF is a rough estimate, so being far above/below
+  // it nudges rather than maxes/mins the factor (compressed to ~32–74).
+  const absoluteVal = interp(upside, [[-0.6, 32], [-0.3, 43], [0, 52], [0.3, 63], [0.7, 74]]);
   // Guard peTTM > 0: a negative P/E (loss-maker) is not comparable on this multiple,
   // and an unguarded negative ratio would clamp to the BEST relative score. Drop it
   // so relativeVal falls back to P/S alone.
@@ -128,7 +130,10 @@ export function scoreFactors(i: ScoreInputs): FactorScore[] {
   ]);
   const relStrength = interp(i.relStrength6m, [[-0.25, 25], [0, 52], [0.15, 72], [0.3, 85]]);
 
-  const news = i.newsSentiment == null ? null : Math.max(0, Math.min(100, i.newsSentiment));
+  // News comes from a crude headline word-counter (placeholder engine), so damp it
+  // halfway toward neutral — a handful of headlines shouldn't produce a 100 or a 0.
+  const rawNews = i.newsSentiment == null ? null : Math.max(0, Math.min(100, i.newsSentiment));
+  const news = rawNews == null ? null : 50 + (rawNews - 50) * 0.5;
   const social = i.xSentiment == null ? null : Math.max(0, Math.min(100, i.xSentiment));
 
   const insiderFlow = i.insiderFlow == null ? null
@@ -140,8 +145,8 @@ export function scoreFactors(i: ScoreInputs): FactorScore[] {
     { key: "returns", label: "Returns on capital", pillar: "fundamentals", weight: 0.25, score: returns, detail: `ROE ${pct(i.roe)}, ROIC ${pct(i.roic)}` },
     { key: "health", label: "Balance sheet", pillar: "fundamentals", weight: 0.15, score: health, detail: `Debt/equity ${i.debtToEquity?.toFixed(2) ?? "n/a"}, current ratio ${i.currentRatio?.toFixed(2) ?? "n/a"}` },
     { key: "cashflow", label: "Cash-flow quality", pillar: "fundamentals", weight: 0.15, score: cashflow, detail: `FCF conversion ${i.fcfConversion?.toFixed(2) ?? "n/a"}x` },
-    { key: "relativeVal", label: "Relative valuation", pillar: "valuation", weight: 0.55, score: relativeVal, detail: `P/E ${i.peTTM?.toFixed(1) ?? "n/a"} vs peers ${i.peerPe?.toFixed(1) ?? "n/a"}` },
-    { key: "absoluteVal", label: "Absolute (DCF)", pillar: "valuation", weight: 0.45, score: absoluteVal, detail: upside == null ? "No DCF" : `${fpct(upside)} vs DCF fair value` },
+    { key: "relativeVal", label: "Relative valuation", pillar: "valuation", weight: 0.70, score: relativeVal, detail: `P/E ${i.peTTM?.toFixed(1) ?? "n/a"} vs peers ${i.peerPe?.toFixed(1) ?? "n/a"}` },
+    { key: "absoluteVal", label: "Absolute (DCF)", pillar: "valuation", weight: 0.30, score: absoluteVal, detail: upside == null ? "No DCF" : `${fpct(upside)} vs DCF fair value` },
     { key: "rating", label: "Analyst rating", pillar: "analyst", weight: 0.40, score: rating, detail: i.ratingSkew == null ? "No consensus data" : `Consensus skew ${i.ratingSkew.toFixed(2)}` },
     { key: "revisions", label: "Estimate revisions", pillar: "analyst", weight: 0.40, score: revisions, detail: i.estimateRevisionPct == null ? "Feed pending" : `Fwd estimates ${fpct(i.estimateRevisionPct)}` },
     { key: "surprise", label: "Earnings surprise", pillar: "analyst", weight: 0.20, score: surprise, detail: i.earningsSurprisePct == null ? "No history" : `Avg surprise ${fpct(i.earningsSurprisePct)}` },
