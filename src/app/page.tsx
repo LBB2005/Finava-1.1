@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import LandingPage from "@/components/landing/LandingPage";
+import V5Landing from "@/components/v5/V5Landing";
 
 export const metadata: Metadata = {
   title: "Finava — 15 AI analysts. One conversation.",
@@ -14,5 +14,5 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <LandingPage />;
+  return <V5Landing />;
 }
