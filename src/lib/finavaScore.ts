@@ -107,8 +107,11 @@ export function scoreFactors(i: ScoreInputs): FactorScore[] {
   const upside = i.price != null && i.price > 0 && i.dcfFair != null
     ? (i.dcfFair - i.price) / i.price : null;
   const absoluteVal = interp(upside, [[-0.4, 18], [-0.2, 35], [0, 55], [0.2, 72], [0.5, 88]]);
-  const peRel = i.peTTM != null && i.peerPe != null && i.peerPe > 0 ? i.peTTM / i.peerPe : null;
-  const psRel = i.psTTM != null && i.peerPs != null && i.peerPs > 0 ? i.psTTM / i.peerPs : null;
+  // Guard peTTM > 0: a negative P/E (loss-maker) is not comparable on this multiple,
+  // and an unguarded negative ratio would clamp to the BEST relative score. Drop it
+  // so relativeVal falls back to P/S alone.
+  const peRel = i.peTTM != null && i.peTTM > 0 && i.peerPe != null && i.peerPe > 0 ? i.peTTM / i.peerPe : null;
+  const psRel = i.psTTM != null && i.psTTM > 0 && i.peerPs != null && i.peerPs > 0 ? i.psTTM / i.peerPs : null;
   const relativeVal = meanScore([
     interp(peRel, [[0.6, 85], [0.8, 72], [1, 55], [1.3, 40], [1.8, 25]]),
     interp(psRel, [[0.6, 82], [0.8, 70], [1, 55], [1.3, 42], [1.8, 28]]),
@@ -218,7 +221,7 @@ export function computeFinavaScore(inputs: ScoreInputs): FinavaScoreResult {
   const variance = ps.reduce((a, b) => a + (b - mean) ** 2, 0) / (ps.length || 1);
   const stdev = Math.sqrt(variance);
 
-  const volPenalty = (inputs.annualizedVol ?? 0) > 0.6 || (inputs.beta ?? 0) > 2 ? 1 : 0;
+  const volPenalty = (inputs.annualizedVol ?? 0) > 0.6 || (inputs.beta ?? 0) > 2;
 
   let confidence: FinavaScoreResult["confidence"];
   if (coverage >= 0.75 && stdev < 18 && !volPenalty) confidence = "High";
@@ -229,7 +232,10 @@ export function computeFinavaScore(inputs: ScoreInputs): FinavaScoreResult {
 }
 
 /** Defined fair-value blend: equal-weight DCF and Street when both exist, else the
- *  one present. Transparent — no LLM guess. */
+ *  one present. Transparent — no LLM guess. Non-positive values are suppressed (shown
+ *  as n/a) since a negative per-share "fair value" is nonsensical to display; the
+ *  scoring path is unaffected because the absoluteVal factor reads raw dcfFair, so a
+ *  distressed (negative) DCF still scores valuation bearish via the upside curve. */
 export function blendFairValue(v: { dcf: number | null; street: number | null }): number | null {
   const parts = [v.dcf, v.street].filter((x): x is number => x != null && x > 0);
   if (parts.length === 0) return null;

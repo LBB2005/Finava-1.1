@@ -73,6 +73,48 @@ describe("scoreFactors", () => {
   it("produces exactly 15 factors", () => {
     expect(scoreFactors(EMPTY).length).toBe(15);
   });
+  it("excludes a negative P/E from relative valuation (no false-best score)", () => {
+    // Loss-maker: peTTM < 0, no P/S → relativeVal must be null, never the 85 floor.
+    const f = scoreFactors({ ...EMPTY, peTTM: -30, peerPe: 25 });
+    const rv = f.find((x) => x.key === "relativeVal")!;
+    expect(rv.score).toBeNull();
+  });
+});
+
+const ALL_BULLISH: ScoreInputs = {
+  ...EMPTY,
+  revenueYoY: 0.3, epsYoY: 0.4, revenueCagr3y: 0.3,
+  grossMargin: 65, operatingMargin: 38, netMargin: 30,
+  roe: 35, roa: 18, roic: 28,
+  debtToEquity: 0.2, currentRatio: 2.5, fcfConversion: 1.2,
+  price: 100, dcfFair: 150, peTTM: 12, peerPe: 25, psTTM: 3, peerPs: 6,
+  ratingSkew: 0.9, estimateRevisionPct: 0.08, earningsSurprisePct: 0.1,
+  trendVs200: 0.25, ret3m: 0.3, relStrength6m: 0.3,
+  newsSentiment: 80, xSentiment: 78, insiderFlow: 0.5, beta: 1, annualizedVol: 0.3,
+};
+
+const ALL_BEARISH: ScoreInputs = {
+  ...EMPTY,
+  revenueYoY: -0.1, epsYoY: -0.15, revenueCagr3y: 0,
+  grossMargin: 10, operatingMargin: 0, netMargin: 0,
+  roe: 5, roa: 1, roic: 4,
+  debtToEquity: 3, currentRatio: 0.8, fcfConversion: 0.3,
+  price: 357, dcfFair: 143, peTTM: 50, peerPe: 25, psTTM: 12, peerPs: 6,
+  ratingSkew: -1, estimateRevisionPct: -0.1, earningsSurprisePct: -0.1,
+  trendVs200: -0.2, ret3m: -0.25, relStrength6m: -0.25,
+  newsSentiment: 20, xSentiment: 22, insiderFlow: -0.5, beta: 1, annualizedVol: 0.3,
+};
+
+describe("end-to-end calibration sanity", () => {
+  it("a uniformly strong company scores high", () => {
+    expect(computeFinavaScore(ALL_BULLISH).score).toBeGreaterThan(75);
+  });
+  it("a uniformly weak company scores low", () => {
+    expect(computeFinavaScore(ALL_BEARISH).score).toBeLessThan(35);
+  });
+  it("full-coverage corroborating signals yield High confidence", () => {
+    expect(computeFinavaScore(ALL_BULLISH).confidence).toBe("High");
+  });
 });
 
 describe("computeFinavaScore", () => {
