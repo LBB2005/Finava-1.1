@@ -2,9 +2,16 @@
 // /api/stock/[ticker]/finava-analysis route streams these as `data:` SSE lines;
 // finavaStore parses them back into a FinavaAnalysis on the client.
 
-export type SignalKey = "fundamentals" | "momentum" | "sentiment" | "analyst" | "insider";
+export type SignalKey = "fundamentals" | "valuation" | "momentum" | "sentiment" | "analyst" | "insider";
 
 export type Stance = "bullish" | "neutral" | "bearish";
+
+export interface FinavaFactor {
+  key: string;
+  label: string;
+  score: number | null; // null = excluded (no data)
+  detail: string;
+}
 
 export interface FinavaSignal {
   key: SignalKey;
@@ -13,6 +20,7 @@ export interface FinavaSignal {
   stance: Stance;
   headline: string; // one short line
   detail: string; // 1–2 sentences
+  factors?: FinavaFactor[];
 }
 
 export interface FinavaVerdict {
@@ -44,6 +52,7 @@ export type FinavaEvent =
 
 export const SIGNAL_LABELS: Record<SignalKey, string> = {
   fundamentals: "Fundamentals",
+  valuation: "Valuation",
   momentum: "Momentum",
   sentiment: "Sentiment",
   analyst: "Analyst",
@@ -51,11 +60,7 @@ export const SIGNAL_LABELS: Record<SignalKey, string> = {
 };
 
 export const SIGNAL_ORDER: SignalKey[] = [
-  "fundamentals",
-  "momentum",
-  "sentiment",
-  "analyst",
-  "insider",
+  "fundamentals", "valuation", "analyst", "momentum", "sentiment", "insider",
 ];
 
 export function stanceFromScore(score: number): Stance {
