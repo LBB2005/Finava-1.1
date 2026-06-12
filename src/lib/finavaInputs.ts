@@ -64,6 +64,19 @@ export function computeRelStrength(stockCloses: number[], benchCloses: number[])
   return a != null && b != null ? a - b : null;
 }
 
+/** Annualized volatility from daily closes: stdev of daily log returns × √252.
+ *  Feeds the confidence model (a very volatile name earns lower confidence). */
+export function annualizedVolatility(closes: number[]): number | null {
+  const rets: number[] = [];
+  for (let k = 1; k < closes.length; k++) {
+    if (closes[k - 1] > 0 && closes[k] > 0) rets.push(Math.log(closes[k] / closes[k - 1]));
+  }
+  if (rets.length < 20) return null;
+  const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+  const variance = rets.reduce((a, b) => a + (b - mean) ** 2, 0) / rets.length;
+  return Math.sqrt(variance) * Math.sqrt(252);
+}
+
 /** DCF fair value + FCF conversion via the dcf lib + EDGAR facts. WACC uses the default
  *  (~9%) beta assumption; beta-tuned WACC is a future refinement. */
 async function computeDcfBundle(
@@ -166,6 +179,7 @@ export async function assembleScoreInputs(
   if (closes.length >= 126 && benchCloses.length >= 126) {
     base.relStrength6m = computeRelStrength(closes.slice(-126), benchCloses.slice(-126));
   }
+  base.annualizedVol = annualizedVolatility(closes);
 
   return base;
 }

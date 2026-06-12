@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from "vitest";
 // assembleScoreInputs is not exercised here; the four helpers under test are pure.
 vi.mock("@/lib/sentiment/grok", () => ({ getGrokSentiment: vi.fn() }));
 
-import { metricsToFundamentalInputs, surpriseAvg, ratingSkew, computeRelStrength } from "@/lib/finavaInputs";
+import { metricsToFundamentalInputs, surpriseAvg, ratingSkew, computeRelStrength, annualizedVolatility } from "@/lib/finavaInputs";
 
 describe("metricsToFundamentalInputs", () => {
   it("maps Finnhub metric fields to the right ScoreInputs shape", () => {
@@ -61,6 +61,20 @@ describe("computeRelStrength", () => {
   it("does not rebase the window when the first bar is non-positive (returns null)", () => {
     // A leading 0 must not silently shrink the window and overstate the return.
     expect(computeRelStrength([0, 110, 130], [100, 105, 110])).toBeNull();
+  });
+});
+
+describe("annualizedVolatility", () => {
+  it("returns null without enough return observations", () => {
+    expect(annualizedVolatility([100, 101, 102])).toBeNull();
+  });
+  it("is higher for a more volatile series", () => {
+    const calm = Array.from({ length: 60 }, (_, k) => 100 + k * 0.1);
+    const wild = Array.from({ length: 60 }, (_, k) => 100 * (1 + 0.05 * (k % 2 === 0 ? 1 : -1)));
+    const vCalm = annualizedVolatility(calm)!;
+    const vWild = annualizedVolatility(wild)!;
+    expect(vCalm).toBeGreaterThanOrEqual(0);
+    expect(vWild).toBeGreaterThan(vCalm);
   });
 });
 
