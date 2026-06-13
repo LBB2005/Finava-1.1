@@ -2,18 +2,26 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase-admin";
 
-// Private-beta lockdown: when BETA_ADMIN_ONLY is set, only UIDs in ADMIN_UIDS may
-// authenticate, so every requireAuth-gated route is admins-only without per-route
-// edits. Flip the env var off to reopen the app to all signed-in users.
-function betaBlocked(userId: string): boolean {
+// Private-beta lockdown: when BETA_ADMIN_ONLY is set, only UIDs in ADMIN_UIDS or
+// emails in ADMIN_EMAILS may authenticate, so every requireAuth-gated route is
+// admins-only without per-route edits. Flip the env var off to reopen the app.
+function betaBlocked(userId: string, email?: string | null): boolean {
   if (process.env.BETA_ADMIN_ONLY !== "1") return false;
-  const admins = new Set(
+  const adminUids = new Set(
     (process.env.ADMIN_UIDS ?? "")
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean)
   );
-  return !admins.has(userId);
+  const adminEmails = new Set(
+    (process.env.ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  if (adminUids.has(userId)) return false;
+  if (email && adminEmails.has(email.toLowerCase())) return false;
+  return true;
 }
 
 export async function requireAuth(): Promise<
@@ -38,7 +46,7 @@ export async function requireAuth(): Promise<
 
   try {
     const decoded = await adminAuth.verifyIdToken(token);
-    if (betaBlocked(decoded.uid)) {
+    if (betaBlocked(decoded.uid, decoded.email)) {
       return { error: NextResponse.json({ error: "Private beta" }, { status: 403 }) };
     }
     return { userId: decoded.uid };

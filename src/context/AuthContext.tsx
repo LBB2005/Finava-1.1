@@ -52,12 +52,18 @@ function isPublicRoute(pathname: string): boolean {
 const DEV_ENABLED = process.env.NODE_ENV !== "production";
 
 // Private-beta lockdown (mirrors the server gate in requireAuth). When on, only
-// admin UIDs may use the app; any other signed-in Google user is signed back out.
+// admin UIDs or admin emails may use the app; all others are signed back out.
 const BETA_ADMIN_ONLY = process.env.NEXT_PUBLIC_BETA_ADMIN_ONLY === "1";
 const ADMIN_UIDS = new Set(
   (process.env.NEXT_PUBLIC_ADMIN_UIDS ?? "")
     .split(",")
     .map((s) => s.trim())
+    .filter(Boolean)
+);
+const ADMIN_EMAILS = new Set(
+  (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
     .filter(Boolean)
 );
 
@@ -83,7 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // A real, non-admin user under the beta lockdown is treated as not-signed-in:
   // the server rejects their token anyway, so never mount the app shell for them.
   const betaLockedOut =
-    BETA_ADMIN_ONLY && realUser !== null && !ADMIN_UIDS.has(realUser.uid);
+    BETA_ADMIN_ONLY &&
+    realUser !== null &&
+    !ADMIN_UIDS.has(realUser.uid) &&
+    !(realUser.email && ADMIN_EMAILS.has(realUser.email.toLowerCase()));
 
   const user = betaLockedOut
     ? null
