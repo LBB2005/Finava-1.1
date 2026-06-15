@@ -22,11 +22,8 @@ export function searchStocks(
   for (const c of universe) {
     const ticker = c.ticker.toUpperCase();
     const name = c.name.toUpperCase();
-    let rank: number;
-    if (ticker === q) rank = 0;
-    else if (ticker.startsWith(q)) rank = 1;
-    else if (name.includes(q)) rank = 2;
-    else continue;
+    if (ticker !== q && !ticker.startsWith(q) && !name.includes(q)) continue;
+    const rank = ticker === q ? 0 : ticker.startsWith(q) ? 1 : 2;
     scored.push({ c, rank });
   }
 

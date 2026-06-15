@@ -28,8 +28,8 @@ describe("searchStocks", () => {
   });
 
   it("caps results at the limit", () => {
-    const out = searchStocks("a", UNIVERSE, 2); // many names contain "a"
-    expect(out.length).toBeLessThanOrEqual(2);
+    const out = searchStocks("a", UNIVERSE, 2); // 4 entries match; capped to 2
+    expect(out.length).toBe(2);
   });
 });
 
