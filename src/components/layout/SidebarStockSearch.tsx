@@ -35,7 +35,9 @@ export default function SidebarStockSearch() {
 
   function go(symbol: string) {
     const sym = sanitizeSymbol(symbol);
-    if (!sym) return;
+    // Require at least one letter so junk like "...", "-", or "123" doesn't
+    // route to a garbage /stock/<sym> URL via the free-form fallback.
+    if (!sym || !/[A-Z]/.test(sym)) return;
     setQuery("");
     setOpen(false);
     setHighlight(-1);
@@ -87,6 +89,8 @@ export default function SidebarStockSearch() {
           placeholder="Search stocks"
           role="combobox"
           aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-autocomplete="list"
           aria-controls="sidebar-stock-search-list"
           aria-activedescendant={highlight >= 0 ? `ss-opt-${highlight}` : undefined}
           aria-label="Search stocks"
