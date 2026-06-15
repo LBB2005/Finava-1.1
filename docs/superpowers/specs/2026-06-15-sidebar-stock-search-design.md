@@ -96,15 +96,25 @@ dropdown, no bounce or flashy animation.
 
 ## Testing
 
-`src/components/layout/SidebarStockSearch.test.tsx` (vitest, already configured):
+The repo's vitest runs in the **node** environment and only includes
+`src/**/*.test.ts` — there is no jsdom / Testing Library, and the codebase
+convention is to unit-test **pure logic**, not render React components. So the
+matching/sanitize logic is extracted into a pure module and tested there; the
+thin component is verified in-browser via the preview.
 
-1. Filtering returns matches by ticker prefix (e.g. "AAP" → AAPL).
-2. Filtering returns matches by company name substring (e.g. "apple" → AAPL).
-3. ↓ then Enter navigates to the highlighted suggestion's stock page.
-4. Enter on a non-S&P free-form symbol routes to `/stock/<SYMBOL>`.
-5. Esc clears / closes.
-
-(`router.push` mocked via `next/navigation` mock.)
+- **Pure module:** `src/lib/stockSearch.ts`
+  - `searchStocks(query, universe, limit)` → ranked `Constituent[]`.
+  - `sanitizeSymbol(raw)` → uppercased, stripped free-form symbol.
+- **Test:** `src/lib/stockSearch.test.ts`
+  1. Ticker prefix match (e.g. "AAP" → AAPL ranked first).
+  2. Company-name substring match (e.g. "apple" → AAPL).
+  3. Empty / whitespace query returns `[]`.
+  4. Results capped at `limit`.
+  5. `sanitizeSymbol("  brk.b ")` → `"BRK.B"`; strips invalid chars.
+- **Component:** `SidebarStockSearch.tsx` imports `searchStocks` /
+  `sanitizeSymbol`; its keyboard/dropdown/navigation behaviour is verified
+  manually in the browser preview (consistent with the rest of the app, which
+  has no component tests).
 
 ## Success criteria
 
