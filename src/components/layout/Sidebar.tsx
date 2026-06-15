@@ -11,6 +11,7 @@ import { useWatchlistStore } from "@/stores/watchlistStore";
 import { useAuth } from "@/context/AuthContext";
 import ConversationList, { type Conversation } from "./ConversationList";
 import ChatSearchModal from "./ChatSearchModal";
+import SidebarStockSearch from "./SidebarStockSearch";
 import PortfolioList from "./PortfolioList";
 import WatchlistBoard from "@/components/watchlist/WatchlistBoard";
 import AddHoldingModal from "@/components/portfolio/AddHoldingModal";
@@ -807,6 +808,9 @@ export default function Sidebar({
           </button>
         </div>
       )}
+
+      {/* Stock lookup — type a ticker/name → /stock/<TICKER> */}
+      <SidebarStockSearch />
 
       {/* Scrollable body — nav + briefing + recents */}
       <div className="flex-1 overflow-y-auto min-h-0">
