@@ -86,7 +86,7 @@ export default function SidebarStockSearch() {
           onFocus={() => query && setOpen(true)}
           placeholder="Search stocks"
           role="combobox"
-          aria-expanded={showDropdown}
+          aria-expanded={open}
           aria-controls="sidebar-stock-search-list"
           aria-activedescendant={highlight >= 0 ? `ss-opt-${highlight}` : undefined}
           aria-label="Search stocks"
