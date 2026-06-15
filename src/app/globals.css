@@ -1974,3 +1974,8 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   .ss-dropdown { animation: none; }
 }
+
+/* Sidebar stock-search input — suppress the global accent focus ring; the
+   resting border is the focus cue (same opt-out as .chat-textarea). */
+.sidebar-search-input:focus,
+.sidebar-search-input:focus-visible { outline: none; }
