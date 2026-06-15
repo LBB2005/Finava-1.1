@@ -1962,3 +1962,15 @@ html:has(.landing-root) { scroll-behavior: smooth; }
   }
   .print-transcript > div { padding-bottom: 24px !important; }
 }
+
+/* Sidebar stock-search dropdown — subtle fade + small slide (refined, no bounce). */
+@keyframes ss-dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ss-dropdown {
+  animation: ss-dropdown-in 140ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ss-dropdown { animation: none; }
+}
