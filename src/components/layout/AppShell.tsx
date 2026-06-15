@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import Sidebar from "./Sidebar";
 import GlobalComposer from "@/components/chat/GlobalComposer";
 import ChatEngine from "@/components/chat/ChatEngine";
+import { PlaidConnectProvider } from "@/components/portfolio/PlaidConnectProvider";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -55,6 +56,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    <PlaidConnectProvider>
     <div className="h-full flex flex-col md:flex-row overflow-hidden">
       {/* Mobile top bar */}
       <header
@@ -117,5 +119,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <ChatEngine />
       </div>
     </div>
+    </PlaidConnectProvider>
   );
 }

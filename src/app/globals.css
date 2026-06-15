@@ -148,6 +148,57 @@
   }
 }
 
+/* ─── Appearance preferences ──────────────────────────────────────────────
+   Driven by data-* attributes on <html> (see @/lib/appearance). Each control's
+   default maps to "no attribute", so :root above is the standard look. Accent
+   presets are defined for light, then re-stated with a compound selector for
+   dark so they win over the [data-theme="dark"] accent block by specificity. */
+
+/* Accent — light */
+[data-accent="emerald"] { --color-accent:#057a55; --color-accent-hover:#046c4e; --color-accent-light:#ecfdf5; --color-accent-medium:#a7f3d0; --color-user-bubble:#057a55; }
+[data-accent="violet"]  { --color-accent:#7c3aed; --color-accent-hover:#6d28d9; --color-accent-light:#f3e8ff; --color-accent-medium:#ddd6fe; --color-user-bubble:#7c3aed; }
+[data-accent="crimson"] { --color-accent:#b42318; --color-accent-hover:#991b14; --color-accent-light:#fef2f2; --color-accent-medium:#fecaca; --color-user-bubble:#b42318; }
+[data-accent="teal"]    { --color-accent:#0d9488; --color-accent-hover:#0f766e; --color-accent-light:#ccfbf1; --color-accent-medium:#99f6e4; --color-user-bubble:#0d9488; }
+
+/* Accent — dark (compound selector beats [data-theme="dark"]) */
+[data-theme="dark"][data-accent="emerald"] { --color-accent:#3fb950; --color-accent-hover:#56d364; --color-accent-light:#07281a; --color-accent-medium:#0f5132; --color-user-bubble:#2ea043; }
+[data-theme="dark"][data-accent="violet"]  { --color-accent:#a78bfa; --color-accent-hover:#c4b5fd; --color-accent-light:#2a1a4d; --color-accent-medium:#4c2a85; --color-user-bubble:#7c5cde; }
+[data-theme="dark"][data-accent="crimson"] { --color-accent:#f87171; --color-accent-hover:#fca5a5; --color-accent-light:#3a1413; --color-accent-medium:#7f1d1d; --color-user-bubble:#da3633; }
+[data-theme="dark"][data-accent="teal"]    { --color-accent:#2dd4bf; --color-accent-hover:#5eead4; --color-accent-light:#06302b; --color-accent-medium:#0f5f57; --color-user-bubble:#1ca99a; }
+
+/* Text size — scales the type ramp */
+[data-text-size="small"] { --text-micro:9.5px; --text-meta:11px;   --text-sm:12px;   --text-body:13px;   --text-title:14px; --text-display:20px; }
+[data-text-size="large"] { --text-micro:11px;  --text-meta:12.5px; --text-sm:13.5px; --text-body:15.5px; --text-title:17px; --text-display:25px; }
+
+/* Interface density — tightens page chrome */
+[data-density="compact"] {
+  --page-gutter: 16px;
+  --page-header-pad-y: 8px;
+  --page-header-gap: 12px;
+  --content-pad-top: 8px;
+}
+
+/* Reduce motion — near-zero durations app-wide (OS preference is the baseline) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+[data-motion="reduced"] *,
+[data-motion="reduced"] *::before,
+[data-motion="reduced"] *::after {
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Editorial headings off — point the serif token at the sans stack */
+[data-headings="sans"] { --font-serif: var(--font-sans); }
+
 @theme inline {
   --color-background: var(--color-bg);
   --color-foreground: var(--color-text);
@@ -390,6 +441,16 @@ body {
   .status-dot { animation: none; }
 }
 
+/* Model badge "lighting up" while its agent runs — a refined opacity breathe. */
+@keyframes model-badge-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.model-badge-lit { animation: model-badge-breathe 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .model-badge-lit { animation: none; }
+}
+
 /* Streaming "ticker bars" equalizer — recents-row live indicator */
 @keyframes ticker-bar {
   0%, 100% { height: 30%; opacity: 0.5; }
@@ -533,18 +594,9 @@ body {
   animation: shimmer 1.4s ease-in-out infinite;
 }
 
-/* ── Claude-style streaming text ─────────────────────────────────────
-   Each freshly-revealed word fades in cleanly in place — pure opacity, no
-   movement, no blur. Settled words stay put (stable keys in StreamingMarkdown
-   prevent re-animation). */
-@keyframes stream-word-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-.stream-word {
-  animation: stream-word-in 300ms ease-out both;
-  will-change: opacity;
-}
+/* Streaming text has no per-word animation — the smooth-paced character reveal
+   in StreamingMarkdown is the only motion, so settled and streaming text are
+   visually identical and nothing flickers. */
 
 /* Route transition — subtle fade on navigation */
 @keyframes route-fade {
@@ -558,7 +610,6 @@ body {
   .fade-in, .verdict-fadein, .route-fade { animation: none; }
   .skeleton { animation: none; }
   .calm-orb-dot, .calm-orb-avatar, .shimmer-text, .prompt-lift { animation: none; }
-  .stream-word { animation: none; opacity: 1; }
 }
 
 /* Markdown body */

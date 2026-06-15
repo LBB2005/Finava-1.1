@@ -3,6 +3,7 @@ import { adminAuth, db } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
 import { resolvePlan, capabilitiesFor } from "@/lib/entitlements";
 import { TRIAL_DAYS } from "@/lib/plans";
+import { sanitizeAppearance } from "@/lib/appearance";
 
 const PAID_STATUSES = new Set(["active", "trialing", "past_due"]);
 
@@ -62,6 +63,7 @@ export async function GET() {
       capabilities: capabilitiesFor(ent.plan),
       allowDataTraining: (settings?.allowDataTraining as boolean) ?? true,
       locationMetadata: (settings?.locationMetadata as boolean) ?? true,
+      appearance: settings?.appearance ?? null,
       stats: {
         conversations: convSnap.size,
         briefings: briefingSnap.size,
@@ -85,6 +87,13 @@ export async function PATCH(request: Request) {
     // could self-upgrade to a paid tier with a PATCH.
     for (const key of ["allowDataTraining", "locationMetadata"]) {
       if (key in body) settingsUpdate[key] = body[key];
+    }
+
+    // Appearance prefs are device display settings — whitelist each key to its
+    // allowed value before storing, since they drive CSS attributes client-side.
+    if ("appearance" in body) {
+      const clean = sanitizeAppearance(body.appearance);
+      if (Object.keys(clean).length > 0) settingsUpdate.appearance = clean;
     }
 
     if (typeof body.displayName === "string") {

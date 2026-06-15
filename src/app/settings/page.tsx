@@ -6,8 +6,12 @@ import { useAuth } from "@/context/AuthContext";
 import { authFetcher, authFetch } from "@/lib/authFetch";
 import { PLANS, PLAN_ORDER, type PlanName, type BillingCadence } from "@/lib/plans";
 import { usePortfolio } from "@/hooks/usePortfolio";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
+import type { Accent } from "@/lib/appearance";
 import ConnectBrokerageButton from "@/components/portfolio/ConnectBrokerageButton";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
+import { FORMAT_PRESETS, sanitizeFormats, type FormatKey } from "@/lib/templates";
+import type { Template } from "@/types/chat";
 
 interface UserData {
   uid: string;
@@ -43,11 +47,16 @@ const ICON_PATHS: Record<string, string> = {
   x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
   sun: '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
   globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  contrast: '<circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20z" fill="currentColor"/>',
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
   download:
     '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
   trash:
     '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  templates:
+    '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
 };
 
 function Icon({
@@ -84,6 +93,8 @@ const NAV = [
     grp: "Workspace",
     items: [
       { id: "general", label: "General", icon: "general" },
+      { id: "templates", label: "Templates", icon: "templates" },
+      { id: "appearance", label: "Appearance", icon: "contrast" },
       { id: "notifications", label: "Notifications", icon: "bell" },
       { id: "connections", label: "Connections", icon: "link" },
     ],
@@ -205,61 +216,148 @@ function Head({ title, description }: { title: string; description?: string }) {
   );
 }
 
-function useTheme() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-
-  // localStorage is client-only; reading it in an effect (not render) is the
-  // hydration-safe way to pick up the stored theme without an SSR mismatch.
-  useEffect(() => {
-    const stored = localStorage.getItem("finava-theme") as "light" | "dark" | null;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTheme(stored ?? "light");
-  }, []);
-
-  function select(next: "light" | "dark") {
-    setTheme(next);
-    localStorage.setItem("finava-theme", next);
-    if (next === "dark") document.documentElement.setAttribute("data-theme", "dark");
-    else document.documentElement.removeAttribute("data-theme");
-  }
-
-  return { theme, select };
-}
-
 // ─── Sections ─────────────────────────────────────────────────────────────────
 
+/** Pill segmented control used across the Appearance section. */
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: { v: T; label: string; icon?: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div
+      className="inline-flex gap-[3px] p-[3px] rounded-[8px]"
+      style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+    >
+      {options.map((o) => (
+        <button
+          key={o.v}
+          onClick={() => onChange(o.v)}
+          className="inline-flex items-center gap-1.5 px-3 py-[5px] text-[12px] font-medium rounded-[5px] transition-all duration-150"
+          style={
+            value === o.v
+              ? {
+                  background: "var(--color-bg)",
+                  color: "var(--color-accent)",
+                  boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
+                  fontWeight: 600,
+                }
+              : { color: "var(--color-text-secondary)" }
+          }
+        >
+          {o.icon && <Icon name={o.icon} size={13} />} {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const ACCENTS: { v: Accent; color: string; label: string }[] = [
+  { v: "navy", color: "#1a4b8f", label: "Navy" },
+  { v: "emerald", color: "#057a55", label: "Emerald" },
+  { v: "violet", color: "#7c3aed", label: "Violet" },
+  { v: "crimson", color: "#b42318", label: "Crimson" },
+  { v: "teal", color: "#0d9488", label: "Teal" },
+];
+
+function AppearanceSection() {
+  const { prefs, set, reset } = useAppearance();
+  return (
+    <div>
+      <Head title="Appearance" description="Personalize how Finava looks. These preferences sync to your account." />
+
+      <Row label="Theme" description="Light, dark, or match your system automatically.">
+        <Segmented
+          value={prefs.theme}
+          onChange={(v) => set("theme", v)}
+          options={[
+            { v: "light", label: "Light", icon: "sun" },
+            { v: "dark", label: "Dark", icon: "moon" },
+            { v: "system", label: "System", icon: "monitor" },
+          ]}
+        />
+      </Row>
+
+      <Row label="Accent color" description="The highlight color used across buttons, links, and charts.">
+        <div className="flex items-center gap-2.5">
+          {ACCENTS.map((a) => {
+            const on = prefs.accent === a.v;
+            return (
+              <button
+                key={a.v}
+                onClick={() => set("accent", a.v)}
+                aria-label={a.label}
+                aria-pressed={on}
+                title={a.label}
+                className="rounded-full transition-transform duration-150"
+                style={{
+                  width: 22,
+                  height: 22,
+                  background: a.color,
+                  border: `2px solid ${on ? "var(--color-bg)" : "transparent"}`,
+                  boxShadow: on
+                    ? "0 0 0 2px var(--color-text)"
+                    : "0 0 0 1px var(--color-border-strong)",
+                  transform: on ? "scale(1.08)" : "scale(1)",
+                }}
+              />
+            );
+          })}
+        </div>
+      </Row>
+
+      <Row label="Text size" description="Scales text across the whole app.">
+        <Segmented
+          value={prefs.textSize}
+          onChange={(v) => set("textSize", v)}
+          options={[
+            { v: "small", label: "Small" },
+            { v: "default", label: "Default" },
+            { v: "large", label: "Large" },
+          ]}
+        />
+      </Row>
+
+      <Row label="Interface density" description="Comfortable spacing, or compact to fit more on screen.">
+        <Segmented
+          value={prefs.density}
+          onChange={(v) => set("density", v)}
+          options={[
+            { v: "comfortable", label: "Comfortable" },
+            { v: "compact", label: "Compact" },
+          ]}
+        />
+      </Row>
+
+      <Row label="Reduce motion" description="Tone down animations and transitions across the app.">
+        <Toggle checked={prefs.reduceMotion} onChange={(v) => set("reduceMotion", v)} />
+      </Row>
+
+      <Row
+        label="Editorial headings"
+        description="Use the Playfair serif for large headings. Off keeps everything in the sans typeface."
+      >
+        <Toggle checked={prefs.serifHeadings} onChange={(v) => set("serifHeadings", v)} />
+      </Row>
+
+      <div className="mt-6 flex justify-end">
+        <Btn variant="soft" onClick={reset}>
+          Reset to defaults
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
 function GeneralSection() {
-  const { theme, select } = useTheme();
   const { devEnabled, devBypass, toggleDevBypass } = useAuth();
   return (
     <div>
-      <Head title="General" description="App-wide preferences and appearance." />
-      <Row label="Appearance" description="Choose between light and dark theme.">
-        <div
-          className="inline-flex gap-[3px] p-[3px] rounded-[8px]"
-          style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
-        >
-          {([["light", "sun"], ["dark", "moon"]] as const).map(([t, ic]) => (
-            <button
-              key={t}
-              onClick={() => select(t)}
-              className="inline-flex items-center gap-1.5 px-3 py-[5px] text-[12px] font-medium rounded-[5px] capitalize transition-all duration-150"
-              style={
-                theme === t
-                  ? {
-                      background: "var(--color-bg)",
-                      color: "var(--color-accent)",
-                      boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
-                      fontWeight: 600,
-                    }
-                  : { color: "var(--color-text-secondary)" }
-              }
-            >
-              <Icon name={ic} size={13} /> {t}
-            </button>
-          ))}
-        </div>
-      </Row>
+      <Head title="General" description="App-wide preferences." />
       <Row label="Language" description="Language used across the app.">
         <span
           className="text-[13px] flex items-center gap-[7px]"
@@ -274,8 +372,19 @@ function GeneralSection() {
         </span>
       </Row>
       {devEnabled && (
-        <Row label="Dev auth bypass" description="Mount a mock Pro session without signing in. Local dev only.">
-          <Toggle checked={devBypass} onChange={toggleDevBypass} />
+        <Row
+          label="Developer preview mode"
+          description="Preview the app as a signed-in Pro user without logging in. Local development only."
+        >
+          <div className="flex items-center gap-2.5">
+            <span
+              className="text-[11px] font-semibold tabular-nums"
+              style={{ color: devBypass ? "var(--color-accent)" : "var(--color-muted)" }}
+            >
+              {devBypass ? "On" : "Off"}
+            </span>
+            <Toggle checked={devBypass} onChange={toggleDevBypass} />
+          </div>
         </Row>
       )}
     </div>
@@ -415,6 +524,296 @@ function ConnectionsSection({ userData }: { userData: UserData | undefined }) {
         Connecting a brokerage replaces your portfolio with the synced holdings and turns off
         manual entry. Disconnecting keeps those holdings as editable manual positions.
       </p>
+    </div>
+  );
+}
+
+/** Wireframe-skeleton thumbnail for a response format — abstract bars/lines that
+ *  hint at the output shape, so users pick a format by sight not by reading. */
+function FormatThumb({ k }: { k: FormatKey }) {
+  const line = "var(--color-border-strong)";
+  const faint = "var(--color-border)";
+  const common = { viewBox: "0 0 120 64", width: "100%", height: "auto", "aria-hidden": true } as const;
+  switch (k) {
+    case "brief":
+      return (
+        <svg {...common}>
+          <rect x="10" y="20" width="100" height="6" rx="3" fill={line} />
+          <rect x="10" y="32" width="84" height="6" rx="3" fill={line} />
+          <rect x="10" y="44" width="58" height="6" rx="3" fill={faint} />
+        </svg>
+      );
+    case "bulleted":
+      return (
+        <svg {...common}>
+          <circle cx="14" cy="20" r="3" fill={line} /><rect x="24" y="17" width="84" height="6" rx="3" fill={line} />
+          <circle cx="14" cy="34" r="3" fill={line} /><rect x="24" y="31" width="72" height="6" rx="3" fill={line} />
+          <circle cx="14" cy="48" r="3" fill={line} /><rect x="24" y="45" width="80" height="6" rx="3" fill={line} />
+        </svg>
+      );
+    case "deep_memo":
+      return (
+        <svg {...common}>
+          <rect x="10" y="12" width="46" height="7" rx="3" fill={line} />
+          <rect x="10" y="24" width="100" height="5" rx="2" fill={faint} />
+          <rect x="10" y="33" width="92" height="5" rx="2" fill={faint} />
+          <rect x="10" y="46" width="40" height="7" rx="3" fill={line} />
+          <rect x="62" y="47" width="48" height="5" rx="2" fill={faint} />
+        </svg>
+      );
+    case "table":
+      return (
+        <svg {...common}>
+          <rect x="10" y="14" width="100" height="36" rx="3" fill="none" stroke={line} strokeWidth="1.5" />
+          <line x1="10" y1="26" x2="110" y2="26" stroke={line} strokeWidth="1" />
+          <line x1="10" y1="38" x2="110" y2="38" stroke={faint} strokeWidth="1" />
+          <line x1="43" y1="14" x2="43" y2="50" stroke={faint} strokeWidth="1" />
+          <line x1="77" y1="14" x2="77" y2="50" stroke={faint} strokeWidth="1" />
+        </svg>
+      );
+    case "verdict_first":
+      return (
+        <svg {...common}>
+          <rect x="10" y="13" width="64" height="12" rx="4" fill={line} />
+          <rect x="10" y="33" width="100" height="5" rx="2" fill={faint} />
+          <rect x="10" y="42" width="92" height="5" rx="2" fill={faint} />
+          <rect x="10" y="51" width="70" height="5" rx="2" fill={faint} />
+        </svg>
+      );
+    case "chart_led":
+      return (
+        <svg {...common}>
+          <rect x="14" y="34" width="14" height="18" rx="2" fill={faint} />
+          <rect x="34" y="24" width="14" height="28" rx="2" fill={faint} />
+          <rect x="54" y="30" width="14" height="22" rx="2" fill={faint} />
+          <rect x="74" y="16" width="14" height="36" rx="2" fill={line} />
+          <line x1="10" y1="52" x2="108" y2="52" stroke={line} strokeWidth="1" />
+        </svg>
+      );
+  }
+}
+
+interface Draft {
+  id?: string;
+  title: string;
+  instructions: string;
+  formats: FormatKey[];
+}
+
+function TemplatesSection() {
+  const { data: templates, mutate } = useSWR<Template[]>("/api/playbooks", authFetcher);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function openNew() {
+    setDraft({ title: "", instructions: "", formats: [] });
+  }
+  function openEdit(t: Template) {
+    setDraft({ id: t.id, title: t.title ?? "", instructions: t.instructions ?? "", formats: sanitizeFormats(t.formats) });
+  }
+  function toggleFormat(k: FormatKey) {
+    setDraft((d) => (d ? { ...d, formats: d.formats.includes(k) ? d.formats.filter((x) => x !== k) : [...d.formats, k] } : d));
+  }
+
+  async function save() {
+    if (!draft || !draft.title.trim()) return;
+    setSaving(true);
+    try {
+      const payload = { title: draft.title.trim(), instructions: draft.instructions.trim(), formats: draft.formats };
+      const url = draft.id ? `/api/playbooks/${draft.id}` : "/api/playbooks";
+      const method = draft.id ? "PATCH" : "POST";
+      const res = await authFetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      await mutate();
+      setDraft(null);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(id: string) {
+    await authFetch(`/api/playbooks/${id}`, { method: "DELETE" });
+    await mutate();
+    setDraft(null);
+  }
+
+  const list = Array.isArray(templates) ? templates : [];
+
+  return (
+    <div>
+      <Head title="Templates" description="Saved ways for Finava to respond. Pick one in the composer to shape any answer — tone, structure, and what to always include." />
+
+      <div className="grid mt-2" style={{ gridTemplateColumns: "minmax(0,1fr) 248px" }}>
+        {/* Main pane — editor or empty state */}
+        <div className="pr-7">
+          {draft ? (
+            <div>
+              <label className="block text-[12px] mb-1.5" style={{ color: "var(--color-text-secondary)" }}>Name</label>
+              <input
+                value={draft.title}
+                onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                maxLength={80}
+                placeholder="e.g. Earnings deep-dive"
+                className="w-full text-[13px] px-[11px] py-[8px] rounded-[8px] outline-none mb-4"
+                style={{ background: "var(--color-bg)", border: "1px solid var(--color-border-strong)", color: "var(--color-text)" }}
+              />
+
+              <label className="block text-[12px] mb-1.5" style={{ color: "var(--color-text-secondary)" }}>
+                Instructions <span style={{ color: "var(--color-muted)" }}>— how Finava should respond</span>
+              </label>
+              <textarea
+                value={draft.instructions}
+                onChange={(e) => setDraft({ ...draft, instructions: e.target.value })}
+                maxLength={2000}
+                rows={3}
+                placeholder="Lead with the bottom line, always quantify the key numbers, and end with the biggest risk to watch."
+                className="w-full text-[13px] px-[11px] py-[8px] rounded-[8px] outline-none resize-none mb-5 leading-relaxed"
+                style={{ background: "var(--color-bg)", border: "1px solid var(--color-border-strong)", color: "var(--color-text)" }}
+              />
+
+              <label className="block text-[12px] mb-2" style={{ color: "var(--color-text-secondary)" }}>
+                Format <span style={{ color: "var(--color-muted)" }}>— combine a few, or let Finava choose</span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => setDraft({ ...draft, formats: [] })}
+                className="w-full flex items-center gap-3 rounded-[10px] px-3 py-2.5 mb-2.5 text-left transition-colors duration-100"
+                style={{
+                  background: "var(--color-bg)",
+                  border: `${draft.formats.length === 0 ? 2 : 1}px solid ${draft.formats.length === 0 ? "var(--color-accent)" : "var(--color-border)"}`,
+                }}
+              >
+                <span
+                  className="w-9 h-9 rounded-[8px] flex items-center justify-center flex-shrink-0"
+                  style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5L13 3z" />
+                  </svg>
+                </span>
+                <span>
+                  <span className="block text-[13px] font-semibold" style={{ color: "var(--color-text)" }}>Auto</span>
+                  <span className="block text-[11.5px]" style={{ color: "var(--color-text-secondary)" }}>Finava picks the best structure for each question</span>
+                </span>
+              </button>
+
+              <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5 mb-5">
+                {FORMAT_PRESETS.map((p) => {
+                  const on = draft.formats.includes(p.key);
+                  return (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => toggleFormat(p.key)}
+                      className="relative rounded-[10px] px-2 pt-2.5 pb-1.5 transition-colors duration-100"
+                      style={{
+                        background: "var(--color-bg)",
+                        border: `${on ? 2 : 1}px solid ${on ? "var(--color-accent)" : "var(--color-border)"}`,
+                      }}
+                    >
+                      {on && (
+                        <span
+                          className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center"
+                          style={{ background: "var(--color-accent)", color: "#fff" }}
+                        >
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </span>
+                      )}
+                      <FormatThumb k={p.key} />
+                      <p className="text-[11.5px] font-medium text-center mt-2 leading-tight" style={{ color: on ? "var(--color-accent)" : "var(--color-text-secondary)" }}>
+                        {p.label}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center justify-between pt-3.5" style={{ borderTop: "1px solid var(--color-border)" }}>
+                <div>
+                  {draft.id && (
+                    <Btn variant="danger" onClick={() => remove(draft.id!)}>
+                      <Icon name="trash" size={14} /> Delete
+                    </Btn>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Btn variant="soft" onClick={() => setDraft(null)}>Cancel</Btn>
+                  <Btn variant="prim" onClick={save} disabled={saving || !draft.title.trim()}>
+                    {saving ? "Saving…" : "Save template"}
+                  </Btn>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center" style={{ minHeight: 340 }}>
+              <div
+                className="w-12 h-12 rounded-[12px] flex items-center justify-center mb-3.5"
+                style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
+              >
+                <Icon name="templates" size={22} stroke={1.8} />
+              </div>
+              <p className="text-[14.5px] font-semibold" style={{ color: "var(--color-text)" }}>
+                {list.length > 0 ? "Select a template to edit" : "Create your first template"}
+              </p>
+              <p className="text-[12.5px] mt-1 mb-4 max-w-[34ch]" style={{ color: "var(--color-text-secondary)" }}>
+                Templates shape how Finava answers — tone, structure, and what to always include.
+              </p>
+              <Btn variant="prim" onClick={openNew}>
+                <Icon name="plus" size={14} /> New template
+              </Btn>
+            </div>
+          )}
+        </div>
+
+        {/* Right rail — your saved templates */}
+        <div style={{ borderLeft: "1px solid var(--color-border)", paddingLeft: 18 }}>
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="eyebrow-label" style={{ letterSpacing: "0.14em", color: "var(--color-muted)" }}>
+              Your templates
+            </span>
+            <button
+              onClick={openNew}
+              aria-label="New template"
+              className="w-6 h-6 rounded-[7px] flex items-center justify-center transition-colors duration-100"
+              style={{ color: "var(--color-text-secondary)", background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+            >
+              <Icon name="plus" size={13} />
+            </button>
+          </div>
+
+          {list.length === 0 ? (
+            <p className="text-[12px] py-2" style={{ color: "var(--color-muted)" }}>
+              No templates yet.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-0.5">
+              {list.map((t) => {
+                const fmts = sanitizeFormats(t.formats);
+                const sub = fmts.length === 0 ? "Auto" : fmts.map((f) => FORMAT_PRESETS.find((p) => p.key === f)?.label ?? f).join(" · ");
+                const isOpen = draft?.id === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => openEdit(t)}
+                    className="text-left rounded-[8px] px-[10px] py-[8px] transition-colors duration-100"
+                    style={isOpen ? { background: "var(--color-accent-light)" } : undefined}
+                  >
+                    <p className="text-[13px] font-medium truncate" style={{ color: isOpen ? "var(--color-accent)" : "var(--color-text)" }}>{t.title}</p>
+                    <p className="text-[11px] mt-[1px] truncate" style={{ color: "var(--color-muted)" }}>{sub}</p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1270,7 +1669,7 @@ export default function SettingsPage() {
 
       {/* Content */}
       <div ref={contentRef} className="flex-1 overflow-y-auto">
-        <div style={{ maxWidth: 624, margin: "0 auto", padding: "40px 44px 64px" }}>
+        <div style={{ maxWidth: active === "templates" ? 1000 : 624, margin: "0 auto", padding: "40px 44px 64px" }}>
           {checkoutNotice && (
             <div
               className="mb-5 rounded-[10px] px-4 py-3 text-[13px] flex items-center justify-between"
@@ -1295,6 +1694,8 @@ export default function SettingsPage() {
             </div>
           )}
           {active === "general" && <GeneralSection />}
+          {active === "templates" && <TemplatesSection />}
+          {active === "appearance" && <AppearanceSection />}
           {active === "notifications" && <NotificationsSection />}
           {active === "connections" && <ConnectionsSection userData={userData} />}
           {active === "account" && <ProfileSection userData={userData} mutate={mutate} />}

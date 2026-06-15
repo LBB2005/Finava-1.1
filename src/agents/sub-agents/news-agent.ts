@@ -19,7 +19,7 @@ export async function runNewsAgent(input: unknown): Promise<string> {
         try {
           const articles = await getCompanyNews(ticker, fromDate, toDate);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const headlines = (articles ?? []).slice(0, 8).map((a: any) =>
+          const headlines = (articles ?? []).slice(0, 15).map((a: any) =>
             `[${ticker}] ${a.headline} (${new Date(a.datetime * 1000).toISOString().slice(0, 10)})`
           );
           if (headlines.length) newsItems.push(...headlines);

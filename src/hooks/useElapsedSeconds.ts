@@ -11,7 +11,6 @@ export function useElapsedSeconds(startedAt: number | null): number {
 
   useEffect(() => {
     if (startedAt == null) return;
-    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, [startedAt]);

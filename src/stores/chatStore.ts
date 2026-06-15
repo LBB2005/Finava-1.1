@@ -42,6 +42,8 @@ export interface SendRequest {
   context: ChatContext;
   /** "send" routes by mode; "deepen" escalates a quick discover to a deep run. */
   kind: "send" | "deepen";
+  /** Optional response-template id whose instructions/format shape this answer. */
+  templateId?: string;
 }
 
 interface ChatState {
@@ -59,6 +61,9 @@ interface ChatState {
   pendingMessage: string;
   /** Context to stamp on the NEXT conversation created. Consumed at create time. */
   pendingContext: ChatContext;
+  /** Response template riding on the next send (shown as a composer chip).
+   *  Shared between the composer and the empty-state picker; cleared on send. */
+  activeTemplate: { id: string; title: string } | null;
 
   // ── selectors (call via useChatStore.getState() in non-React code) ──
   slice: (convId: string | null) => StreamSlice;
@@ -69,6 +74,7 @@ interface ChatState {
   setMode: (mode: ChatMode) => void;
   setPendingMessage: (msg: string) => void;
   setPendingContext: (ctx: ChatContext) => void;
+  setActiveTemplate: (t: { id: string; title: string } | null) => void;
 
   // ── send queue ──
   enqueueSend: (req: Omit<SendRequest, "id">) => void;
@@ -112,6 +118,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   sendQueue: [],
   pendingMessage: "",
   pendingContext: null,
+  activeTemplate: null,
 
   slice: (convId) => (convId ? get().streamsByConv[convId] ?? emptySlice() : emptySlice()),
   messagesOf: (convId) => (convId ? get().messagesByConv[convId] ?? [] : []),
@@ -120,6 +127,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setMode: (mode) => set({ mode }),
   setPendingMessage: (msg) => set({ pendingMessage: msg }),
   setPendingContext: (ctx) => set({ pendingContext: ctx }),
+  setActiveTemplate: (t) => set({ activeTemplate: t }),
 
   enqueueSend: (req) =>
     set((s) => ({
@@ -204,5 +212,5 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }),
 
-  reset: () => set({ conversationId: null, pendingMessage: "", pendingContext: null }),
+  reset: () => set({ conversationId: null, pendingMessage: "", pendingContext: null, activeTemplate: null }),
 }));

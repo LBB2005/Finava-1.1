@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, serializeDoc } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
+import { sanitizeFormats } from "@/lib/templates";
 
 function playbooksCol(uid: string) {
   return db.collection("users").doc(uid).collection("playbooks");
@@ -10,6 +11,7 @@ const MAX_PLAYBOOKS = 50;
 const MAX_STEPS = 20;
 const MAX_STEP_CHARS = 2000;
 const MAX_TITLE_CHARS = 80;
+const MAX_INSTRUCTIONS_CHARS = 2000;
 
 export async function GET() {
   const { userId, error } = await requireAuth();
@@ -37,14 +39,24 @@ export async function POST(req: Request) {
       .filter((s: unknown): s is string => typeof s === "string" && s.trim().length > 0)
       .slice(0, MAX_STEPS)
       .map((s: string) => s.trim().slice(0, MAX_STEP_CHARS));
-    if (!title || steps.length === 0) {
-      return NextResponse.json({ error: "A title and at least one prompt are required" }, { status: 400 });
+    const instructions =
+      typeof body.instructions === "string" ? body.instructions.trim().slice(0, MAX_INSTRUCTIONS_CHARS) : "";
+    const formats = sanitizeFormats(body.formats ?? body.format);
+    // A template needs a title and at least one payload — a starter prompt, some
+    // response instructions, or a chosen format.
+    if (!title || (steps.length === 0 && !instructions && formats.length === 0)) {
+      return NextResponse.json(
+        { error: "A name and at least a prompt, instructions, or a format are required" },
+        { status: 400 }
+      );
     }
 
     const data = {
       userId,
       title,
       steps,
+      instructions,
+      formats,
       sourceConversationId: typeof body.sourceConversationId === "string" ? body.sourceConversationId : null,
       createdAt: new Date().toISOString(),
     };

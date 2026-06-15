@@ -1,8 +1,22 @@
-import type { ScoutPick, DiscoverTier, WaveEvidence } from "@/lib/scoutTypes";
+import type { ScoutPick, DiscoverTier, DiscoverLayout, WaveEvidence } from "@/lib/scoutTypes";
+import type { Brand } from "@/lib/models";
 
 export type ChatMode = "simple" | "agent" | "deep_research" | "backtest" | "discover";
 
 export { AGENT_COUNT } from "@/agents/tools/index";
+
+/**
+ * A user-authored response Template (stored as a Playbook doc). `instructions`
+ * and `formats` shape how Finava responds and are injected into the agent prompt;
+ * `steps` is a legacy/optional starter prompt kept for backward compatibility.
+ */
+export interface Template {
+  id: string;
+  title: string;
+  instructions?: string;
+  formats?: string[];
+  steps?: string[];
+}
 
 export const PROMPT_TEMPLATES = [
   { label: "Full analysis", template: "Give me a full analysis of [TICKER] — valuation, technicals, insider activity, and whether I should add to my position." },
@@ -75,14 +89,16 @@ export interface AgentStep {
   status: AgentStatus;
   result?: string;
   error?: string;
+  /** Display brands for this agent's model(s) — single, or a pipeline like Perplexity → Gemini. */
+  models?: Brand[];
 }
 
 export type AgentEvent =
   // Emitted once, right after the CEO decides the crew — lets the UI pop the
   // panel up pre-sized with every agent shown as "queued" before any runs.
   | { type: "crew_planned"; agents: AgentName[] }
-  | { type: "agent_start"; agent: AgentName }
-  | { type: "agent_complete"; agent: AgentName; result: string }
+  | { type: "agent_start"; agent: AgentName; models?: Brand[] }
+  | { type: "agent_complete"; agent: AgentName; result: string; models?: Brand[] }
   | { type: "agent_error"; agent: AgentName; error: string }
   | { type: "ceo_thinking"; content: string }
   | { type: "ceo_compiling" }
@@ -93,8 +109,8 @@ export type AgentEvent =
   | { type: "text_delta"; content: string }
   // ── Discovery funnel ──
   | { type: "discover_clarify"; question: string; chips: string[] }
-  | { type: "scout_complete"; tier: DiscoverTier; query: string; interpretation: string; picks: ScoutPick[] }
-  | { type: "deep_shortlist"; query: string; interpretation: string; picks: ScoutPick[] }
+  | { type: "scout_complete"; tier: DiscoverTier; query: string; interpretation: string; picks: ScoutPick[]; layout?: DiscoverLayout }
+  | { type: "deep_shortlist"; query: string; interpretation: string; picks: ScoutPick[]; layout?: DiscoverLayout }
   | { type: "wave_start"; waveIndex: number; totalWaves: number; tickers: string[] }
   | { type: "wave_result"; wave: WaveEvidence; totalWaves: number }
   | { type: "discover_done" }

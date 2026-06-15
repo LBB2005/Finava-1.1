@@ -14,7 +14,7 @@ import { getFactorUniverse } from "@/lib/factorUniverse";
 import { ranked, type RankedStock } from "@/lib/research";
 import { coerceFilter, applyScreen, type ScreenFilter } from "@/lib/screen";
 import type { AgentEvent } from "@/types/chat";
-import type { DiscoverTier, ScoutPick } from "@/lib/scoutTypes";
+import type { ConvictionTier, DiscoverLayout, DiscoverTier, ScoutPick } from "@/lib/scoutTypes";
 
 type EventEmitter = (event: AgentEvent) => void;
 
@@ -25,8 +25,18 @@ interface ScoutInput {
   limit?: number;
 }
 
-const QUICK_N = 5;
+// Quick tier is conviction-driven: the scout returns BETWEEN 1 and QUICK_MAX
+// names — only as many as genuinely fit — rather than always padding to a quota.
+// Deep tier still returns a fuller shortlist so the analyst crew has coverage.
+const QUICK_MAX = 8;
 const DEEP_N = 20;
+
+const VALID_CONVICTION: ReadonlySet<string> = new Set(["high", "look", "wildcard"]);
+
+/** Derive a conviction band from the composite score when the LLM omits one. */
+function convictionFromScore(score: number): ConvictionTier {
+  return score >= 67 ? "high" : score >= 45 ? "look" : "wildcard";
+}
 
 // ── Vague-query gate ─────────────────────────────────────────────────────────
 // The user opted for "ask one clarifying question" on truly open-ended asks. We
@@ -103,7 +113,8 @@ function hardConstraints(filter: ScreenFilter, sector?: string): ScreenFilter | 
 export async function runScoutAgent(input: unknown, emit: EventEmitter): Promise<string> {
   const { query = "", tier = "quick", sector, limit }: ScoutInput =
     (input as ScoutInput) ?? {};
-  const n = Math.max(1, Math.min(40, limit ?? (tier === "deep" ? DEEP_N : QUICK_N)));
+  // `n` is a CEILING, not a quota — quick tier may return fewer (conviction-driven).
+  const n = Math.max(1, Math.min(40, limit ?? (tier === "deep" ? DEEP_N : QUICK_MAX)));
 
   // 1) Vague-query gate.
   if (needsClarify(query)) {
@@ -124,6 +135,9 @@ export async function runScoutAgent(input: unknown, emit: EventEmitter): Promise
   //    cues are left to the LLM. screenParse also gives a nice interpretation line.
   let pool: RankedStock[] = yearRanked;
   let interpretation = `Scanning all ${universe.coverage.total} S&P 500 names for "${query}".`;
+  // Clean screener queries (explicit sector/$/P-E limits) default to the ranked
+  // layout; open-ended "best ideas / surprise me" asks default to conviction tiers.
+  let hadHardConstraints = false;
   try {
     const raw = await generate({
       agent: "screenParse",
@@ -137,8 +151,15 @@ export async function runScoutAgent(input: unknown, emit: EventEmitter): Promise
       }
       const hard = hardConstraints(coerceFilter(p.filter), sector);
       if (hard) {
+        hadHardConstraints = true;
         const survivors = applyScreen(universe.stocks, { ...hard, limit: 200 });
-        if (survivors.length >= n) pool = survivors;
+        // Apply the hard filter whenever it leaves a usable pool. We must NOT
+        // gate on the full ceiling `n` (quick = 8): a tight screen that yields,
+        // say, 6 healthcare names under $50 should still honour the sector
+        // rather than silently falling back to the whole universe. Deep keeps
+        // its larger floor so the crew has enough coverage.
+        const poolFloor = tier === "deep" ? n : Math.min(n, 4);
+        if (survivors.length >= poolFloor) pool = survivors;
       }
     }
   } catch {
@@ -155,7 +176,12 @@ export async function runScoutAgent(input: unknown, emit: EventEmitter): Promise
     )
     .join("\n");
 
-  const prompt = `You are Finava's discovery scout. From the universe below, pick and RANK the ${n} stocks that BEST fit the user's request.
+  const countRule =
+    tier === "deep"
+      ? `- Pick up to ${n} distinct tickers (aim for a full shortlist for the crew), only from this list.`
+      : `- Return BETWEEN 1 and ${n} distinct tickers — only as many as you genuinely believe in. A tight set of 2–4 strong ideas beats padding to a quota. Do NOT fill to ${n} just because you can.`;
+
+  const prompt = `You are Finava's discovery scout. From the universe below, pick and RANK the stocks that BEST fit the user's request — and surface genuinely interesting ideas, not the obvious household names.
 
 Request: "${query}"
 
@@ -163,21 +189,29 @@ Each row is: TICKER|Name|Sector|Price|MktCap|P/E|mom,growth,quality,analyst,valu
 Factor scores are 0–100, sector-relative, higher = better — INCLUDING value (high value score = cheaper).
 
 Rules:
-- Rank ONLY on the supplied data + the request. Do NOT favour a company because it is famous or large. Mega-caps should appear only when they genuinely fit.
+- Rank ONLY on the supplied data + the request. Treat fame and size as a NEGATIVE tiebreak: a mega-cap everyone already knows must clearly out-fit a lesser-known peer to earn a slot. Actively favour under-followed names that fit the data.
 - Honour explicit constraints in the request (sector, price, valuation, size).
-- Pick EXACTLY ${n} distinct tickers, only from this list.
+${countRule}
+- For EACH pick assign a "conviction" band:
+    "high"     = your strongest, best-fit convictions.
+    "look"     = solid, secondary fits worth a look.
+    "wildcard" = a non-obvious, under-the-radar or higher-variance name that fits — the kind of pick the user probably hasn't already considered.
+  Unless the request is narrowly constrained, include at least one "wildcard".
+- Choose a "layout": "tiers" when the request is open-ended or asks for your best ideas / a surprise; "ranked" when it's a clean screen with explicit numeric/sector limits.
 
 Universe:
 ${table}
 
 Output ONLY the JSON below — no preamble, no markdown, no trailing commentary:
-{ "picks": [ { "ticker": "TICK", "reason": "<≤12 words on why it fits>" }, ... ] }`;
+{ "layout": "tiers"|"ranked", "picks": [ { "ticker": "TICK", "conviction": "high"|"look"|"wildcard", "reason": "<≤12 words on why it fits>" }, ... ] }`;
 
   let picks: ScoutPick[] = [];
+  let layout: DiscoverLayout = hadHardConstraints ? "ranked" : "tiers";
   try {
     // Generous cap: deep returns 20 picks with reasons; truncation breaks the JSON.
     const raw = await generate({ agent: "scoutSelect", maxTokens: 4000, prompt });
     const p = parseJson(raw);
+    if (p?.layout === "tiers" || p?.layout === "ranked") layout = p.layout;
     const arr = Array.isArray(p?.picks) ? p!.picks : [];
     const seen = new Set<string>();
     for (const item of arr) {
@@ -186,6 +220,7 @@ Output ONLY the JSON below — no preamble, no markdown, no trailing commentary:
       const stock = byTicker.get(t);
       if (!stock || seen.has(t)) continue; // validate against the real universe
       seen.add(t);
+      const conv = typeof o.conviction === "string" ? o.conviction.toLowerCase().trim() : "";
       picks.push({
         ticker: stock.ticker,
         name: stock.name,
@@ -195,6 +230,7 @@ Output ONLY the JSON below — no preamble, no markdown, no trailing commentary:
         fitRank: picks.length + 1,
         f: stock.f,
         reason: typeof o.reason === "string" ? o.reason.trim() : "",
+        conviction: VALID_CONVICTION.has(conv) ? (conv as ConvictionTier) : convictionFromScore(stock.score),
         marketCap: stock.marketCap,
         pe: stock.pe,
         price: stock.price,
@@ -217,6 +253,7 @@ Output ONLY the JSON below — no preamble, no markdown, no trailing commentary:
       fitRank: i + 1,
       f: s.f,
       reason: "Top factor fit for your request.",
+      conviction: convictionFromScore(s.score),
       marketCap: s.marketCap,
       pe: s.pe,
       price: s.price,
@@ -225,12 +262,12 @@ Output ONLY the JSON below — no preamble, no markdown, no trailing commentary:
 
   // 5) Emit the structured event + return the model-facing instruction string.
   if (tier === "deep") {
-    emit({ type: "deep_shortlist", query, interpretation, picks });
+    emit({ type: "deep_shortlist", query, interpretation, picks, layout });
     const tickerList = picks.map((p) => p.ticker).join(", ");
     return `Shortlist of ${picks.length} names emitted to the client, which will now run the full analyst crew on them in waves and rank them. The shortlist is: ${tickerList}. Write ONE sentence telling the user you're deep-diving these ${picks.length} names — you may name 2–3 tickers but ONLY from that shortlist (NEVER a ticker that isn't in it). Then STOP — do not call any tools.`;
   }
 
-  emit({ type: "scout_complete", tier: "quick", query, interpretation, picks });
+  emit({ type: "scout_complete", tier: "quick", query, interpretation, picks, layout });
   const lines = picks
     .map(
       (p) =>

@@ -1,5 +1,6 @@
 import { anthropic, MODEL } from "@/lib/anthropic";
-import { generate } from "@/lib/llm";
+import { generate, AGENT_MODELS, type AgentKey } from "@/lib/llm";
+import { badgeBrands, type Brand } from "@/lib/models";
 import { recordUsage } from "@/lib/usage";
 import { allTools, scoutTool } from "./tools/index";
 import { runRiskAgent } from "./sub-agents/risk-agent";
@@ -20,6 +21,7 @@ import { runFundamentalsAgent } from "./sub-agents/fundamentals-agent";
 import { runScoutAgent } from "./sub-agents/scout-agent";
 import { checkCache, saveCache, extractTickers, getTickerMemory, saveTickerMemory } from "@/lib/agentMemory";
 import { getUserPreference, buildStylePrompt, updateStyleFromConversation } from "@/lib/userPreference";
+import { getTemplateBlock } from "@/lib/templates.server";
 import type { AgentEvent, AgentName } from "@/types/chat";
 import type { MessageParam, ToolResultBlockParam } from "@anthropic-ai/sdk/resources/messages";
 
@@ -80,6 +82,34 @@ export const agentDispatch: Record<string, (input: unknown) => Promise<string>> 
   run_hype_agent: runHypeAgent,
   run_fundamentals_agent: runFundamentalsAgent,
 };
+
+// Tool name → routing key (the key `AGENT_MODELS` / the badge registry use).
+// `hype` is not an AgentKey (it calls Perplexity directly) — the badge registry
+// resolves it via its pipeline override, so a plain string key is enough here.
+const AGENT_NAME_TO_KEY: Record<AgentName, string> = {
+  run_risk_agent: "risk",
+  run_news_agent: "news",
+  run_macro_agent: "macro",
+  run_technical_agent: "technical",
+  run_dcf_agent: "dcf",
+  run_earnings_agent: "earnings",
+  run_insider_agent: "insider",
+  run_sentiment_agent: "sentiment",
+  run_competitor_agent: "competitor",
+  run_options_agent: "options",
+  run_comparables_agent: "comparables",
+  run_graham_agent: "graham",
+  run_analyst_agent: "analyst",
+  run_hype_agent: "hype",
+  run_fundamentals_agent: "fundamentals",
+  skeptic_review: "skeptic",
+};
+
+/** Display brands to badge for a crew agent (single model, or a pipeline). */
+function modelsForAgent(name: AgentName): Brand[] {
+  const key = AGENT_NAME_TO_KEY[name];
+  return badgeBrands(key, AGENT_MODELS[key as AgentKey]);
+}
 
 /**
  * Skeptic review → revision pass. A skeptic critiques the draft, then the model
@@ -204,6 +234,8 @@ export interface CeoOptions {
   discover?: boolean;
   /** Which discovery tier the scout should run (quick = narrative, deep = shortlist). */
   tier?: "quick" | "deep";
+  /** Optional response-template id whose instructions/format shape the report. */
+  templateId?: string;
 }
 
 export async function runCeoAgent(
@@ -219,6 +251,7 @@ export async function runCeoAgent(
     holdings = [],
     discover = false,
     tier = "quick",
+    templateId,
   } = opts;
   // Discovery is GENERIC — never feed the portfolio to the model (no "already in
   // your portfolio" / cash-based picks). Held names are tagged client-side instead.
@@ -311,9 +344,12 @@ Use charts liberally:
     ]),
   ];
   // Independent Firestore reads — fetch in parallel.
-  const [memoryBlock, userStyle] = await Promise.all([
+  const [memoryBlock, userStyle, templateBlock] = await Promise.all([
     getTickerMemory(mentionedTickers),
     userId ? getUserPreference(userId) : Promise.resolve(undefined),
+    // Discovery output is tightly structured already — don't let a response
+    // template fight the scout-only narrative rules.
+    userId && templateId && !discover ? getTemplateBlock(userId, templateId) : Promise.resolve(""),
   ]);
   const stylePrompt = userStyle ? buildStylePrompt(userStyle) : "";
   const deepResearchAddendum = deepResearch ? `
@@ -343,6 +379,7 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
     discoverAddendum,
     memoryBlock,
     stylePrompt,
+    templateBlock,
   ].filter(Boolean).join("\n\n");
 
   const messages: MessageParam[] = [
@@ -436,9 +473,15 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
     // every agent shown as "queued", then transitions each to running below.
     // The scout is orchestration, not a crew member — it emits its own discovery
     // events, so don't show it as an agent.
-    const crewAgents = toolUseBlocks
-      .filter((b) => b.name !== "scout_universe")
-      .map((b) => b.name as AgentName);
+    // The model can call the same agent tool twice in one turn; the panel keys
+    // rows by agent name, so collapse duplicates to keep React keys unique.
+    const crewAgents = [
+      ...new Set(
+        toolUseBlocks
+          .filter((b) => b.name !== "scout_universe")
+          .map((b) => b.name as AgentName)
+      ),
+    ];
     if (crewAgents.length > 0) {
       emit({ type: "crew_planned", agents: crewAgents });
     }
@@ -446,7 +489,8 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
     // Now flip each queued agent to running.
     for (const block of toolUseBlocks) {
       if (block.name === "scout_universe") continue;
-      emit({ type: "agent_start", agent: block.name as AgentName });
+      const an = block.name as AgentName;
+      emit({ type: "agent_start", agent: an, models: modelsForAgent(an) });
     }
 
     const toolResults: ToolResultBlockParam[] = await Promise.all(
@@ -479,7 +523,7 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
           const cached = await checkCache(block.name, block.input);
           if (cached) {
             agentOutputs.set(block.name, cached);
-            emit({ type: "agent_complete", agent: agentName, result: cached });
+            emit({ type: "agent_complete", agent: agentName, result: cached, models: modelsForAgent(agentName) });
             return {
               type: "tool_result" as const,
               tool_use_id: block.id,
@@ -501,7 +545,7 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
           );
 
           agentOutputs.set(block.name, result);
-          emit({ type: "agent_complete", agent: agentName, result });
+          emit({ type: "agent_complete", agent: agentName, result, models: modelsForAgent(agentName) });
           return {
             type: "tool_result" as const,
             tool_use_id: block.id,

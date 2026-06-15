@@ -1,16 +1,12 @@
 "use client";
 import { useRef, useEffect, useState, useCallback, type KeyboardEvent } from "react";
-import type { ChatMode } from "@/types/chat";
+import type { ChatMode, Template } from "@/types/chat";
 import { AGENT_COUNT, PROMPT_TEMPLATES } from "@/types/chat";
 import { useWatchlists } from "@/hooks/useWatchlists";
+import { useChatStore } from "@/stores/chatStore";
 import useSWR from "swr";
 import { authFetcher } from "@/lib/authFetch";
-
-interface Playbook {
-  id: string;
-  title: string;
-  steps: string[];
-}
+import Tooltip from "@/components/ui/Tooltip";
 
 interface WatchlistRef {
   id: string;
@@ -114,11 +110,16 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
   const [tickerInput, setTickerInput] = useState("");
   const [hasText, setHasText] = useState(false);
   const [launching, setLaunching] = useState(false);
+  // The response template riding on the NEXT message (shown as a chip). Stored
+  // globally so the empty-state picker and composer share it; the engine clears
+  // it on send. Set when the user picks one in the "+" popover or empty state.
+  const activeTemplate = useChatStore((s) => s.activeTemplate);
+  const setActiveTemplate = useChatStore((s) => s.setActiveTemplate);
 
   const { watchlists } = useWatchlists();
-  // User-saved playbooks (from the chat header's "Save as Playbook"). Fetched
-  // lazily — only once the "+" popover is first opened.
-  const { data: playbooks } = useSWR<Playbook[]>(popoverOpen ? "/api/playbooks" : null, authFetcher);
+  // User-saved response templates (from the chat header's "Save as Template").
+  // Fetched lazily — only once the "+" popover is first opened.
+  const { data: templates } = useSWR<Template[]>(popoverOpen ? "/api/playbooks" : null, authFetcher);
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
@@ -168,6 +169,8 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
     const attachSuffix = attachments.length > 0
       ? `\n\n[Attached files: ${attachments.map((a) => a.name).join(", ")}]` : "";
     onSend(watchlistPrefix + tickerPrefix + val + attachSuffix, attachments.length > 0 ? attachments : undefined);
+    // The active template is consumed + cleared by the chat engine when it picks
+    // up the pending message, so it rides exactly one send.
     if (textareaRef.current) { textareaRef.current.value = ""; textareaRef.current.style.height = "auto"; }
     setHasText(false);
     setAttachments([]);
@@ -234,8 +237,19 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
     >
       <div className={floating ? "mx-auto max-w-[720px] pointer-events-auto" : "mx-auto max-w-[720px]"}>
         {/* Chips row */}
-        {(attachments.length > 0 || tickers.length > 0 || watchlistRefs.length > 0) && (
+        {(attachments.length > 0 || tickers.length > 0 || watchlistRefs.length > 0 || activeTemplate) && (
           <div className="flex flex-wrap gap-1.5 mb-2 px-1">
+            {activeTemplate && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                </svg>
+                {activeTemplate.title}
+                <button onClick={() => setActiveTemplate(null)} className="hover:opacity-60" aria-label="Remove template">×</button>
+              </span>
+            )}
             {watchlistRefs.map((w) => (
               <span key={w.id} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md"
                 style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}>
@@ -283,23 +297,25 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
               backdropFilter: "blur(16px) saturate(1.25)",
               WebkitBackdropFilter: "blur(16px) saturate(1.25)",
               boxShadow: floating
-                ? "inset 0 1px 0 color-mix(in oklab, var(--color-bg) 30%, #fff), 0 14px 36px -14px rgba(15,23,42,0.34)"
-                : disabled ? "none" : "inset 0 1px 0 color-mix(in oklab, var(--color-bg) 30%, #fff), 0 10px 26px -14px rgba(15,23,42,0.26)",
+                ? "0 14px 36px -14px rgba(15,23,42,0.34)"
+                : disabled ? "none" : "0 10px 26px -14px rgba(15,23,42,0.26)",
               opacity: disabled ? 0.6 : 1,
             }}
           >
             {/* + attach / tickers / templates */}
-            <button
-              ref={plusBtnRef}
-              onClick={() => { setPopoverOpen((v) => !v); setModeOpen(false); }}
-              disabled={disabled}
-              title="Attach files, pin tickers, or use a template"
-              className="cmp-plus flex-shrink-0 w-8 h-8 mb-[1px] rounded-[9px] flex items-center justify-center"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </button>
+            <Tooltip label="Attach files, pin tickers, or use a template" className="flex-shrink-0">
+              <button
+                ref={plusBtnRef}
+                onClick={() => { setPopoverOpen((v) => !v); setModeOpen(false); }}
+                disabled={disabled}
+                aria-label="Attach files, pin tickers, or use a template"
+                className="cmp-plus w-8 h-8 mb-[1px] rounded-[9px] flex items-center justify-center"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+            </Tooltip>
 
             {/* Mode pill (inline dropdown — replaces the old header toggles) */}
             <div ref={modeWrapRef} className="relative flex-shrink-0">
@@ -473,29 +489,41 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                 </div>
               )}
 
-              {/* PLAYBOOKS — saved from past conversations via the ⋯ menu */}
-              {Array.isArray(playbooks) && playbooks.length > 0 && (
+              {/* TEMPLATES — user-authored response templates (Settings → Templates).
+                  Picking one attaches it to the next message as a chip; it shapes
+                  HOW Finava responds rather than filling the box. */}
+              {Array.isArray(templates) && templates.length > 0 && (
                 <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--color-border)" }}>
-                  <p className="eyebrow-label mb-1.5" style={{ color: "var(--color-muted)" }}>Your Playbooks</p>
+                  <p className="eyebrow-label mb-1.5" style={{ color: "var(--color-muted)" }}>Templates</p>
                   <div className="flex flex-col gap-0.5 max-h-[148px] overflow-y-auto">
-                    {playbooks.map((pb) => (
-                      <button key={pb.id} onClick={() => applyTemplate(pb.steps[0] ?? "")}
-                        className="template-btn w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[7px] text-left text-[12px] transition-colors duration-100"
-                        style={{ color: "var(--color-text-secondary)" }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-                          style={{ color: "var(--color-accent)", flexShrink: 0 }}>
-                          <path d="M19 21l-7-4-7 4V5a2 2 0 012-2h10a2 2 0 012 2v16z" />
-                        </svg>
-                        <span className="flex-1 min-w-0 truncate">{pb.title}</span>
-                      </button>
-                    ))}
+                    {templates.map((tpl) => {
+                      const selected = activeTemplate?.id === tpl.id;
+                      return (
+                        <button key={tpl.id}
+                          onClick={() => { setActiveTemplate(selected ? null : { id: tpl.id, title: tpl.title }); setPopoverOpen(false); }}
+                          className="template-btn w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[7px] text-left text-[12px] transition-colors duration-100"
+                          style={selected ? { background: "var(--color-accent-light)", color: "var(--color-accent)" } : { color: "var(--color-text-secondary)" }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                            style={{ color: "var(--color-accent)", flexShrink: 0 }}>
+                            <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                            <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                          </svg>
+                          <span className="flex-1 min-w-0 truncate">{tpl.title}</span>
+                          {selected && (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-accent)", flexShrink: 0 }}>
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* TEMPLATES */}
+              {/* QUICK PROMPTS — built-in starters that fill the composer */}
               <div className="px-4 pt-2.5 pb-3">
-                <p className="eyebrow-label mb-1.5" style={{ color: "var(--color-muted)" }}>Templates</p>
+                <p className="eyebrow-label mb-1.5" style={{ color: "var(--color-muted)" }}>Quick prompts</p>
                 {PROMPT_TEMPLATES.map((pt) => (
                   <button key={pt.label} onClick={() => applyTemplate(pt.template)}
                     className="template-btn w-full text-left px-2.5 py-1.5 rounded-[7px] text-[12px] transition-colors duration-100"

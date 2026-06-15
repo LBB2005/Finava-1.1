@@ -9,6 +9,8 @@ import {
   type Stance,
   type SignalKey,
 } from "@/lib/finava";
+import ModelBadge, { PoweredByStrip } from "@/components/ui/ModelBadge";
+import { slugToBrand, rosterFromBrands, type Brand } from "@/lib/models";
 
 /* ── tokens / helpers ─────────────────────────────────────────────────────── */
 function stanceColor(stance: Stance): string {
@@ -93,7 +95,10 @@ function SignalBar({ signalKey, signal }: { signalKey: SignalKey; signal: Finava
         </div>
         <span className="mono" style={{ fontSize: 10.5, fontWeight: 600, color: "var(--color-text)", width: 24, textAlign: "right" }}>{signal.score}</span>
       </div>
-      <p style={{ margin: "3px 0 0 106px", fontSize: 11, color: "var(--color-muted)", lineHeight: 1.4 }}>{signal.headline}</p>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "3px 0 0 106px" }}>
+        <p style={{ margin: 0, flex: 1, fontSize: 11, color: "var(--color-muted)", lineHeight: 1.4 }}>{signal.headline}</p>
+        {signal.model && <ModelBadge slug={signal.model} size={11} />}
+      </div>
     </div>
   );
 }
@@ -223,8 +228,20 @@ export function FinavaTab({ ticker }: { ticker: string }) {
           </div>
         )}
 
-        <p className="mono" style={{ margin: "20px 0 0", fontSize: 10.5, color: "var(--color-muted)" }}>
-          Five AI signals synthesised from fundamentals, price action, news, analyst coverage &amp; insider filings · AI-generated, may contain errors · research color, not investment advice.
+        {(() => {
+          const brands = rosterFromBrands([
+            ...Array.from(byKey.values()).flatMap((s): Brand[] => (s?.model ? [slugToBrand(s.model)] : [])),
+            ...(verdict?.model ? [slugToBrand(verdict.model)] : []),
+          ]);
+          return brands.length ? (
+            <div className="fade-in" style={{ marginTop: 20, paddingTop: 14, borderTop: "1px solid var(--color-border)" }}>
+              <PoweredByStrip brands={brands} />
+            </div>
+          ) : null;
+        })()}
+
+        <p className="mono" style={{ margin: "14px 0 0", fontSize: 10.5, color: "var(--color-muted)" }}>
+          Five AI signals — each scored by a different best-fit model, synthesised by Claude · AI-generated, may contain errors · research color, not investment advice.
         </p>
       </div>
     </div>

@@ -19,9 +19,12 @@ export default function StockPage() {
   const toast = useToast();
   const ticker = (params?.ticker ?? "").toUpperCase();
 
-  const { bundle, error, isLoading } = useStockBundle(ticker || null);
+  const { bundle, error, isLoading, mutate } = useStockBundle(ticker || null);
   const { quoteMap } = useQuotes(ticker ? [ticker] : []);
   const [tab, setTab] = useState<Tab>("Overview");
+  // Flips on if the bundle hasn't arrived after a beat, so the skeleton can admit
+  // it's taking longer than usual and offer a manual retry instead of hanging.
+  const [slow, setSlow] = useState(false);
 
   // Surface genuine load failures via a toast in addition to the inline state.
   // A 404 (unknown symbol) is a user-input issue already explained clearly in
@@ -31,6 +34,18 @@ export default function StockPage() {
       toast.error(`Couldn't load ${ticker}. The data service may be unavailable — please retry.`);
     }
   }, [error, ticker, toast]);
+
+  // Arm a slow-load timer while loading; the cleanup clears it and resets the
+  // flag whenever the ticker changes or the bundle finishes loading.
+  const loadingBundle = isLoading || !bundle;
+  useEffect(() => {
+    if (!loadingBundle || error) return;
+    const id = window.setTimeout(() => setSlow(true), 9000);
+    return () => {
+      window.clearTimeout(id);
+      setSlow(false);
+    };
+  }, [loadingBundle, error, ticker]);
 
   /* ── Error states ─────────────────────────────────────────────────────── */
   if (error) {
@@ -57,7 +72,7 @@ export default function StockPage() {
   }
 
   /* ── Loading state ────────────────────────────────────────────────────── */
-  if (isLoading || !bundle) {
+  if (loadingBundle) {
     return (
       <div className="research-root h-full overflow-y-auto" style={{ background: "var(--color-bg)" }} aria-busy="true" aria-label={`Loading ${ticker}`}>
         <div style={{ padding: "22px var(--page-gutter) 0", background: "linear-gradient(180deg, var(--color-accent-light), transparent 80%)" }}>
@@ -70,6 +85,26 @@ export default function StockPage() {
           </div>
           <div className="h-[46px] w-[200px] skeleton mt-4 rounded-[6px]" />
           <div className="h-[300px] skeleton mt-3 rounded-[6px]" />
+
+          {!slow ? (
+            <p className="mt-3.5 text-[12px] flex items-center gap-2" style={{ color: "var(--color-muted)" }}>
+              <span className="inline-block w-3 h-3 rounded-full border-2 border-[var(--color-border-strong)] border-t-[var(--color-accent)] animate-spin" />
+              Loading quote &amp; chart for {ticker}…
+            </p>
+          ) : (
+            <div className="mt-3.5 flex items-center gap-3">
+              <p className="text-[12px]" style={{ color: "var(--color-muted)" }}>
+                Taking longer than usual — the data service may be busy.
+              </p>
+              <button
+                onClick={() => { setSlow(false); mutate(); }}
+                className="text-[11.5px] font-semibold px-3 py-[5px] rounded-[6px]"
+                style={{ border: "1px solid var(--color-accent)", color: "var(--color-accent)", background: "var(--color-accent-light)" }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -126,7 +161,7 @@ export default function StockPage() {
       </div>
 
       {/* Tab content */}
-      <div style={{ padding: "22px var(--page-gutter) 48px" }}>
+      <div style={{ padding: "22px var(--page-gutter) var(--content-pad-bottom)" }}>
         {tab === "Overview" && (
           <OverviewTab ticker={ticker} profile={bundle.profile} keyStats={bundle.keyStats} sentiment={bundle.sentiment} />
         )}

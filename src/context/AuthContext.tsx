@@ -114,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Private-beta gate: a non-admin signed in with a valid Google account. Sign
     // them straight back out and show the "private beta" notice on /login.
     if (betaLockedOut) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBetaDenied(true);
       firebaseSignOut(auth).catch(() => {});
       if (pathname !== "/login") router.push("/login");

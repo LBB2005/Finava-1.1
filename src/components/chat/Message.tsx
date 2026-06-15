@@ -25,6 +25,8 @@ class MessageErrorBoundary extends Component<
   }
 }
 import AgentDetailModal from "@/components/agent/AgentDetailModal";
+import { PoweredByStrip } from "@/components/ui/ModelBadge";
+import { rosterFromBrands } from "@/lib/models";
 import { AGENT_LABELS } from "@/types/chat";
 import type { ChatMessage, AgentStep } from "@/types/chat";
 import BacktestResult from "./BacktestResult";
@@ -204,6 +206,15 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
           </svg>
         </span>
       </button>
+
+      {(() => {
+        const brands = rosterFromBrands(steps.flatMap((st) => st.models ?? []));
+        return brands.length ? (
+          <div style={{ padding: "9px 14px 0" }}>
+            <PoweredByStrip brands={brands} />
+          </div>
+        ) : null;
+      })()}
 
       {detailStep && (
         <AgentDetailModal step={detailStep} onClose={() => setDetailStep(null)} />

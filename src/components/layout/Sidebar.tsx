@@ -9,6 +9,8 @@ import { useQuotes } from "@/hooks/useQuotes";
 import { useWatchlists } from "@/hooks/useWatchlists";
 import { useWatchlistStore } from "@/stores/watchlistStore";
 import { useAuth } from "@/context/AuthContext";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
+import { isDarkResolved } from "@/lib/appearance";
 import ConversationList, { type Conversation } from "./ConversationList";
 import ChatSearchModal from "./ChatSearchModal";
 import SidebarStockSearch from "./SidebarStockSearch";
@@ -22,6 +24,7 @@ import type { HoldingFormData } from "@/types/portfolio";
 import { authFetch, authFetcher } from "@/lib/authFetch";
 import UsageRing from "@/components/usage/UsageRing";
 import UsagePanel, { type UsageSummary } from "@/components/usage/UsagePanel";
+import Tooltip from "@/components/ui/Tooltip";
 
 interface BriefingSummary {
   id: string;
@@ -428,7 +431,8 @@ function UserWidget() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const { prefs, set: setAppearance } = useAppearance();
+  const isDark = isDarkResolved(prefs.theme);
   const ref = useRef<HTMLDivElement>(null);
   const { data } = useSWR<UserProfile>(user ? "/api/user" : null, authFetcher, {
     revalidateOnFocus: false,
@@ -439,14 +443,6 @@ function UserWidget() {
     revalidateOnFocus: true,
     dedupingInterval: 30_000,
   });
-
-  // localStorage is client-only; reading it in an effect (not render) is the
-  // hydration-safe way to pick up the stored theme without an SSR mismatch.
-  useEffect(() => {
-    const stored = localStorage.getItem("finava-theme") as "light" | "dark" | null;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTheme(stored ?? "light");
-  }, []);
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
@@ -460,14 +456,9 @@ function UserWidget() {
   }, []);
 
   function toggleTheme() {
-    const next = theme === "light" ? "dark" : "light";
-    setTheme(next);
-    localStorage.setItem("finava-theme", next);
-    if (next === "dark") {
-      document.documentElement.setAttribute("data-theme", "dark");
-    } else {
-      document.documentElement.removeAttribute("data-theme");
-    }
+    // Flip to the explicit opposite of the currently-resolved theme. (If the
+    // user is on "System", this pins it to a concrete light/dark choice.)
+    setAppearance("theme", isDark ? "light" : "dark");
     setOpen(false);
   }
 
@@ -504,9 +495,9 @@ function UserWidget() {
       action: () => { router.push("/settings?section=account"); setOpen(false); },
     },
     {
-      label: theme === "light" ? "Dark mode" : "Light mode",
+      label: isDark ? "Light mode" : "Dark mode",
       icon:
-        theme === "light" ? (
+        !isDark ? (
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
           </svg>
@@ -584,7 +575,7 @@ function UserWidget() {
       )}
 
       <div
-        className={`user-widget-trigger${open || usageOpen ? " is-open" : ""} w-full flex items-center gap-2.5 px-[10px] py-[8px] transition-colors duration-150`}
+        className={`user-widget-trigger${open || usageOpen ? " is-open" : ""} w-full flex items-center gap-2 px-[10px] py-[8px] transition-colors duration-150`}
       >
         <button
           onClick={() => {
@@ -619,34 +610,39 @@ function UserWidget() {
           </div>
         </button>
 
-        <button
-          onClick={() => {
-            setUsageOpen((v) => !v);
-            setOpen(false);
-          }}
-          aria-label="AI usage"
-          title="AI usage"
-          className="flex-shrink-0 flex items-center bg-transparent"
-        >
-          <UsageRing pct={usage?.weekly.pct ?? 0} tone={(usage?.weekly.pct ?? 0) >= 90 ? "over" : "accent"} />
-        </button>
+        <div className="flex-shrink-0 flex items-center gap-0.5">
+          <Tooltip label={`AI usage · ${Math.round(usage?.weekly.pct ?? 0)}% of weekly`} placement="top">
+            <button
+              onClick={() => {
+                setUsageOpen((v) => !v);
+                setOpen(false);
+              }}
+              aria-label={`AI usage, ${Math.round(usage?.weekly.pct ?? 0)} percent of weekly limit`}
+              className="flex items-center justify-center w-[26px] h-[26px] rounded-[7px] bg-transparent hover:bg-[var(--color-accent-light)] transition-colors duration-150"
+            >
+              <UsageRing pct={usage?.weekly.pct ?? 0} tone={(usage?.weekly.pct ?? 0) >= 90 ? "over" : "accent"} />
+            </button>
+          </Tooltip>
 
-        <button
-          onClick={() => {
-            setOpen((v) => !v);
-            setUsageOpen(false);
-          }}
-          aria-label="Account menu"
-          className="flex-shrink-0 flex items-center bg-transparent"
-        >
-          <svg
-            width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-            className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-            style={{ color: "var(--color-muted)" }}
-          >
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
+          <Tooltip label="Account menu" placement="top">
+            <button
+              onClick={() => {
+                setOpen((v) => !v);
+                setUsageOpen(false);
+              }}
+              aria-label="Account menu"
+              className="flex items-center justify-center w-[22px] h-[26px] rounded-[7px] bg-transparent hover:bg-[var(--color-accent-light)] transition-colors duration-150"
+            >
+              <svg
+                width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+                style={{ color: "var(--color-muted)" }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          </Tooltip>
+        </div>
       </div>
     </div>
   );
@@ -671,6 +667,7 @@ export default function Sidebar({
   const [showSearch, setShowSearch] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const router = useRouter();
 
   const reset = useChatStore((s) => s.reset);
   const streamsByConv = useChatStore((s) => s.streamsByConv);
@@ -745,6 +742,8 @@ export default function Sidebar({
   const isOnResearch = pathname === "/research";
   const isOnWatchlist = pathname === "/watchlist" || pathname.startsWith("/watchlist/");
   const isOnChat = !isOnPortfolio && !isOnHedgeFund && !isOnResearch && !isOnWatchlist;
+  // Fresh, unsent chat — highlight the "New chat" affordance so the click registers.
+  const newChatActive = isOnChat && conversationId === null;
 
   return (
     <aside
@@ -764,24 +763,34 @@ export default function Sidebar({
           FINAVA
         </span>
         <div className="flex items-center gap-0.5">
-          <button
-            onClick={() => setShowSearch(true)}
-            title="Search chats"
-            className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors duration-150"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-          </button>
-          <button
-            onClick={() => { reset(); onNavigate?.(); }}
-            title="New chat"
-            className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors duration-150"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
+          <Tooltip label="Search chats" placement="bottom">
+            <button
+              onClick={() => setShowSearch(true)}
+              aria-label="Search chats"
+              className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors duration-150"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </button>
+          </Tooltip>
+          <Tooltip label="New chat" placement="bottom">
+            <button
+              onClick={() => { reset(); router.push("/chat"); onNavigate?.(); }}
+              aria-label="New chat"
+              aria-pressed={newChatActive}
+              className={
+                "w-[26px] h-[26px] flex items-center justify-center rounded-[7px] transition-colors duration-150 " +
+                (newChatActive
+                  ? "text-[var(--color-accent)] bg-[var(--color-accent-light)]"
+                  : "text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)]")
+              }
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          </Tooltip>
         </div>
       </div>
 

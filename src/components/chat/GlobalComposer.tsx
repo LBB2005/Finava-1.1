@@ -18,12 +18,16 @@ export default function GlobalComposer() {
   const { activeId } = useWatchlistStore();
 
   const isChat = pathname.startsWith("/chat");
+  const conversationId = useChatStore((s) => s.conversationId);
   // Disabled only while the VIEWED conversation is streaming — a new chat (no
   // conversationId) is always sendable, so you can start a second chat while the
   // first is still generating.
   const viewedStreaming = useChatStore((s) =>
     s.conversationId ? (s.streamsByConv[s.conversationId]?.isStreaming ?? false) : false
   );
+  // Pull focus to the composer when landing on a blank chat (e.g. after "New
+  // chat"), so the user can start typing immediately.
+  const focusOnFreshChat = isChat && conversationId === null && !viewedStreaming;
 
   function handleSend(text: string) {
     const val = text.trim();
@@ -46,7 +50,7 @@ export default function GlobalComposer() {
         disabled={isChat && viewedStreaming}
         mode={mode}
         onModeChange={setMode}
-        autoFocus={false}
+        autoFocus={focusOnFreshChat}
       />
     </div>
   );

@@ -7,6 +7,14 @@ import type { FactorScores } from "@/lib/research";
 
 export type DiscoverTier = "quick" | "deep";
 
+/** How a shortlist is laid out. "tiers" groups by conviction; "ranked" is the
+ *  classic fit-ordered list. The scout hints one; the client can swap freely. */
+export type DiscoverLayout = "tiers" | "ranked";
+
+/** Conviction band the scout assigns a pick — drives the "tiers" layout.
+ *  "wildcard" is the non-obvious / under-the-radar slot (the contrarian lean). */
+export type ConvictionTier = "high" | "look" | "wildcard";
+
 /** One candidate the scout surfaced. Compact — never the full Stock. */
 export interface ScoutPick {
   ticker: string;
@@ -21,6 +29,8 @@ export interface ScoutPick {
   f: FactorScores;
   /** One-line LLM rationale for why this name fits the query. */
   reason: string;
+  /** Conviction band for the tiers layout (optional — derived from score if absent). */
+  conviction?: ConvictionTier;
   marketCap?: number | null;
   pe?: number | null;
   price?: number;
@@ -87,7 +97,7 @@ export interface SynthesizeRequest {
  * discriminator and rendered via the same JSON-in-content pattern as backtests.
  */
 export type DiscoverMessageContent =
-  | { kind: "shortlist"; tier: DiscoverTier; query: string; framing?: string; picks: ScoutPick[] }
+  | { kind: "shortlist"; tier: DiscoverTier; query: string; framing?: string; picks: ScoutPick[]; layout?: DiscoverLayout }
   | { kind: "wave"; wave: WaveEvidence; totalWaves: number }
   | { kind: "final"; report: string };
 

@@ -16,9 +16,10 @@ interface TickerData {
     pbRatio?: number | null;
     psRatio?: number | null;
     evEbitda?: number | null;
+    evRevenue?: number | null;
     epsAnnual?: number | null;
     bookValuePerShare?: number | null;
-    fcfTTM?: number | null;
+    fcfYieldPct?: number | null;
   } | null;
   financials: {
     revenue?: number | null;
@@ -70,13 +71,19 @@ export async function runComparablesAgent(input: unknown): Promise<string> {
         ticker: t,
         currentPrice: quoteRes.status === "fulfilled" ? quoteRes.value.price : null,
         metrics: basic?.metric ? {
-          peRatio: basic.metric.peBasicExclExtraTTM,
-          pbRatio: basic.metric.pbQuarterly,
-          psRatio: basic.metric.psTTM,
-          evEbitda: basic.metric["ev/ebitda"],
-          epsAnnual: basic.metric.epsAnnual,
-          bookValuePerShare: basic.metric.bookValuePerShareAnnual,
-          fcfTTM: basic.metric.fcfTTM,
+          peRatio: basic.metric.peTTM ?? basic.metric.peBasicExclExtraTTM ?? null,
+          pbRatio: basic.metric.pbQuarterly ?? basic.metric.pbAnnual ?? null,
+          psRatio: basic.metric.psTTM ?? basic.metric.psAnnual ?? null,
+          evEbitda: basic.metric.evEbitdaTTM ?? null,
+          evRevenue: basic.metric.evRevenueTTM ?? null,
+          epsAnnual: basic.metric.epsTTM ?? basic.metric.epsAnnual ?? null,
+          bookValuePerShare: basic.metric.bookValuePerShareAnnual ?? null,
+          // FCF yield = FCF / Market Cap = 1 / (Price-to-FCF-per-share). Finnhub
+          // exposes P/FCF (pfcfShareTTM) directly; there is no raw fcfTTM key.
+          fcfYieldPct:
+            typeof basic.metric.pfcfShareTTM === "number" && basic.metric.pfcfShareTTM > 0
+              ? 100 / basic.metric.pfcfShareTTM
+              : null,
         } : null,
         financials: fin ? {
           revenue: fin.income_statement?.revenues?.value,
@@ -108,12 +115,12 @@ export async function runComparablesAgent(input: unknown): Promise<string> {
 Target: **${ticker}**
 Peers: ${peers.join(", ") || "none found"}
 
-For each ticker, compute and tabulate these multiples. Use pre-computed metrics where available; fall back to financials data otherwise:
-1. **P/E** = Price / EPS (diluted annual)
-2. **EV/EBITDA** = (Market Cap + Long-Term Debt − Cash) / (Operating Income + D&A). Market Cap ≈ Price × (Net Income / EPS) or use the metric directly.
-3. **P/S** = Market Cap / Annual Revenue
-4. **P/B** = Market Cap / Total Equity (or use pbRatio if available)
-5. **FCF Yield %** = Free Cash Flow / Market Cap × 100. FCF = Operating Cash Flow + CapEx (CapEx is usually negative). If FCF is negative, output "N/A — negative FCF"
+Each ticker's \`metrics\` block holds pre-computed TTM multiples from the data provider — PREFER these directly; only fall back to computing from \`financials\` when a metric is null:
+1. **P/E** → \`metrics.peRatio\` (TTM). Fallback: Price / EPS.
+2. **EV/EBITDA** → \`metrics.evEbitda\` (TTM, already enterprise-value based). Fallback: (Market Cap + Total Debt − Cash) / (Operating Income + D&A).
+3. **P/S** → \`metrics.psRatio\` (TTM). Fallback: Market Cap / Annual Revenue.
+4. **P/B** → \`metrics.pbRatio\`. Fallback: Market Cap / Total Equity.
+5. **FCF Yield %** → \`metrics.fcfYieldPct\` (already a percentage, e.g. 2.96 = 2.96%). Fallback: (Operating Cash Flow + CapEx) / Market Cap × 100. If null and FCF computes negative, output "N/A — negative FCF".
 
 Raw data:
 \`\`\`json

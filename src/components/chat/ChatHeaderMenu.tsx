@@ -129,9 +129,9 @@ export default function ChatHeaderMenu() {
       });
       if (!res.ok) throw new Error(`${res.status}`);
       mutate("/api/playbooks");
-      toast.success("Playbook saved — find it under + in the composer");
+      toast.success("Template saved — manage it in Settings → Templates");
     } catch {
-      toast.error("Couldn't save the playbook");
+      toast.error("Couldn't save the template");
     }
   }
 
@@ -206,10 +206,11 @@ export default function ChatHeaderMenu() {
         ),
       },
       {
-        key: "playbook", label: "Save as Playbook", tone: "ai", onSelect: onSavePlaybook,
+        key: "playbook", label: "Save as Template", tone: "ai", onSelect: onSavePlaybook,
         icon: (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 21l-7-4-7 4V5a2 2 0 012-2h10a2 2 0 012 2v16z" />
+            <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
           </svg>
         ),
       },

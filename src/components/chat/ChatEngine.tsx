@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { mutate } from "swr";
 import { authFetch } from "@/lib/authFetch";
+import { apiErrorMessage } from "@/lib/apiErrorMessage";
 import { useChatStore, type SendRequest } from "@/stores/chatStore";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useQuotes } from "@/hooks/useQuotes";
@@ -18,6 +19,7 @@ import {
   type DiscoverEvidence,
   type WaveEvidence,
   type DiscoverMessageContent,
+  type DiscoverLayout,
 } from "@/lib/scoutTypes";
 
 // One AbortController per in-flight conversation stream, so a single chat can be
@@ -135,7 +137,7 @@ export default function ChatEngine() {
       });
       const data = await res.json();
       if (!res.ok) {
-        const errMsg = (data as { error?: string }).error ?? "Backtest failed";
+        const errMsg = apiErrorMessage(data, "Backtest failed");
         s().addMessage(convId, { id: crypto.randomUUID(), role: "assistant", content: `**Backtest error:** ${errMsg}`, mode: "backtest", createdAt: new Date().toISOString() });
         return;
       }
@@ -154,7 +156,7 @@ export default function ChatEngine() {
     }
   }
 
-  async function runSimpleChat(text: string, portfolioContext: string, convId: string, mode: ChatMode, history: ChatMessage[]) {
+  async function runSimpleChat(text: string, portfolioContext: string, convId: string, mode: ChatMode, history: ChatMessage[], templateId?: string) {
     const apiMessages = [
       ...history.filter((m) => m.mode === "simple"),
       { role: "user" as const, content: text, mode: "simple" as ChatMode },
@@ -164,7 +166,7 @@ export default function ChatEngine() {
       const res = await authFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages, portfolioContext }),
+        body: JSON.stringify({ messages: apiMessages, portfolioContext, templateId }),
         signal: streamAborters.get(convId)?.signal,
       });
 
@@ -217,11 +219,11 @@ export default function ChatEngine() {
     }
   }
 
-  async function runAgentMode(text: string, portfolioContext: string, convId: string, mode: ChatMode, deepResearch = false, conversationHistory: { role: "user" | "assistant"; content: string }[] = []) {
+  async function runAgentMode(text: string, portfolioContext: string, convId: string, mode: ChatMode, deepResearch = false, conversationHistory: { role: "user" | "assistant"; content: string }[] = [], templateId?: string) {
     s().setAgentSteps(convId, []);
     s().setCeoThinking(convId, "");
 
-    const retry = () => { void runAgentMode(text, portfolioContext, convId, mode, deepResearch, conversationHistory); };
+    const retry = () => { void runAgentMode(text, portfolioContext, convId, mode, deepResearch, conversationHistory, templateId); };
 
     try {
       const res = await authFetch("/api/agent", {
@@ -233,6 +235,7 @@ export default function ChatEngine() {
           deepResearch,
           conversationHistory,
           holdings: ctxRef.current.holdings.map((h) => ({ ticker: h.ticker, shares: h.shares })),
+          templateId,
         }),
         signal: streamAborters.get(convId)?.signal,
       });
@@ -375,6 +378,7 @@ export default function ChatEngine() {
         let framing = "";
         let clarify: { question: string; chips: string[] } | null = null;
         let scoutPicks: ScoutPick[] = [];
+        let layout: DiscoverLayout | undefined;
         await postAgentStream(
           { discover: true, tier, userPrompt: text, portfolioContext },
           (event) => {
@@ -382,6 +386,7 @@ export default function ChatEngine() {
             if (event.type === "scout_complete" || event.type === "deep_shortlist") {
               scoutPicks = event.picks;
               query = event.query;
+              layout = event.layout;
             }
             if (event.type === "discover_clarify") clarify = { question: event.question, chips: event.chips };
             if (event.type === "final_response") framing = event.content;
@@ -404,7 +409,7 @@ export default function ChatEngine() {
           return;
         }
         await pushDiscover(
-          JSON.stringify({ kind: "shortlist", tier, query, framing, picks } as DiscoverMessageContent),
+          JSON.stringify({ kind: "shortlist", tier, query, framing, picks, layout } as DiscoverMessageContent),
           convId,
           { scoutPicks: picks, tier }
         );
@@ -488,14 +493,14 @@ export default function ChatEngine() {
         // Flip the queued slot to running in place (crew_planned set the order).
         const steps = st.slice(convId).agentSteps;
         if (steps.some((x) => x.agent === event.agent)) {
-          st.updateAgentStep(convId, event.agent, { status: "running" });
+          st.updateAgentStep(convId, event.agent, { status: "running", models: event.models });
         } else {
-          st.setAgentSteps(convId, [...steps, { agent: event.agent, status: "running" }]);
+          st.setAgentSteps(convId, [...steps, { agent: event.agent, status: "running", models: event.models }]);
         }
         break;
       }
       case "agent_complete":
-        st.updateAgentStep(convId, event.agent, { status: "complete", result: event.result });
+        st.updateAgentStep(convId, event.agent, { status: "complete", result: event.result, models: event.models });
         break;
       case "agent_error":
         st.updateAgentStep(convId, event.agent, { status: "error", error: event.error });
@@ -567,7 +572,7 @@ export default function ChatEngine() {
       return;
     }
 
-    const { text, mode, context } = req;
+    const { text, mode, context, templateId } = req;
     let convId = req.convId;
     const isNew = !convId;
     // History BEFORE the new user message is added (for context building).
@@ -612,13 +617,13 @@ export default function ChatEngine() {
       if (mode === "backtest") {
         await runBacktest(text, convId, mode);
       } else if (mode === "simple") {
-        await runSimpleChat(text, portfolioContext, convId, mode, prior);
+        await runSimpleChat(text, portfolioContext, convId, mode, prior, templateId);
       } else if (mode === "discover") {
         await runDiscoverMode(text, portfolioContext, convId, "quick");
       } else if (mode === "deep_research") {
-        await runAgentMode(text, portfolioContext, convId, mode, true, agentHistory);
+        await runAgentMode(text, portfolioContext, convId, mode, true, agentHistory, templateId);
       } else {
-        await runAgentMode(text, portfolioContext, convId, mode, false, agentHistory);
+        await runAgentMode(text, portfolioContext, convId, mode, false, agentHistory, templateId);
       }
     } catch (err) {
       console.error("[send] top-level error:", err);
@@ -652,7 +657,7 @@ export default function ChatEngine() {
   // follow-up typed on /chat) continues the viewed conversation.
   useEffect(() => {
     if (!pendingMessage) return;
-    const { conversationId, mode, pendingContext } = useChatStore.getState();
+    const { conversationId, mode, pendingContext, activeTemplate } = useChatStore.getState();
     useChatStore.getState().setPendingMessage("");
     useChatStore.getState().enqueueSend({
       convId: pendingContext ? null : conversationId,
@@ -660,8 +665,10 @@ export default function ChatEngine() {
       mode,
       context: pendingContext,
       kind: "send",
+      templateId: activeTemplate?.id,
     });
     if (pendingContext) useChatStore.getState().setPendingContext(null);
+    if (activeTemplate) useChatStore.getState().setActiveTemplate(null);
   }, [pendingMessage]);
 
   // ── Resume an interrupted deep discovery run (viewed conversation) ───────────

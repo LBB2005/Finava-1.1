@@ -3,6 +3,7 @@ import { anthropic, MODEL } from "@/lib/anthropic";
 import { generate } from "@/lib/llm";
 import { withAuthRaw } from "@/lib/withRoute";
 import { ChatRequestSchema } from "@/lib/schemas/chat";
+import { getTemplateBlock } from "@/lib/templates.server";
 import { checkUsageLimit, recordUsage, usageStore } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
   if (res instanceof NextResponse) return res;
 
   const { userId, body } = res;
-  const { messages, portfolioContext } = body;
+  const { messages, portfolioContext, templateId } = body;
 
   // Per-user burst throttle, then the hard credit cap. The throttle caps
   // concurrent/scripted bursts the read-then-act meter could otherwise overshoot.
@@ -26,6 +27,10 @@ export async function POST(req: Request) {
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;
 
+  // Optional user response-template — instructions/format injected ABOVE the
+  // compliance block so it can shape tone/structure but never override it.
+  const templateBlock = await getTemplateBlock(userId, templateId);
+
   // Run the whole stream inside the usage context so every model call it makes
   // (this chat message + the follow-up generate()) is metered to this user.
   return usageStore.run({ userId }, () => {
@@ -34,7 +39,7 @@ export async function POST(req: Request) {
 ${portfolioContext ? `## User's Current Portfolio\n${portfolioContext}` : "The user has no portfolio holdings yet."}
 
 Be concise, data-driven, and actionable. Use markdown formatting for clarity (tables, bullet points, etc.).
-
+${templateBlock ? `\n${templateBlock}\n` : ""}
 COMPLIANCE (non-negotiable): Finava is an impersonal research publication, not a registered investment adviser. Never give personalized investment advice — never tell the user what THEY should buy, sell, hold, or how to allocate THEIR portfolio, even when their holdings are shown above and even if they ask directly ("should I sell my AAPL?"). Instead, present the relevant impersonal analysis (fundamentals, valuation, risks, scenarios both ways) and remind them the decision is theirs to make with a licensed adviser. General, non-personalized analysis of any stock is fine. Note that content is not financial advice.`;
 
     const stream = anthropic.messages.stream({

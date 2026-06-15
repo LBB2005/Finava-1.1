@@ -31,6 +31,7 @@ export async function POST(req: Request) {
     discover,
     tier,
     wave,
+    templateId,
   } = body;
 
   // Per-user burst throttle: each run is a long, expensive crew, so cap
@@ -93,6 +94,7 @@ export async function POST(req: Request) {
               }[],
               discover: !!discover,
               tier: tier === "deep" ? "deep" : "quick",
+              templateId: typeof templateId === "string" ? templateId : undefined,
             });
           }
         } catch (err) {

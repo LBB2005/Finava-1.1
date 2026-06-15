@@ -18,11 +18,11 @@ const jsonFetcher = (url: string) =>
  *  under the dev auth bypass (no Firebase token needed). */
 export function useStockBundle(ticker: string | null) {
   const key = ticker ? `/api/stock/${encodeURIComponent(ticker)}` : null;
-  const { data, error, isLoading } = useSWR<StockBundle>(key, jsonFetcher, {
+  const { data, error, isLoading, mutate } = useSWR<StockBundle>(key, jsonFetcher, {
     revalidateOnFocus: false,
     shouldRetryOnError: false,
   });
-  return { bundle: data ?? null, error: error as (Error & { status?: number }) | undefined, isLoading };
+  return { bundle: data ?? null, error: error as (Error & { status?: number }) | undefined, isLoading, mutate };
 }
 
 /** Candles for a specific range. The default range comes baked into the bundle,

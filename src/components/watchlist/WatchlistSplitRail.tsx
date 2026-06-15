@@ -8,11 +8,12 @@ import { useToast } from "@/hooks/useToast";
 import { useLiveBoard } from "@/hooks/useLiveBoard";
 import { useFactorUniverse } from "@/hooks/useFactorUniverse";
 import {
-  FACTORS, WEIGHTS, grade, gradeClass, factorColor, NAME_BY_TICKER, UNIVERSE,
+  FACTORS, WEIGHTS, grade, gradeClass, factorColor, NAME_BY_TICKER,
   type FactorScores, type Stock,
 } from "@/lib/research";
 import ChatContextButton from "@/components/chat/ChatContextButton";
 import PageHeader from "@/components/layout/PageHeader";
+import AddTickerSearch from "@/components/watchlist/AddTickerSearch";
 
 // ─── Data helpers ────────────────────────────────────────────────────────────
 
@@ -350,66 +351,6 @@ function KpiTile({ label, value, accent, last }: {
   );
 }
 
-// ─── Add ticker (inline, compact) ────────────────────────────────────────────
-
-function AddTickerInline({ onAdd }: { onAdd: (t: string) => void }) {
-  const [val, setVal] = useState("");
-  const [focus, setFocus] = useState(false);
-
-  function submit() {
-    const sym = val.trim().toUpperCase();
-    if (!sym) return;
-    onAdd(sym);
-    setVal("");
-  }
-
-  return (
-    <form
-      onSubmit={(e) => { e.preventDefault(); submit(); }}
-      style={{
-        display: "flex", alignItems: "center", gap: 6,
-        background: "var(--color-bg)",
-        border: `1px solid ${focus ? "var(--color-accent-medium)" : "var(--color-border)"}`,
-        borderRadius: 4, padding: "4px 4px 4px 10px",
-        transition: "border-color 140ms", width: 200,
-      }}
-    >
-      <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-      </svg>
-      <input
-        list="wl-ticker-options"
-        value={val}
-        onChange={(e) => setVal(e.target.value.toUpperCase())}
-        onFocus={() => setFocus(true)}
-        onBlur={() => setFocus(false)}
-        placeholder="Add ticker…"
-        className="mono"
-        style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 12, letterSpacing: "0.04em", color: "var(--color-text)", minWidth: 0 }}
-      />
-      <datalist id="wl-ticker-options">
-        {UNIVERSE.slice(0, 100).map((s) => (
-          <option key={s.ticker} value={s.ticker}>{s.name}</option>
-        ))}
-      </datalist>
-      <button
-        type="submit"
-        style={{
-          width: 26, height: 26, borderRadius: 3, border: "none",
-          background: val ? "var(--color-accent)" : "var(--color-surface-2)",
-          color: val ? "#fff" : "var(--color-muted)", cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-      </button>
-    </form>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function WatchlistSplitRail() {
@@ -523,7 +464,6 @@ export default function WatchlistSplitRail() {
         }
         actions={
           <>
-            <ChatContextButton context="watchlist" />
             {active && !renaming && (
               <button className="mono" onClick={startRename} style={{ fontSize: 10.5, color: "var(--color-muted)", border: "none", background: "transparent", cursor: "pointer", padding: "0 8px", height: 28, display: "inline-flex", alignItems: "center", borderRadius: 3, transition: "color 120ms" }}>
                 Rename
@@ -554,6 +494,7 @@ export default function WatchlistSplitRail() {
             <button className="tbtn on" onClick={() => router.push("/chat")}>
               ASK AI
             </button>
+            <ChatContextButton context="watchlist" />
           </>
         }
         secondRow={
@@ -570,7 +511,10 @@ export default function WatchlistSplitRail() {
               <KpiTile label="Avg score" value={`${avgScore}`} />
               <KpiTile label="Signals" value={`${signalCount}`} accent="var(--color-accent)" last />
               <div style={{ marginLeft: "auto" }}>
-                <AddTickerInline onAdd={(t) => active && addTicker(active.id, t)} />
+                <AddTickerSearch
+                  existing={active?.tickers ?? []}
+                  onAdd={(t) => active && addTicker(active.id, t)}
+                />
               </div>
             </>
           ) : undefined

@@ -20,6 +20,8 @@ export const AgentRequestSchema = z.object({
   discover: z.boolean().optional(),
   tier: z.enum(["quick", "deep"]).optional(),
   wave: z.record(z.string(), z.unknown()).optional(),
+  /** Optional response-template id whose instructions/format shape the answer. */
+  templateId: z.string().max(200).optional(),
 });
 
 export type AgentRequestBody = z.infer<typeof AgentRequestSchema>;

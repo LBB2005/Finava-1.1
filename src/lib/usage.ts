@@ -45,6 +45,8 @@ const MODEL_PRICING: Record<string, Price> = {
   // OpenRouter slugs (src/lib/llm.ts)
   "anthropic/claude-sonnet-4.6": { in: 3, out: 15 },
   "anthropic/claude-haiku-4.5": { in: 1, out: 5 },
+  "openai/gpt-5.5": { in: 5, out: 30 },
+  "x-ai/grok-4.3": { in: 1.25, out: 2.5 },
   "google/gemini-2.5-flash": { in: 0.3, out: 2.5 },
   "google/gemini-2.5-flash-lite": { in: 0.1, out: 0.4 },
   // Direct Anthropic ids (src/lib/anthropic.ts)

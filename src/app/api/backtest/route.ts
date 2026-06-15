@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { generate } from "@/lib/llm";
 import { getCandles } from "@/lib/finnhub";
-import { requireAuth } from "@/lib/requireAuth";
 import { requireEntitlement } from "@/lib/entitlements";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
 import { db } from "@/lib/firebase-admin";
+import { apiError } from "@/lib/apiError";
+import { withRoute } from "@/lib/withRoute";
+import { BacktestRequestSchema, type BacktestRequestBody } from "@/lib/schemas/backtest";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -35,24 +37,19 @@ export interface BacktestResult {
   summary: string;
 }
 
-export async function POST(req: Request) {
-  const { userId, error } = await requireAuth();
-  if (error) return error;
+export const POST = withRoute({ body: BacktestRequestSchema }, async ({ userId, body }) => {
   const gate = await requireEntitlement(userId, "quantSuite");
   if (gate) return gate;
   const throttled = userRateLimit(userId, "backtest");
   if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;
-  usageStore.enterWith({ userId });
 
-  const body = await req.json() as { query?: string; portfolioTickers?: string[] };
+  return usageStore.run({ userId }, () => runBacktest(userId, body));
+});
+
+async function runBacktest(userId: string, body: BacktestRequestBody): Promise<Response> {
   const { query, portfolioTickers } = body;
-
-  if (!query || typeof query !== "string") {
-    return NextResponse.json({ error: "Query required" }, { status: 400 });
-  }
-
   const today = new Date().toISOString().slice(0, 10);
   const twoYearsAgo = new Date(Date.now() - 730 * 86400000).toISOString().slice(0, 10);
 
@@ -102,11 +99,11 @@ Rules:
     };
 
     if (config.tickers.length === 0) {
-      return NextResponse.json({ error: "No tickers found in query. Try: 'backtest AAPL MSFT from 2022'" }, { status: 400 });
+      return apiError("no_tickers", "No tickers found in query. Try: 'backtest AAPL MSFT from 2022'", 400);
     }
   } catch (err) {
     console.error("[backtest] parse error:", err);
-    return NextResponse.json({ error: "Could not parse backtest query" }, { status: 400 });
+    return apiError("parse_failed", "Could not parse backtest query", 400);
   }
 
   // ── Step 2: Fetch daily candles for tickers + benchmark ──────────────────
@@ -131,10 +128,10 @@ Rules:
 
   const availableTickers = config.tickers.filter((t) => candleMap.has(t));
   if (availableTickers.length === 0) {
-    return NextResponse.json({ error: "Could not fetch price data for any requested ticker. Check your ticker symbols." }, { status: 422 });
+    return apiError("price_data_unavailable", "Could not fetch price data for any requested ticker. Check your ticker symbols.", 422);
   }
   if (!candleMap.has(config.benchmark)) {
-    return NextResponse.json({ error: `Could not fetch benchmark (${config.benchmark}) data.` }, { status: 422 });
+    return apiError("benchmark_unavailable", `Could not fetch benchmark (${config.benchmark}) data.`, 422);
   }
 
   // ── Step 3: Run backtest engine ──────────────────────────────────────────

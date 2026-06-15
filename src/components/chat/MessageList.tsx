@@ -1,13 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Markdown from "./Markdown";
 import StreamingMarkdown, { useSmoothStream } from "./StreamingMarkdown";
 import Message from "./Message";
 import TypingIndicator from "./TypingIndicator";
 import { LiveElapsed } from "./ResponseTiming";
 import AgentDetailModal from "@/components/agent/AgentDetailModal";
+import ModelBadge from "@/components/ui/ModelBadge";
 import { AGENT_LABELS } from "@/types/chat";
-import type { ChatMessage, ChatMode, AgentStep } from "@/types/chat";
+import type { ChatMessage, ChatMode, AgentStep, Template } from "@/types/chat";
+import { useChatStore } from "@/stores/chatStore";
 import { useMarketPulse } from "@/hooks/useMarketPulse";
 import { usMarketStatus } from "@/lib/marketHours";
 import useSWR from "swr";
@@ -197,6 +198,17 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
                       )}
                     </div>
 
+                    {/* Model badge — lights up while this agent runs */}
+                    {step.models && step.models.length > 0 && (
+                      <ModelBadge
+                        brands={step.models}
+                        size={11}
+                        showLabel
+                        lit={step.status === "running"}
+                        dim={step.status === "pending"}
+                      />
+                    )}
+
                     {/* Status badge / view full button */}
                     {(step.status === "complete" || step.status === "error") && step.result ? (
                       <button
@@ -344,15 +356,11 @@ function MarketPulse() {
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */
-interface PlaybookRef {
-  id: string;
-  title: string;
-  steps: string[];
-}
-
 function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void }) {
-  // Saved playbooks (chat ⋯ menu → "Save as Playbook") surface here as chips.
-  const { data: playbooks } = useSWR<PlaybookRef[]>("/api/playbooks", authFetcher);
+  // User response templates (Settings → Templates) surface here — picking one
+  // attaches it to the next message as a composer chip (shapes how Finava replies).
+  const { data: templates } = useSWR<Template[]>("/api/playbooks", authFetcher);
+  const setActiveTemplate = useChatStore((s) => s.setActiveTemplate);
   const now = new Date();
   const hour = now.getHours();
   const greeting =
@@ -375,24 +383,27 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
           >
             What would you like<br />to research today?
           </h2>
+          <p className="mt-2.5 text-[12.5px] text-[var(--color-muted)]">
+            Fresh conversation — start typing below, or pick a prompt to begin.
+          </p>
         </div>
 
         <MarketPulse />
 
-        {/* Saved playbooks */}
-        {Array.isArray(playbooks) && playbooks.length > 0 && (
+        {/* Templates — picking one rides on the next message as a chip */}
+        {Array.isArray(templates) && templates.length > 0 && (
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2.5">
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
-                Your playbooks
+                Templates
               </span>
-              <span className="text-[11px] text-[var(--color-muted)]">Saved from past chats</span>
+              <span className="text-[11px] text-[var(--color-muted)]">Shape how Finava responds</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-[10px]">
-              {playbooks.slice(0, 4).map((pb) => (
+              {templates.slice(0, 4).map((tpl) => (
                 <button
-                  key={pb.id}
-                  onClick={() => onSuggestion?.(pb.steps[0] ?? "")}
+                  key={tpl.id}
+                  onClick={() => setActiveTemplate({ id: tpl.id, title: tpl.title })}
                   className="followup-chip text-left px-[16px] py-[14px] rounded-[12px] flex gap-[10px] items-start transition-all duration-120 group"
                   style={{ fontSize: "13.5px", lineHeight: 1.4 }}
                 >
@@ -401,10 +412,11 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
                     style={{ color: "var(--color-accent)" }}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M19 21l-7-4-7 4V5a2 2 0 012-2h10a2 2 0 012 2v16z" />
+                      <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                      <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
                     </svg>
                   </span>
-                  <span className="flex-1 truncate">{pb.title}</span>
+                  <span className="flex-1 truncate">{tpl.title}</span>
                 </button>
               ))}
             </div>
@@ -487,7 +499,18 @@ export default function MessageList({
   const revealed = useSmoothStream(streamingContent, isStreaming);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const node = bottomRef.current;
+    if (!node) return;
+    // Only pin to the bottom if the user is already there — and during the
+    // high-frequency streaming reveal use instant scroll, so smooth-scroll
+    // animations don't stack and stutter on every frame.
+    const scroller = node.closest(".overflow-y-auto");
+    const nearBottom =
+      !scroller ||
+      scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 120;
+    if (nearBottom) {
+      node.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" });
+    }
   }, [messages.length, revealed, agentSteps.length, ceoThinking, isStreaming]);
 
   /* Empty state */
@@ -524,9 +547,14 @@ export default function MessageList({
           <TypingIndicator label="Thinking it through" startedAt={streamStartedAt} />
         )}
 
-        {/* Discover mode waiting — scanning / wave progress */}
+        {/* Discover mode waiting — teal "scanning the market" state */}
         {mode === "discover" && isStreaming && !streamingContent && (
-          <TypingIndicator label={ceoThinking || "Scanning the S&P 500…"} startedAt={streamStartedAt} />
+          <TypingIndicator
+            label={ceoThinking || "Scanning the S&P 500…"}
+            startedAt={streamStartedAt}
+            accent="var(--color-discover)"
+            scanning
+          />
         )}
 
         <div ref={bottomRef} />

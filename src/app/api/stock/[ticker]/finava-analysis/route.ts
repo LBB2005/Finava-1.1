@@ -10,7 +10,7 @@
 // neutral 50 card rather than killing the stream. Synthesis failure emits an
 // `error` event the client turns into a retry.
 
-import { generate } from "@/lib/llm";
+import { generate, AGENT_MODELS } from "@/lib/llm";
 import { requireAuth } from "@/lib/requireAuth";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
@@ -241,14 +241,15 @@ export async function POST(
       // them for synthesis once every bar has filled.
       const settled = await Promise.allSettled(
         SIGNALS.map(async (s) => {
+          const model = AGENT_MODELS[s.agent];
           try {
             const raw = await generate({ agent: s.agent, maxTokens: 600, prompt: s.prompt });
-            const sig = toSignal(s.key, parseJson(raw));
+            const sig = { ...toSignal(s.key, parseJson(raw)), model };
             send({ type: "signal", signal: sig });
             return sig;
           } catch (err) {
             console.error("[finava signal]", symbol, s.key, err);
-            const sig = neutralSignal(s.key);
+            const sig = { ...neutralSignal(s.key), model };
             send({ type: "signal", signal: sig });
             return sig;
           }
@@ -319,6 +320,7 @@ Respond with ONLY this JSON (no markdown):
           catalysts: toStrings(p.catalysts),
           risks: toStrings(p.risks),
           comparison: { finava: fairValue, street, dcf: dcfFair },
+          model: AGENT_MODELS["finavaSynthesis"],
         };
         send({ type: "verdict", verdict });
       } catch (err) {

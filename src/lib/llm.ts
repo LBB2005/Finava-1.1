@@ -23,8 +23,13 @@ import { recordUsage } from "@/lib/usage";
 export const LLM_ROUTING_ON = (process.env.LLM_ROUTING ?? "on") !== "off";
 
 // ── Model slugs (confirmed live on openrouter.ai/models) ─────────────────────
+// NOTE: badges show these brand-level (Claude / GPT / Gemini / Grok), so the
+// Gemini *version* (2.5 today; bump to 3.x when it GAs on OpenRouter) doesn't
+// change the user-facing story.
 const SONNET = "anthropic/claude-sonnet-4.6";
 const HAIKU = "anthropic/claude-haiku-4.5";
+const GPT5 = "openai/gpt-5.5"; // best math → the numeric agents
+const GROK = "x-ai/grok-4.3"; // live-X social → sentiment
 const GEMINI_FLASH = "google/gemini-2.5-flash";
 const GEMINI_FLASH_LITE = "google/gemini-2.5-flash-lite";
 
@@ -42,7 +47,7 @@ export type AgentKey =
   | "compareVerdict" // Research · Compare lens — head-to-head verdict
   | "themesGenerate" // Research · Themes lens — AI-generated baskets
   | "scoutSelect" // Chat · Discovery scout — fit-rank the 503-name universe to a shortlist
-  // Tier B — judgment over data → Gemini 2.5 Flash
+  // Tier B — judgment over data → GPT-5.5 (the numbers) / Gemini (summarize)
   | "graham"
   | "comparables"
   | "competitor"
@@ -50,7 +55,7 @@ export type AgentKey =
   | "macro"
   | "screenRead" // Research · Screen lens — basket commentary
   | "screenSuggest" // Research · Screen lens — suggested screens
-  // Tier A — narrate pre-computed/fetched data → Gemini 2.5 Flash-Lite
+  // Tier A — narrate pre-computed/fetched data → Gemini Flash-Lite (news → Flash, sentiment → Grok)
   | "technical"
   | "earnings"
   | "insider"
@@ -64,7 +69,8 @@ export type AgentKey =
   | "chatFollowups"
   | "backtestParse"
   | "backtestSummary"
-  | "screenParse"; // Research · Screen lens — NL query → filter
+  | "screenParse" // Research · Screen lens — NL query → filter
+  | "titleConversation"; // Sidebar — clean 3–6 word auto-title for a chat
 
 // Per-agent model when routing is ON.
 const ROUTED_MODELS: Record<AgentKey, string> = {
@@ -75,30 +81,32 @@ const ROUTED_MODELS: Record<AgentKey, string> = {
   briefingSynthesis: SONNET,
   portfolioStatement: SONNET,
   risk: SONNET,
-  dcf: SONNET,
+  dcf: GPT5, // valuation math — best-in-class on AIME/HMMT
   compareVerdict: SONNET,
   themesGenerate: SONNET,
   scoutSelect: SONNET,
-  graham: GEMINI_FLASH,
-  comparables: GEMINI_FLASH,
-  competitor: GEMINI_FLASH,
-  analyst: GEMINI_FLASH,
+  // GPT-5.5 — the numbers: estimates/multiples/screens are figures
+  graham: GPT5,
+  comparables: GPT5,
+  analyst: GPT5,
+  competitor: SONNET, // qualitative moat reasoning + writing
   macro: GEMINI_FLASH,
-  screenRead: GEMINI_FLASH,
-  screenSuggest: GEMINI_FLASH,
+  screenRead: GEMINI_FLASH_LITE,
+  screenSuggest: GEMINI_FLASH_LITE,
   technical: GEMINI_FLASH_LITE,
   earnings: GEMINI_FLASH_LITE,
   insider: GEMINI_FLASH_LITE,
   options: GEMINI_FLASH_LITE,
   fundamentals: GEMINI_FLASH_LITE,
-  news: GEMINI_FLASH_LITE,
-  sentiment: GEMINI_FLASH_LITE,
+  news: GEMINI_FLASH, // long-context summarization of supplied articles
+  sentiment: GROK, // live social (X)
   signalsNarrate: GEMINI_FLASH_LITE,
   skeptic: HAIKU,
   chatFollowups: HAIKU,
   backtestParse: HAIKU,
   backtestSummary: HAIKU,
   screenParse: HAIKU,
+  titleConversation: GEMINI_FLASH_LITE, // tiny narration job — cheapest model
 };
 
 // Per-agent model when routing is OFF — the model each call-site used before this
@@ -109,6 +117,7 @@ const HAIKU_AGENTS = new Set<AgentKey>([
   "backtestParse",
   "backtestSummary",
   "screenParse",
+  "titleConversation",
 ]);
 const FALLBACK_MODELS: Record<AgentKey, string> = Object.fromEntries(
   (Object.keys(ROUTED_MODELS) as AgentKey[]).map((k) => [
@@ -136,19 +145,23 @@ const TIER_A = new Set<AgentKey>([
   "news",
   "sentiment",
   "signalsNarrate",
+  "titleConversation",
 ]);
 const TIER_A_MAX_TOKENS = 1200;
-// Tier B judgment agents that move to Gemini — drop the (Anthropic) thinking budget.
-const TIER_B_GEMINI = new Set<AgentKey>([
+// Judgment agents on a non-Anthropic model (GPT-5.5 / Gemini) — drop the
+// Anthropic-style thinking budget; the base model's reasoning is enough for
+// narrating supplied figures/data. (competitor moved back to Sonnet, so it
+// keeps its call-site budget and is intentionally NOT in this set.)
+const TIER_B_NO_THINKING = new Set<AgentKey>([
   "graham",
   "comparables",
-  "competitor",
   "analyst",
   "macro",
   "screenRead",
   "screenSuggest",
 ]);
-// DCF stays on Sonnet but its thinking + output budgets are cut hard (cost).
+// DCF runs on GPT-5.5 (best math) with a bounded reasoning budget — the one
+// numeric agent we let think, since it's the valuation showcase.
 const DCF_MAX_TOKENS = 2500;
 const DCF_REASONING_MAX_TOKENS = 1500;
 
@@ -209,6 +222,12 @@ export interface GenerateOptions {
   reasoning?: number;
   /** Request Anthropic prompt-cache passthrough on the system prompt. */
   cache?: boolean;
+  /**
+   * Whether to meter this call against the user's credit allowance. Defaults to
+   * `true`. Set `false` for system-cost calls the user shouldn't pay for (e.g.
+   * auto-generating a conversation title).
+   */
+  meter?: boolean;
 }
 
 /**
@@ -232,8 +251,8 @@ function resolveCall(opts: GenerateOptions): {
     } else if (opts.agent === "dcf") {
       maxTokens = DCF_MAX_TOKENS;
       reasoning = DCF_REASONING_MAX_TOKENS;
-    } else if (TIER_B_GEMINI.has(opts.agent)) {
-      reasoning = undefined; // judgment on Gemini Flash, no Anthropic thinking budget
+    } else if (TIER_B_NO_THINKING.has(opts.agent)) {
+      reasoning = undefined; // judgment on GPT/Gemini, no Anthropic thinking budget
     }
   }
 
@@ -310,12 +329,15 @@ export async function generate(opts: GenerateOptions): Promise<string> {
   const u = response.usage;
   // Meter this call against the current user's allowance (userId comes from the
   // route's AsyncLocalStorage context — see src/lib/usage.ts). Fire-and-forget.
-  void recordUsage({
-    agent,
-    model,
-    inputTokens: u?.prompt_tokens,
-    outputTokens: u?.completion_tokens,
-  });
+  // Skipped when `meter: false` (system-cost calls the user shouldn't pay for).
+  if (opts.meter !== false) {
+    void recordUsage({
+      agent,
+      model,
+      inputTokens: u?.prompt_tokens,
+      outputTokens: u?.completion_tokens,
+    });
+  }
 
   if (process.env.LLM_LOG === "on") {
     console.log(

@@ -1,6 +1,8 @@
 import { generate } from "@/lib/llm";
 import { getRecommendationTrends, getPriceTarget, getQuote } from "@/lib/finnhub";
 import { getSkillsPrompt } from "@/agents/skills";
+import { perplexitySearch } from "@/lib/perplexity";
+import { fenceExternal, EXTERNAL_DATA_RULE } from "@/lib/externalContent";
 
 interface AnalystInput {
   tickers: string[];
@@ -67,24 +69,42 @@ export async function runAnalystAgent(input: unknown): Promise<string> {
 
   const data = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
 
+  // Finnhub's /stock/price-target is premium-gated on our plan (returns 403), so
+  // targetMean/High/Low come back null and the table would show "N/A" for every
+  // target. When NO ticker has a structured price target, fall back to a single
+  // Perplexity web search for consensus targets. It's web-sourced (less precise
+  // than a feed), so we fence it as external data and label it as such.
+  const hasStructuredTargets = data.some((d) => typeof d.targetMean === "number" && d.targetMean > 0);
+  let webTargets = "";
+  if (!hasStructuredTargets && process.env.PERPLEXITY_API_KEY) {
+    webTargets = await perplexitySearch(
+      `For each of these tickers — ${tickers.join(", ")} — give the current Wall Street consensus analyst price target: the average (mean) 12-month price target, the low and high target in the range, and the number of analysts. Respond as a compact list, one line per ticker: "TICKER: avg $X, range $low–$high, N analysts". If a figure is unknown, write "unknown" rather than guessing.`
+    ).catch(() => "");
+  }
+
   const text = await generate({
     agent: "analyst",
-    system: getSkillsPrompt("analyst"),
+    system: [getSkillsPrompt("analyst"), webTargets ? EXTERNAL_DATA_RULE : ""].filter(Boolean).join("\n\n"),
     maxTokens: 2000,
     prompt: `You are a financial analyst summarizing Wall Street consensus for the following tickers.
 
-Raw analyst data:
+Raw analyst data (structured feed — recommendation counts are reliable; targetMean/High/Low may be null because the price-target feed is unavailable on our plan):
 \`\`\`json
 ${JSON.stringify(data, null, 2)}
 \`\`\`
+${webTargets ? `
+Price targets were unavailable from the structured feed, so the block below is web-sourced consensus. Use it ONLY to fill the Avg Target / Range / Upside columns. Treat numbers as approximate and append " (web)" to any target value you take from it.
+
+${fenceExternal("perplexity consensus price targets", webTargets)}
+` : ""}
 
 For each ticker, compute and present:
 1. **Consensus Rating**: Derive from strongBuy/buy/hold/sell/strongSell counts. Express as a weighted score and map to: Strong Buy / Buy / Hold / Sell / Strong Sell.
    Formula: score = (strongBuy×2 + buy×1 + hold×0 + sell×−1 + strongSell×−2) / totalAnalysts
 2. **Analyst Count**: Total number of analysts covering the stock.
-3. **Avg Price Target**: Use targetMean.
-4. **Target Range**: Low – High.
-5. **Upside %**: (targetMean − currentPrice) / currentPrice × 100. Flag if > 30% as potentially aggressive.
+3. **Avg Price Target**: Use targetMean if present; otherwise use the web-sourced average above (append " (web)").
+4. **Target Range**: Low – High (from the feed, or the web-sourced range).
+5. **Upside %**: (avg target − currentPrice) / currentPrice × 100, using whichever avg target you have. Flag if > 30% as potentially aggressive.
 6. **Rating Distribution**: brief "10 Buy / 5 Hold / 2 Sell" summary.
 
 **Output format:**

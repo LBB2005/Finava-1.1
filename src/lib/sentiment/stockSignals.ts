@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck — WIP: unfinished Grok/sentiment refactor. This module is not yet
 // imported anywhere, but Next's project-wide type check fails on its missing
 // `getNewsSentiment` export and `./core` module and blocks production builds.

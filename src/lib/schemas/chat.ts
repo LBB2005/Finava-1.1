@@ -20,6 +20,8 @@ export const ChatRequestSchema = z.object({
     )
     .min(1, "messages must contain at least one message"),
   portfolioContext: z.string().optional(),
+  /** Optional response-template id whose instructions/format shape the answer. */
+  templateId: z.string().max(200).optional(),
 });
 
 export type ChatRequestBody = z.infer<typeof ChatRequestSchema>;

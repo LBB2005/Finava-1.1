@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import { mutate } from "swr";
 import { useChatStore } from "@/stores/chatStore";
 import { authFetch } from "@/lib/authFetch";
 import type { ChatMode, AgentStep } from "@/types/chat";
@@ -56,6 +57,19 @@ export function useOpenConversation() {
         // (a stream owns its own message list and commits on completion).
         if (!useChatStore.getState().streamsByConv[conv.id]?.isStreaming) {
           setMessages(conv.id, toStoreMessages(full.messages ?? []));
+        }
+
+        // Backfill an auto-title for older chats that predate auto-titling: no
+        // title yet but a complete user↔assistant exchange exists. Fire-and-forget,
+        // then revalidate the recents list so the clean title appears.
+        const msgs = full.messages ?? [];
+        const hasTitle = typeof full.title === "string" && full.title.trim().length > 0;
+        const hasExchange =
+          msgs.some((m) => m.role === "user") && msgs.some((m) => m.role === "assistant");
+        if (!hasTitle && hasExchange) {
+          authFetch(`/api/conversations/${conv.id}/title`, { method: "POST" })
+            .then(() => mutate("/api/conversations"))
+            .catch(() => { /* best-effort; raw-prompt fallback stays */ });
         }
       } catch { /* preview already shown; background refresh is best-effort */ }
     })();

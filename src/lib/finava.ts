@@ -13,6 +13,7 @@ export interface FinavaSignal {
   stance: Stance;
   headline: string; // one short line
   detail: string; // 1–2 sentences
+  model?: string; // OpenRouter slug of the LLM that produced this signal (for the badge)
 }
 
 export interface FinavaVerdict {
@@ -29,6 +30,7 @@ export interface FinavaVerdict {
     street: number | null; // analyst mean target
     dcf: number | null; // model fair value under default assumptions
   };
+  model?: string; // OpenRouter slug of the synthesis LLM (for the badge)
 }
 
 export interface FinavaAnalysis {

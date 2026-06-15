@@ -1,10 +1,26 @@
 "use client";
+import { useState } from "react";
 import Markdown from "./Markdown";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import type { ChatMessage } from "@/types/chat";
-import type { DiscoverMessageContent, ScoutPick, WaveEvidence } from "@/lib/scoutTypes";
+import type { ConvictionTier, DiscoverLayout, DiscoverMessageContent, ScoutPick, WaveEvidence } from "@/lib/scoutTypes";
 
 const ACCENT = "var(--color-discover)";
+
+/** Conviction band → header label + glyph for the tiers layout. */
+const TIER_META: Record<ConvictionTier, { label: string; icon: string }> = {
+  high: { label: "High conviction", icon: "🥇" },
+  look: { label: "Worth a look", icon: "👀" },
+  wildcard: { label: "Wildcard", icon: "🎲" },
+};
+const TIER_ORDER: ConvictionTier[] = ["high", "look", "wildcard"];
+
+/** Conviction is optional on the wire — fall back to score bands so older
+ *  messages (and any pick the LLM left untagged) still group sensibly. */
+function convictionOf(p: ScoutPick): ConvictionTier {
+  if (p.conviction) return p.conviction;
+  return p.score >= 67 ? "high" : p.score >= 45 ? "look" : "wildcard";
+}
 
 function FinavaAvatar() {
   return (
@@ -47,12 +63,18 @@ const AGENT_LABEL: Record<string, string> = {
   run_competitor_agent: "Competitor",
 };
 
-function PickCard({ p, held }: { p: ScoutPick; held?: boolean }) {
+function PickCard({ p, held, revealIndex = 0 }: { p: ScoutPick; held?: boolean; revealIndex?: number }) {
   const cap = fmtCap(p.marketCap);
   return (
     <div
-      className="flex gap-3 px-3.5 py-3 rounded-[11px]"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+      className="flex gap-3 px-3.5 py-3 rounded-[11px] fade-in"
+      style={{
+        background: "var(--color-surface)",
+        border: "1px solid var(--color-border)",
+        // Staggered "scanning" reveal — picks ease in one at a time. Capped so a
+        // long list never feels slow; reduced-motion users get instant render.
+        animationDelay: `${Math.min(revealIndex, 7) * 70}ms`,
+      }}
     >
       <div
         className="flex-shrink-0 w-7 h-7 rounded-[8px] flex items-center justify-center text-[12px] font-bold tabular-nums"
@@ -96,12 +118,24 @@ function PickCard({ p, held }: { p: ScoutPick; held?: boolean }) {
   );
 }
 
+/** Grid of pick cards with a continuous stagger index for the reveal effect. */
+function PickGrid({ picks, held, startIndex = 0 }: { picks: ScoutPick[]; held: Set<string>; startIndex?: number }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {picks.map((p, i) => (
+        <PickCard key={p.ticker} p={p} held={held.has(p.ticker)} revealIndex={startIndex + i} />
+      ))}
+    </div>
+  );
+}
+
 function Shortlist({
   tier,
   query,
   framing,
   picks,
   held,
+  layout: initialLayout,
   onDeeper,
 }: {
   tier: "quick" | "deep";
@@ -109,15 +143,33 @@ function Shortlist({
   framing?: string;
   picks: ScoutPick[];
   held: Set<string>;
+  layout?: DiscoverLayout;
   onDeeper?: () => void;
 }) {
+  // The scout hints a layout; the user can recast the SAME picks client-side
+  // (no network) by toggling. Seed from the hint, default to ranked.
+  const [layout, setLayout] = useState<DiscoverLayout>(initialLayout ?? "ranked");
+  const ranked = [...picks].sort((a, b) => a.fitRank - b.fitRank);
+  const groups = TIER_ORDER.map((t) => ({ t, items: ranked.filter((p) => convictionOf(p) === t) })).filter(
+    (g) => g.items.length > 0
+  );
+  const otherLayout: DiscoverLayout = layout === "tiers" ? "ranked" : "tiers";
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
-          {tier === "quick" ? "Discover" : "Deep Discover"} · {picks.length} ideas
+          {tier === "quick" ? "Discover" : "Deep Discover"} · {picks.length} {picks.length === 1 ? "idea" : "ideas"}
         </span>
-        <span className="text-[11px] truncate" style={{ color: "var(--color-muted)" }}>for “{query}”</span>
+        <span className="text-[11px] truncate flex-1 min-w-0" style={{ color: "var(--color-muted)" }}>for “{query}”</span>
+        {/* Swap affordance — recast the same picks in the other layout. */}
+        <button
+          onClick={() => setLayout(otherLayout)}
+          className="text-[10.5px] font-medium px-2 py-1 rounded-[7px] transition-opacity hover:opacity-80 whitespace-nowrap"
+          style={{ background: "var(--color-surface-2)", color: "var(--color-text-secondary)" }}
+        >
+          {layout === "tiers" ? "Conviction tiers" : "Ranked"} · swap to {otherLayout === "tiers" ? "tiers" : "ranked"}
+        </button>
       </div>
 
       {framing && (
@@ -126,9 +178,29 @@ function Shortlist({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {picks.map((p) => <PickCard key={p.ticker} p={p} held={held.has(p.ticker)} />)}
-      </div>
+      {layout === "tiers" ? (
+        <div className="flex flex-col gap-3.5">
+          {groups.map((g, gi) => {
+            const start = groups.slice(0, gi).reduce((acc, x) => acc + x.items.length, 0);
+            return (
+              <div key={g.t} className="flex flex-col gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[12.5px]" aria-hidden>{TIER_META[g.t].icon}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--color-text-secondary)" }}>
+                    {TIER_META[g.t].label}
+                  </span>
+                  <span className="text-[10px] tabular-nums" style={{ color: "var(--color-muted)" }}>
+                    {g.items.length}
+                  </span>
+                </div>
+                <PickGrid picks={g.items} held={held} startIndex={start} />
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <PickGrid picks={ranked} held={held} />
+      )}
 
       {tier === "quick" && onDeeper && (
         <button
@@ -215,6 +287,7 @@ export default function DiscoverResult({
             framing={content.framing}
             picks={content.picks}
             held={held}
+            layout={content.layout}
             onDeeper={onDiscoverDeeper ? () => onDiscoverDeeper(content.query) : undefined}
           />
         )}

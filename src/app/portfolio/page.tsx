@@ -480,7 +480,6 @@ export default function PortfolioPage() {
         subtitle={`${positionLabel} · ACCOUNT OVERVIEW`}
         actions={
           <>
-            <ChatContextButton context="portfolio" />
             {plaidConnected ? (
               // Synced status pill — the little glowing dot signals a live link;
               // the institution name comes straight from the connected brokerage.
@@ -532,12 +531,13 @@ export default function PortfolioPage() {
             >
               ASK FINAVA
             </button>
+            <ChatContextButton context="portfolio" />
           </>
         }
       />
 
       {/* ── Body ── */}
-      <div className="flex-1 overflow-y-auto pb-[150px]" style={{ scrollbarGutter: "stable both-edges" }}>
+      <div className="flex-1 overflow-y-auto" style={{ scrollbarGutter: "stable both-edges", paddingBottom: "var(--content-pad-bottom)" }}>
         {holdingsLoading && holdings.length === 0 ? (
           <PortfolioSkeleton />
         ) : holdings.length === 0 ? (

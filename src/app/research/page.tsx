@@ -90,7 +90,6 @@ export default function ResearchPage() {
         }
         actions={
           <>
-            <ChatContextButton context="research" />
             <div className="b-hzseg">
               {HORIZONS.map((h) => (
                 <button key={h.key} className={"b-hzbtn" + (horizon === h.key ? " on" : "")} onClick={() => setHorizon(h.key)}>
@@ -99,6 +98,7 @@ export default function ResearchPage() {
               ))}
             </div>
             <span className="mono b-asof">{asOfLabel}</span>
+            <ChatContextButton context="research" />
           </>
         }
       />
