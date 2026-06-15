@@ -49,6 +49,28 @@ export function clientKey(req: Request): string {
 }
 
 /**
+ * Per-user throttle for authenticated, expensive routes (LLM fan-outs, deep
+ * research). The credit meter (`checkUsageLimit`) is a read-then-act cap, so a
+ * burst of concurrent requests can all pass the pre-check before any spend
+ * lands; this token bucket caps the burst so the meter can't be overshot.
+ *
+ * Returns a 429 when `userId` is over the limit, or null to proceed. Defaults to
+ * a burst of 8 and ~0.3/sec sustained — comfortable for real UI use, tight
+ * enough to stop scripted concurrent abuse.
+ */
+export function userRateLimit(
+  userId: string,
+  route: string,
+  opts: RateLimitOptions = { capacity: 8, refillPerSec: 0.3 }
+): NextResponse | null {
+  if (consumeToken(`${route}:user:${userId}`, opts)) return null;
+  return NextResponse.json(
+    { error: "Too many requests — slow down and try again shortly." },
+    { status: 429, headers: { "Retry-After": "10" } }
+  );
+}
+
+/**
  * Guard for market-data routes: returns a 429 response when `req`'s client is
  * over the limit, or null when the call may proceed.
  *

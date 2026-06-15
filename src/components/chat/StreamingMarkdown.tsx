@@ -18,8 +18,12 @@ import { components as baseComponents } from "./Markdown";
 export function useSmoothStream(raw: string, active: boolean): string {
   const [display, setDisplay] = useState(raw);
   const rawRef = useRef(raw);
-  rawRef.current = raw;
   const idxRef = useRef(active ? 0 : raw.length);
+
+  useEffect(() => {
+    rawRef.current = raw;
+    if (!active) idxRef.current = raw.length;
+  }, [raw, active]);
 
   useEffect(() => {
     if (!active) {
@@ -58,7 +62,7 @@ function fadeWords(children: React.ReactNode, ctr: { n: number }): React.ReactNo
   return React.Children.map(children, (child) => {
     if (typeof child === "string") {
       // Keep whitespace as plain text; wrap visible words so each fades once.
-      return child.split(/(\s+)/).map((part, i) =>
+      return child.split(/(\s+)/).map((part) =>
         part.trim() === ""
           ? part
           : <span key={`w${ctr.n++}`} className="stream-word">{part}</span>

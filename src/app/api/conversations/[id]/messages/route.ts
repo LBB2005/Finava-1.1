@@ -1,23 +1,20 @@
 import { NextResponse } from "next/server";
 import { db, serializeDoc } from "@/lib/firebase-admin";
-import { requireAuth } from "@/lib/requireAuth";
+import { apiError } from "@/lib/apiError";
+import { withRoute } from "@/lib/withRoute";
+import { AddMessageSchema } from "@/lib/schemas/conversation";
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { userId, error } = await requireAuth();
-  if (error) return error;
-  try {
+export const POST = withRoute(
+  { body: AddMessageSchema },
+  async ({ userId, body }, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
-    const body = await req.json();
     const { role, content, mode = "simple", agentTrace, durationMs } = body;
 
     // Verify the conversation belongs to this user
     const convRef = db.collection("users").doc(userId).collection("conversations").doc(id);
     const convSnap = await convRef.get();
     if (!convSnap.exists) {
-      return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+      return apiError("not_found", "Conversation not found", 404);
     }
 
     const now = new Date().toISOString();
@@ -35,8 +32,5 @@ export async function POST(
 
     const msgSnap = await msgRef.get();
     return NextResponse.json(serializeDoc(msgSnap.id, msgSnap.data()!), { status: 201 });
-  } catch (err) {
-    console.error("[messages POST]", err);
-    return NextResponse.json({ error: "Failed to save message" }, { status: 500 });
   }
-}
+);

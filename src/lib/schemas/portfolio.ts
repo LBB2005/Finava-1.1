@@ -21,3 +21,22 @@ export const AddHoldingSchema = z.object({
 });
 
 export type AddHoldingBody = z.infer<typeof AddHoldingSchema>;
+
+export const UpdateHoldingSchema = z
+  .object({
+    companyName: z.string().nullable().optional(),
+    shares: z.number().positive("shares must be positive").optional(),
+    avgCost: z.number().min(0, "avgCost cannot be negative").optional(),
+    sector: z.string().nullable().optional(),
+  })
+  .refine((body) => Object.keys(body).length > 0, {
+    message: "At least one field must be provided",
+  });
+
+export type UpdateHoldingBody = z.infer<typeof UpdateHoldingSchema>;
+
+export const PortfolioSettingsSchema = z.object({
+  cashBalance: z.number().min(0, "cashBalance must be a non-negative number"),
+});
+
+export type PortfolioSettingsBody = z.infer<typeof PortfolioSettingsSchema>;

@@ -36,7 +36,8 @@ export default function HoneycombBackdrop() {
         const a = (Math.PI / 180) * (60 * i - 30);
         const px = cx + r * Math.cos(a);
         const py = cy + r * Math.sin(a);
-        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+        if (i) ctx.lineTo(px, py);
+        else ctx.moveTo(px, py);
       }
       ctx.closePath();
     };

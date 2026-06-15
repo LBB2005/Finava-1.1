@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import { authFetch } from "@/lib/authFetch";
+import { apiErrorMessage } from "@/lib/apiErrorMessage";
 import Modal from "@/components/ui/Modal";
 import { useToast } from "@/hooks/useToast";
 
@@ -43,7 +44,7 @@ export default function StatementUploadModal({ onClose, onAdd }: Props) {
       fd.append("file", file);
       const res = await authFetch("/api/portfolio/statement", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Scan failed");
+      if (!res.ok) throw new Error(apiErrorMessage(data, "Scan failed"));
       const holdings: ExtractedHolding[] = data.holdings;
       const bp: number | null = typeof data.buyingPower === "number" ? data.buyingPower : null;
       setExtracted(holdings);

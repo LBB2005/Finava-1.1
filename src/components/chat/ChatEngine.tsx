@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { mutate } from "swr";
 import { authFetch } from "@/lib/authFetch";
+import { apiErrorMessage } from "@/lib/apiErrorMessage";
 import { useChatStore, type SendRequest } from "@/stores/chatStore";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useQuotes } from "@/hooks/useQuotes";
@@ -135,7 +136,7 @@ export default function ChatEngine() {
       });
       const data = await res.json();
       if (!res.ok) {
-        const errMsg = (data as { error?: string }).error ?? "Backtest failed";
+        const errMsg = apiErrorMessage(data, "Backtest failed");
         s().addMessage(convId, { id: crypto.randomUUID(), role: "assistant", content: `**Backtest error:** ${errMsg}`, mode: "backtest", createdAt: new Date().toISOString() });
         return;
       }

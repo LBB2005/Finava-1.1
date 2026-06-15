@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db, serializeDoc } from "@/lib/firebase-admin";
-import { requireAuth } from "@/lib/requireAuth";
 import { requireEntitlement } from "@/lib/entitlements";
+import { withRoute } from "@/lib/withRoute";
+import { CreateStrategySchema } from "@/lib/schemas/strategy";
 import type { Strategy } from "@/components/hedge-fund/types";
 
 // ── Research & config for the Markov Regime strategy ─────────────────────────
@@ -306,61 +307,46 @@ function strategiesCol(uid: string) {
   return db.collection("users").doc(uid).collection("strategies");
 }
 
-export async function GET() {
-  const { userId, error } = await requireAuth();
-  if (error) return error;
+export const GET = withRoute({}, async ({ userId }) => {
   const gate = await requireEntitlement(userId, "quantSuite");
   if (gate) return gate;
-  try {
-    let snap = await strategiesCol(userId).orderBy("createdAt", "asc").get();
+  let snap = await strategiesCol(userId).orderBy("createdAt", "asc").get();
 
-    if (snap.empty) {
-      const now = new Date().toISOString();
-      const batch = db.batch();
-      for (const d of DEFAULTS) {
-        const ref = strategiesCol(userId).doc();
-        batch.set(ref, { ...d, userId, createdAt: now, updatedAt: now });
-      }
-      await batch.commit();
-      snap = await strategiesCol(userId).orderBy("createdAt", "asc").get();
-    }
-
-    return NextResponse.json(snap.docs.map((doc) => toStrategy(serializeDoc(doc.id, doc.data()))));
-  } catch (err) {
-    console.error("[strategies GET]", err);
-    return NextResponse.json({ error: "Failed to fetch strategies" }, { status: 500 });
-  }
-}
-
-export async function POST(req: Request) {
-  const { userId, error } = await requireAuth();
-  if (error) return error;
-  const gate = await requireEntitlement(userId, "quantSuite");
-  if (gate) return gate;
-  try {
-    const body = await req.json();
+  if (snap.empty) {
     const now = new Date().toISOString();
-    const docRef = await strategiesCol(userId).add({
-      userId,
-      name:      body.name,
-      tag:       body.tag      ?? "Draft",
-      desc:      body.desc     ?? "",
-      tickers:   JSON.stringify(body.tickers  ?? []),
-      config:    JSON.stringify(body.config   ?? {}),
-      research:  body.research ?? "",
-      sharpe:    body.sharpe   ?? 0,
-      cagr:      body.cagr     ?? 0,
-      maxDD:     body.maxDD    ?? 0,
-      winRate:   body.winRate  ?? 0,
-      active:    false,
-      lastTrade: "—",
-      createdAt: now,
-      updatedAt: now,
-    });
-    const snap = await docRef.get();
-    return NextResponse.json(toStrategy(serializeDoc(snap.id, snap.data()!)));
-  } catch (err) {
-    console.error("[strategies POST]", err);
-    return NextResponse.json({ error: "Failed to create strategy" }, { status: 500 });
+    const batch = db.batch();
+    for (const d of DEFAULTS) {
+      const ref = strategiesCol(userId).doc();
+      batch.set(ref, { ...d, userId, createdAt: now, updatedAt: now });
+    }
+    await batch.commit();
+    snap = await strategiesCol(userId).orderBy("createdAt", "asc").get();
   }
-}
+
+  return NextResponse.json(snap.docs.map((doc) => toStrategy(serializeDoc(doc.id, doc.data()))));
+});
+
+export const POST = withRoute({ body: CreateStrategySchema }, async ({ userId, body }) => {
+  const gate = await requireEntitlement(userId, "quantSuite");
+  if (gate) return gate;
+  const now = new Date().toISOString();
+  const docRef = await strategiesCol(userId).add({
+    userId,
+    name:      body.name,
+    tag:       body.tag,
+    desc:      body.desc,
+    tickers:   JSON.stringify(body.tickers),
+    config:    JSON.stringify(body.config),
+    research:  body.research,
+    sharpe:    body.sharpe,
+    cagr:      body.cagr,
+    maxDD:     body.maxDD,
+    winRate:   body.winRate,
+    active:    false,
+    lastTrade: "—",
+    createdAt: now,
+    updatedAt: now,
+  });
+  const snap = await docRef.get();
+  return NextResponse.json(toStrategy(serializeDoc(snap.id, snap.data()!)));
+});

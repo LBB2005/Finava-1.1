@@ -99,16 +99,20 @@ async function authParseValidate<S extends z.ZodType | undefined, A extends bool
  *     return NextResponse.json(await save(userId, body), { status: 201 });
  *   });
  */
-export function withRoute<S extends z.ZodType | undefined = undefined, A extends boolean = true>(
+export function withRoute<
+  S extends z.ZodType | undefined = undefined,
+  A extends boolean = true,
+  C = unknown
+>(
   options: RouteOptions<S, A>,
-  handler: (ctx: RouteContext<S, A>) => Promise<Response> | Response
-): (req: Request) => Promise<Response> {
-  return async (req: Request): Promise<Response> => {
+  handler: (ctx: RouteContext<S, A>, routeContext: C) => Promise<Response> | Response
+): (req: Request, routeContext?: C) => Promise<Response> {
+  return async (req: Request, routeContext?: C): Promise<Response> => {
     const core = await authParseValidate(req, options);
     if (core instanceof NextResponse) return core;
 
     try {
-      return await handler({ req, userId: core.userId, body: core.body });
+      return await handler({ req, userId: core.userId, body: core.body }, routeContext as C);
     } catch (err) {
       console.error("[withRoute]", err);
       return apiError("internal", "Something went wrong", 500);

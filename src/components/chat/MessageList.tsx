@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Markdown from "./Markdown";
 import StreamingMarkdown, { useSmoothStream } from "./StreamingMarkdown";
 import Message from "./Message";
 import TypingIndicator from "./TypingIndicator";
