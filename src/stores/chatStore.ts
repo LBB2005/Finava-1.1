@@ -114,7 +114,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   conversationId: null,
   messagesByConv: {},
   streamsByConv: {},
-  mode: "agent",
+  mode: "auto",
   sendQueue: [],
   pendingMessage: "",
   pendingContext: null,

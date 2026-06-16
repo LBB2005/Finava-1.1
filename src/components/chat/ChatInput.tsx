@@ -35,6 +35,17 @@ interface Props {
 }
 
 const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: string; color: string; icon: React.ReactNode }> = {
+  auto: {
+    label: "Auto",
+    pill: "Auto",
+    description: "Picks the right tools for you",
+    color: "var(--color-accent)",
+    icon: (
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5L13 3z" />
+      </svg>
+    ),
+  },
   agent: {
     label: "Agent Mode",
     pill: "Agent",
@@ -93,7 +104,7 @@ const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: 
   },
 };
 
-const MODE_ORDER: ChatMode[] = ["agent", "discover", "deep_research", "backtest", "simple"];
+const MODE_ORDER: ChatMode[] = ["auto", "agent", "discover", "deep_research", "backtest", "simple"];
 
 export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFocus = true, floating = false }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -216,7 +227,8 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
   // Kept short enough to stay on one line in the single-row textarea even on
   // narrow mobile widths (longer copy wrapped and got clipped by the 1-row height).
   const placeholder =
-    mode === "deep_research" ? "Deep research — ask anything…"
+    mode === "auto" ? "Ask anything — I'll figure out the rest…"
+    : mode === "deep_research" ? "Deep research — ask anything…"
     : mode === "agent" ? "Ask a research question…"
     : mode === "discover" ? "Describe the kind of stocks to find…"
     : mode === "backtest" ? "Describe a strategy to backtest…"

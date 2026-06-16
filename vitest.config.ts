@@ -29,10 +29,10 @@ export default defineConfig({
       reporter: ["text-summary", "html"],
       // Ratchet — raise these as each phase lands so coverage can't regress.
       thresholds: {
-        lines: 29,
-        statements: 29,
-        functions: 32,
-        branches: 23,
+        lines: 60,
+        statements: 60,
+        functions: 55,
+        branches: 38,
       },
     },
   },

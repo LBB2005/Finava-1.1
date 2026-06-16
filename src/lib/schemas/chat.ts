@@ -25,3 +25,27 @@ export const ChatRequestSchema = z.object({
 });
 
 export type ChatRequestBody = z.infer<typeof ChatRequestSchema>;
+
+/**
+ * Body schema for `POST /api/classify` — the Auto-mode intent router.
+ *
+ * `userPrompt` is the message to classify (already combined with any clarifying
+ * answer client-side). `history` is a short trailing slice of prior turns for
+ * follow-up context; `portfolioContext` lets the router know holdings exist
+ * (e.g. "review my portfolio" → agent).
+ */
+export const ClassifyRequestSchema = z.object({
+  userPrompt: z.string().min(1).max(4000),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string(),
+      })
+    )
+    .max(20)
+    .optional(),
+  portfolioContext: z.string().optional(),
+});
+
+export type ClassifyRequestBody = z.infer<typeof ClassifyRequestSchema>;

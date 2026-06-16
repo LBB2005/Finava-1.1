@@ -70,6 +70,7 @@ export type AgentKey =
   | "backtestParse"
   | "backtestSummary"
   | "screenParse" // Research · Screen lens — NL query → filter
+  | "chatRouter" // Chat · Auto mode — classify intent (simple/agent/discover) + clarify gate
   | "titleConversation"; // Sidebar — clean 3–6 word auto-title for a chat
 
 // Per-agent model when routing is ON.
@@ -106,6 +107,7 @@ const ROUTED_MODELS: Record<AgentKey, string> = {
   backtestParse: HAIKU,
   backtestSummary: HAIKU,
   screenParse: HAIKU,
+  chatRouter: HAIKU, // fast, cheap intent router for Auto mode
   titleConversation: GEMINI_FLASH_LITE, // tiny narration job — cheapest model
 };
 
@@ -117,6 +119,7 @@ const HAIKU_AGENTS = new Set<AgentKey>([
   "backtestParse",
   "backtestSummary",
   "screenParse",
+  "chatRouter",
   "titleConversation",
 ]);
 const FALLBACK_MODELS: Record<AgentKey, string> = Object.fromEntries(
@@ -145,6 +148,7 @@ const TIER_A = new Set<AgentKey>([
   "news",
   "sentiment",
   "signalsNarrate",
+  "chatRouter",
   "titleConversation",
 ]);
 const TIER_A_MAX_TOKENS = 1200;

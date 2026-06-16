@@ -30,6 +30,11 @@ export function abortConversationStream(convId: string) {
   streamAborters.delete(convId);
 }
 
+// Auto mode: when the router asks a clarifying question, we stash the original
+// prompt here keyed by conversation. The user's next message (a chip tap or
+// typed reply) is treated as the answer and folded back into that prompt.
+const pendingClarify = new Map<string, { originalPrompt: string }>();
+
 /**
  * Headless chat engine. Mounted once in the app shell (next to GlobalComposer),
  * outside the route-keyed <main>, so streams survive navigation and several
@@ -158,7 +163,7 @@ export default function ChatEngine() {
 
   async function runSimpleChat(text: string, portfolioContext: string, convId: string, mode: ChatMode, history: ChatMessage[], templateId?: string) {
     const apiMessages = [
-      ...history.filter((m) => m.mode === "simple"),
+      ...history.filter((m) => m.mode === "simple" || m.mode === "auto"),
       { role: "user" as const, content: text, mode: "simple" as ChatMode },
     ].map((m) => ({ role: m.role, content: m.content }));
 
@@ -564,6 +569,102 @@ export default function ChatEngine() {
     }
   }
 
+  // Auto mode — the unified router. Classify the message (simple/agent/discover),
+  // optionally ask ONE clarifying question first, then delegate to the matching
+  // handler exactly as the manual modes do. Any router failure falls back to
+  // simple chat so Auto never dead-ends.
+  async function runAuto(
+    text: string,
+    portfolioContext: string,
+    convId: string,
+    prior: ChatMessage[],
+    templateId?: string
+  ) {
+    const retry = () => { void runAuto(text, portfolioContext, convId, prior, templateId); };
+    try {
+      // Clarify continuation: if we asked a question last turn, this message is
+      // the answer — fold it into the original prompt and don't clarify again.
+      const pending = pendingClarify.get(convId);
+      let combined = text;
+      let allowClarify = true;
+      if (pending) {
+        combined = `${pending.originalPrompt}\n\n[User clarification]: ${text}`;
+        allowClarify = false;
+        pendingClarify.delete(convId);
+      }
+
+      s().setCeoThinking(convId, "Working out the best way to answer…");
+
+      let intent: "simple" | "agent" | "discover" = "simple";
+      let needsClarify = false;
+      let clarifyQuestion = "";
+      let clarifyChips: string[] = [];
+      try {
+        const res = await authFetch("/api/classify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userPrompt: combined,
+            history: prior.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+            portfolioContext,
+          }),
+          signal: streamAborters.get(convId)?.signal,
+        });
+        if (await handleUsageLimit(res)) return;
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.intent === "agent" || data?.intent === "discover") intent = data.intent;
+          if (allowClarify && data?.needsClarify && data?.clarifyQuestion && Array.isArray(data?.clarifyChips)) {
+            needsClarify = true;
+            clarifyQuestion = String(data.clarifyQuestion);
+            clarifyChips = data.clarifyChips.map(String).filter(Boolean).slice(0, 4);
+          }
+        }
+      } catch { /* fall through to simple */ }
+
+      // Clarify: post the question as a plain assistant message with tappable
+      // chips (reuses the followup-chip UI) and stop. The reply re-enters here
+      // and hits the pending branch above.
+      if (needsClarify && clarifyChips.length) {
+        pendingClarify.set(convId, { originalPrompt: text });
+        s().setCeoThinking(convId, "");
+        s().addMessage(convId, {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: clarifyQuestion,
+          mode: "simple",
+          createdAt: new Date().toISOString(),
+          followups: clarifyChips,
+        });
+        s().setStreaming(convId, false);
+        s().clearStreamingContent(convId);
+        streamAborters.delete(convId);
+        await saveMessage(convId, "assistant", clarifyQuestion, "simple").catch((e) =>
+          console.warn("[auto] saveMessage failed:", e)
+        );
+        return;
+      }
+
+      s().setCeoThinking(convId, "");
+      if (intent === "discover") {
+        await runDiscoverMode(combined, portfolioContext, convId, "quick");
+      } else if (intent === "agent") {
+        const agentHistory = prior
+          .filter((m) => m.mode === "agent" || m.mode === "deep_research" || m.mode === "auto")
+          .map((m) => ({ role: m.role, content: m.content }));
+        await runAgentMode(combined, portfolioContext, convId, "agent", false, agentHistory, templateId);
+      } else {
+        await runSimpleChat(combined, portfolioContext, convId, "simple", prior, templateId);
+      }
+    } catch (err) {
+      console.error("[auto] error:", err);
+      s().setStreaming(convId, false);
+      s().clearStreamingContent(convId);
+      streamAborters.delete(convId);
+      notifyChatError(convId, "Couldn't process your message. Please retry.", retry);
+    }
+  }
+
   // ── Send queue processing ───────────────────────────────────────────────────
 
   async function processSend(req: SendRequest) {
@@ -611,10 +712,12 @@ export default function ChatEngine() {
       saveMessage(convId!, "user", text, mode).catch((e) => console.warn("[send] saveMessage failed:", e));
 
       const agentHistory = prior
-        .filter((m) => m.mode === "agent" || m.mode === "deep_research")
+        .filter((m) => m.mode === "agent" || m.mode === "deep_research" || m.mode === "auto")
         .map((m) => ({ role: m.role, content: m.content }));
 
-      if (mode === "backtest") {
+      if (mode === "auto") {
+        await runAuto(text, portfolioContext, convId, prior, templateId);
+      } else if (mode === "backtest") {
         await runBacktest(text, convId, mode);
       } else if (mode === "simple") {
         await runSimpleChat(text, portfolioContext, convId, mode, prior, templateId);

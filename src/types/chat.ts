@@ -1,7 +1,7 @@
 import type { ScoutPick, DiscoverTier, DiscoverLayout, WaveEvidence } from "@/lib/scoutTypes";
 import type { Brand } from "@/lib/models";
 
-export type ChatMode = "simple" | "agent" | "deep_research" | "backtest" | "discover";
+export type ChatMode = "auto" | "simple" | "agent" | "deep_research" | "backtest" | "discover";
 
 export { AGENT_COUNT } from "@/agents/tools/index";
 

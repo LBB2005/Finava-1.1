@@ -492,7 +492,11 @@ export default function MessageList({
 }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const showAgentActivity = (mode === "agent" || mode === "deep_research") && isStreaming && !streamingContent;
+  // In Auto mode the live mode stays "auto" while a routed agent run streams, so
+  // surface the crew panel whenever the router has actually deployed agents.
+  const showAgentActivity =
+    (mode === "agent" || mode === "deep_research" || (mode === "auto" && agentSteps.length > 0)) &&
+    isStreaming && !streamingContent;
   const showStreaming = isStreaming && !!streamingContent;
 
   // Smoothly paced reveal of the streaming text (decoupled from SSE bursts).
@@ -545,6 +549,12 @@ export default function MessageList({
         {/* Simple mode waiting — Calm Orb thinking indicator */}
         {mode === "simple" && isStreaming && !streamingContent && (
           <TypingIndicator label="Thinking it through" startedAt={streamStartedAt} />
+        )}
+
+        {/* Auto mode waiting — router deciding, or a routed simple/discover run
+            before its first token (the agent panel handles the agent case above). */}
+        {mode === "auto" && isStreaming && !streamingContent && agentSteps.length === 0 && (
+          <TypingIndicator label={ceoThinking || "Thinking it through"} startedAt={streamStartedAt} />
         )}
 
         {/* Discover mode waiting — teal "scanning the market" state */}
