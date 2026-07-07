@@ -21,3 +21,18 @@ export function contextLabel(ctx: ChatContext): string {
   if (ctx.startsWith("stock:")) return ctx.slice(6).toUpperCase();
   return ctx.toUpperCase();
 }
+
+/** Human label for the per-message citation pill (e.g. "AAPL · Stock page"),
+ *  or `null` when the message carries no page context — i.e. it was typed in the
+ *  main /chat area and should show no pill. */
+export function contextPill(ctx: ChatContext): string | null {
+  if (!ctx) return null;
+  if (ctx.startsWith("stock:")) {
+    const t = ctx.slice(6).toUpperCase();
+    return t ? `${t} · Stock page` : null;
+  }
+  if (ctx === "watchlist") return "Watchlist";
+  if (ctx === "portfolio") return "Portfolio";
+  if (ctx === "research") return "Research";
+  return null;
+}

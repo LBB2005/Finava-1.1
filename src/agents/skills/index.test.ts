@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getSkillsPrompt } from "./index";
+import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
 
 const KNOWN_KEYS = [
   "risk", "news", "macro", "technical", "dcf", "earnings", "insider",
@@ -19,6 +20,8 @@ describe("getSkillsPrompt", () => {
       expect(prompt, key).toContain("## Domain Patterns");
       // Bullet lists are rendered with "- " prefixes.
       expect(prompt, key).toContain("\n- ");
+      // The shared data-accuracy rule is appended to every skill prompt.
+      expect(prompt, key).toContain(DATA_ACCURACY_RULE);
     }
   });
 

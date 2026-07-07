@@ -12,6 +12,9 @@ vi.mock("@/lib/sp500", () => ({
   ],
 }));
 
+// Isolate the engine to the mocked S&P list — no curated extras in this test.
+vi.mock("@/lib/extraUniverse", () => ({ EXTRA_CONSTITUENTS: [], ETF_PROFILES: {} }));
+
 // Polygon annual financials, newest-year-first. AAA: growing + profitable + cheap.
 // BBB: flat + low-margin + expensive + levered. CCC/DDD: empty (force fallback).
 const incStmt = (revenues: number, eps: number, ni: number, gp: number, oi: number, sh: number) => ({

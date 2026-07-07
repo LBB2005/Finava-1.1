@@ -27,13 +27,22 @@ export const GET = withRoute({}, async ({ req, userId }) => {
 
   const conversations = await Promise.all(
     visible.map(async (doc) => {
-      const msgSnap = await doc.ref
-        .collection("messages")
-        .orderBy("createdAt")
-        .limit(perConvLimit)
-        .get();
-      const messages = msgSnap.docs.map((m) => serializeDoc(m.id, m.data()));
-      return { ...serializeDoc(doc.id, doc.data()), messages };
+      const data = doc.data();
+      // Preview messages only exist to derive a fallback title for conversations
+      // that don't have one stored yet. Titled conversations (the common case)
+      // skip the subcollection read entirely, turning the list from one read per
+      // conversation into ~one total. `?full=1` still hydrates every transcript.
+      const needsMessages = full || !data.title;
+      const messages = needsMessages
+        ? (
+            await doc.ref
+              .collection("messages")
+              .orderBy("createdAt")
+              .limit(perConvLimit)
+              .get()
+          ).docs.map((m) => serializeDoc(m.id, m.data()))
+        : [];
+      return { ...serializeDoc(doc.id, data), messages };
     })
   );
 

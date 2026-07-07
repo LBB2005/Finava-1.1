@@ -9,7 +9,7 @@ export const POST = withRoute(
   { body: AddMessageSchema },
   async ({ userId, body }, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
-    const { role, content, mode = "simple", agentTrace, durationMs } = body;
+    const { role, content, mode = "simple", agentTrace, durationMs, context } = body;
 
     // Verify the conversation belongs to this user
     const convRef = db.collection("users").doc(userId).collection("conversations").doc(id);
@@ -26,6 +26,7 @@ export const POST = withRoute(
       mode,
       agentTrace: agentTrace ? JSON.stringify(agentTrace) : null,
       durationMs: typeof durationMs === "number" ? durationMs : null,
+      context: context ?? null,
       createdAt: now,
     });
 
@@ -35,7 +36,9 @@ export const POST = withRoute(
     // so it never adds latency to the write). The helper self-guards: it no-ops
     // when a title already exists or the exchange isn't complete yet.
     if (role === "assistant") {
-      void generateConversationTitle(userId, id);
+      generateConversationTitle(userId, id).catch((err) =>
+        console.warn("[conversations] title generation failed", err)
+      );
     }
 
     const msgSnap = await msgRef.get();

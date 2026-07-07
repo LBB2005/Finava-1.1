@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CandleResponse } from "@/lib/finnhub";
 import type { ChartRange } from "@/lib/stockData";
 
@@ -57,7 +57,12 @@ function hoverDate(unixSec: number, range: ChartRange) {
 export default function StockChart({ candles, range, mode, height = 300, loading, error }: Props) {
   const [hover, setHover] = useState<number | null>(null);
   const ref = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
+  // Track the chart's rendered width so axis-label density can adapt: below
+  // ~420px the 5 time ticks crowd and overlap, so we thin them and shrink labels.
+  const [width, setWidth] = useState(0);
+  const narrow = width > 0 && width < 420;
 
   const data = useMemo(() => {
     if (!candles || candles.s !== "ok" || !candles.c?.length) return null;
@@ -89,16 +94,25 @@ export default function StockChart({ candles, range, mode, height = 300, loading
     const vmax = isCandle ? Math.max(...candles.v, 1) : 1;
     const up = c[n - 1] >= c[0];
 
-    // 4 evenly-spaced price ticks; 5 evenly-spaced time ticks.
+    // 4 evenly-spaced price ticks. Time ticks are derived at render time so their
+    // density can adapt to the measured chart width (narrow phones get fewer).
     const yTicks = [0, 1, 2, 3].map((k) => min + ((max - min) * k) / 3);
-    const tickCount = Math.min(5, n);
-    const xTicks = Array.from({ length: tickCount }, (_, k) => {
-      const idx = Math.round((k / (tickCount - 1 || 1)) * (n - 1));
-      return candles.t[idx];
-    });
 
-    return { n, c, x, y, pts, line, area, min, max, up, vmax, volH, priceBottom, innerW, yTicks, xTicks };
+    return { n, c, x, y, pts, line, area, min, max, up, vmax, volH, priceBottom, innerW, yTicks };
   }, [candles, mode, height]);
+
+  // Observe the container's rendered width (NOT the SVG — ResizeObserver doesn't
+  // fire for SVG replaced elements in Chromium). Kept out of the price `useMemo`
+  // so `data` stays width-independent (stable identity) and only ticks reflow.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      setWidth(entries[0]?.contentRect.width ?? el.clientWidth);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data]);
 
   if (!data) {
     return (
@@ -136,8 +150,16 @@ export default function StockChart({ candles, range, mode, height = 300, loading
       ? { i: hover, px: data.x(hover), py: data.y(data.c[hover]), price: data.c[hover], t: candles!.t[hover] }
       : null;
 
+  // Time-axis ticks, thinned on narrow screens so labels don't overlap.
+  const tickCount = Math.min(narrow ? 3 : 5, data.n);
+  const xTicks = Array.from({ length: tickCount }, (_, k) => {
+    const idx = Math.round((k / (tickCount - 1 || 1)) * (data.n - 1));
+    return candles!.t[idx];
+  });
+  const axisFont = narrow ? 8.5 : 9.5;
+
   return (
-    <div style={{ position: "relative", height }}>
+    <div ref={containerRef} style={{ position: "relative", height }}>
       <svg
         ref={ref}
         viewBox={`0 0 ${VW} ${height}`}
@@ -226,7 +248,7 @@ export default function StockChart({ candles, range, mode, height = 300, loading
             right: 6,
             top: `clamp(7px, ${(data.y(v) / height) * 100}%, calc(100% - 7px))`,
             transform: "translateY(-50%)",
-            fontSize: 9.5,
+            fontSize: axisFont,
             color: "var(--color-muted)",
             pointerEvents: "none",
             lineHeight: 1,
@@ -270,8 +292,8 @@ export default function StockChart({ candles, range, mode, height = 300, loading
           pointerEvents: "none",
         }}
       >
-        {data.xTicks.map((t, i) => (
-          <span key={i} style={{ fontSize: 9.5, color: "var(--color-muted)" }}>
+        {xTicks.map((t, i) => (
+          <span key={i} style={{ fontSize: axisFont, color: "var(--color-muted)" }}>
             {axisTick(t, range)}
           </span>
         ))}

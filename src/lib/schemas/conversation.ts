@@ -31,6 +31,7 @@ export const AddMessageSchema = z.object({
   mode: z.string().max(40).default("simple"),
   agentTrace: z.unknown().optional(),
   durationMs: z.number().nonnegative().optional(),
+  context: z.string().max(50_000).nullable().optional(),
 });
 
 export type AddMessageBody = z.infer<typeof AddMessageSchema>;

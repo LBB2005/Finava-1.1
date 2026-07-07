@@ -32,6 +32,7 @@ import {
 import { getRecommendationTrends } from "@/lib/finnhub";
 import { getCikByTicker, getCompanyFacts } from "@/lib/edgar";
 import { SP500 } from "@/lib/sp500";
+import { EXTRA_CONSTITUENTS } from "@/lib/extraUniverse";
 import type { FactorScores, Stock } from "@/lib/research";
 
 // ── small utilities ───────────────────────────────────────────────────────────
@@ -301,7 +302,11 @@ export interface FactorUniverse {
 }
 
 export async function computeFactorUniverse(): Promise<FactorUniverse> {
-  const list = SP500;
+  // S&P 500 plus a curated set of popular non-S&P names + major ADRs the engine
+  // can score the same way — so real retail holdings (and Research) aren't limited
+  // to index members. Deduped by ticker; ETFs are handled separately in the DNA layer.
+  const seen = new Set(SP500.map((c) => c.ticker));
+  const list = [...SP500, ...EXTRA_CONSTITUENTS.filter((c) => !seen.has(c.ticker))];
   const tickers = list.map((c) => c.ticker);
   const sectors = list.map((c) => c.sector);
 

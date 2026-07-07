@@ -5,7 +5,9 @@
 // agent to judge them. Non-streaming JSON: fast enough at ≤5 names, and the UI
 // shows a single loading state. Failure-isolated like the other AI routes.
 
+import { z } from "zod";
 import { generate } from "@/lib/llm";
+import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
 import { requireAuth } from "@/lib/requireAuth";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
@@ -14,6 +16,16 @@ import type { CompareStock, CompareVerdict, ComparePerStock } from "@/lib/resear
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+// The client sends the 2–5 stocks to compare. We validate the shape but keep the
+// per-stock fields loose (a non-array coerces to [] so the "pick at least two"
+// message still fires), and cap at 5 to match the prior slice.
+const CompareRequestSchema = z.object({
+  stocks: z.preprocess(
+    (v) => (Array.isArray(v) ? v.slice(0, 5) : []),
+    z.array(z.unknown())
+  ),
+});
 
 function parseJson(raw: string): Record<string, unknown> | null {
   const fenced = raw.replace(/```(?:json)?/gi, "");
@@ -52,13 +64,11 @@ export async function POST(req: Request) {
     return Response.json({ error: "AI service not configured (OPENROUTER_API_KEY missing)." }, { status: 503 });
   }
 
-  let stocks: CompareStock[] = [];
-  try {
-    const body = (await req.json()) as { stocks?: CompareStock[] };
-    stocks = Array.isArray(body.stocks) ? body.stocks.slice(0, 5) : [];
-  } catch {
+  const parsed = CompareRequestSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
+  const stocks = parsed.data.stocks as CompareStock[];
   if (stocks.length < 2) {
     return Response.json({ error: "Pick at least two stocks to compare." }, { status: 400 });
   }
@@ -69,6 +79,8 @@ export async function POST(req: Request) {
 ${stocks.map(describe).join("\n\n")}
 
 Judge them against each other on the merits of the factor scores and market data above. Pick the single strongest overall pick (or leave "winner" as "" only if it is a genuine toss-up). Be specific and reference the numbers.
+
+${DATA_ACCURACY_RULE}
 
 Respond with ONLY this JSON (no markdown):
 {

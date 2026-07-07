@@ -56,6 +56,53 @@ export async function getRecentFilings(cik: string) {
   return edgarFetch(`${EDGAR_BASE}/submissions/CIK${padded}.json`);
 }
 
+/** Strip an EDGAR HTML filing to readable text: drop scripts/styles/tags, decode
+ *  the common entities, and collapse whitespace. Intentionally cheap — the result
+ *  is fed to an LLM, not rendered. */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&#\d+;|&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Fetch the company's latest 10-K primary document and return it as plain text
+ * (HTML stripped, truncated to `maxChars` — Item 1 "Business" with the customer/
+ * supplier concentration disclosures sits near the front). Grounds the
+ * supply-chain agent in the company's own words. Returns null when there's no
+ * 10-K on file or the document can't be fetched.
+ */
+export async function getLatest10KText(cik: string, maxChars = 60_000): Promise<string | null> {
+  try {
+    const submissions = await getRecentFilings(cik);
+    const recent = submissions?.filings?.recent;
+    if (!recent || !Array.isArray(recent.form)) return null;
+    const idx = recent.form.findIndex((f: string) => f === "10-K");
+    if (idx === -1) return null;
+    const accession = String(recent.accessionNumber?.[idx] ?? "").replace(/-/g, "");
+    const doc = String(recent.primaryDocument?.[idx] ?? "");
+    if (!accession || !doc) return null;
+    // EDGAR Archives paths use the CIK without leading zeros.
+    const url = `https://www.sec.gov/Archives/edgar/data/${parseInt(cik, 10)}/${accession}/${doc}`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(15_000),
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return null;
+    return htmlToText(await res.text()).slice(0, maxChars);
+  } catch (err) {
+    console.error("[edgar] getLatest10KText failed:", err);
+    return null;
+  }
+}
+
 // Extract most-recent single value for a GAAP key
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function pickLatestAnnual(us: any, key: string): number | null {

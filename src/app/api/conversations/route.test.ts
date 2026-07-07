@@ -107,20 +107,53 @@ beforeEach(() => {
 });
 
 describe("/api/conversations", () => {
-  it("lists visible conversations with preview messages and hides archived chats", async () => {
+  it("fetches preview messages only for untitled conversations and hides archived chats", async () => {
+    // Titled conversations already have their label, so we skip the per-conversation
+    // messages read (the common case → ~1 read total); untitled ones still fetch a
+    // preview so the client can derive a fallback title from the first user message.
+    deps.conversationsGet.mockResolvedValueOnce({
+      docs: [
+        conversationDoc("conv_titled", {
+          title: "Apple DCF",
+          archived: false,
+          updatedAt: "2026-06-15T11:00:00Z",
+        }, [
+          { id: "m1", data: { role: "user", content: "Analyze AAPL" } },
+        ]),
+        conversationDoc("conv_untitled", {
+          title: null,
+          archived: false,
+          updatedAt: "2026-06-15T10:00:00Z",
+        }, [
+          { id: "m2", data: { role: "user", content: "Fresh chat" } },
+        ]),
+        conversationDoc("conv_archived", {
+          title: "Hidden",
+          archived: true,
+          updatedAt: "2026-06-14T11:00:00Z",
+        }, [
+          { id: "m3", data: { role: "user", content: "Old chat" } },
+        ]),
+      ],
+    });
+
     const res = await GET(new Request("http://localhost/api/conversations"));
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual([
       {
-        id: "conv_visible",
+        id: "conv_titled",
         title: "Apple DCF",
         archived: false,
         updatedAt: "2026-06-15T11:00:00Z",
-        messages: [
-          { id: "m1", role: "user", content: "Analyze AAPL" },
-          { id: "m2", role: "assistant", content: "Working..." },
-        ],
+        messages: [],
+      },
+      {
+        id: "conv_untitled",
+        title: null,
+        archived: false,
+        updatedAt: "2026-06-15T10:00:00Z",
+        messages: [{ id: "m2", role: "user", content: "Fresh chat" }],
       },
     ]);
   });

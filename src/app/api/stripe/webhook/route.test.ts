@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const deps = vi.hoisted(() => ({
+  getEventDoc: vi.fn(),
   createEventDoc: vi.fn(),
   setUserSettings: vi.fn(),
   getUserSettingsQuery: vi.fn(),
@@ -27,7 +28,7 @@ vi.mock("@/lib/firebase-admin", () => ({
     collection: vi.fn((name: string) => {
       if (name === "stripeEvents") {
         return {
-          doc: vi.fn(() => ({ create: deps.createEventDoc })),
+          doc: vi.fn(() => ({ get: deps.getEventDoc, create: deps.createEventDoc })),
         };
       }
       if (name === "userSettings") {
@@ -83,6 +84,7 @@ beforeEach(() => {
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
   deps.stripeConfigured.mockReturnValue(true);
   deps.constructEvent.mockReturnValue(event("customer.subscription.updated", subscription()));
+  deps.getEventDoc.mockResolvedValue({ exists: false });
   deps.createEventDoc.mockResolvedValue(undefined);
   deps.setUserSettings.mockResolvedValue(undefined);
   deps.mapSubscriptionToPlan.mockReturnValue({
@@ -131,14 +133,27 @@ describe("POST /api/stripe/webhook", () => {
     expect(deps.createEventDoc).not.toHaveBeenCalled();
   });
 
-  it("short-circuits duplicate events after idempotency create fails with already exists", async () => {
-    deps.createEventDoc.mockRejectedValueOnce({ code: 6 });
+  it("short-circuits an already-recorded duplicate without re-running the handler", async () => {
+    deps.getEventDoc.mockResolvedValueOnce({ exists: true });
 
     const res = await POST(webhookRequest());
 
     expect(res.status).toBe(200);
     await expect(res.text()).resolves.toBe("Duplicate, ignored");
     expect(deps.setUserSettings).not.toHaveBeenCalled();
+    expect(deps.createEventDoc).not.toHaveBeenCalled();
+  });
+
+  it("acknowledges a concurrent duplicate whose post-handler create races to ALREADY_EXISTS", async () => {
+    // Both concurrent deliveries pass the read check, both run the (idempotent)
+    // handler, and the create loser gets ALREADY_EXISTS → 200, not a 500 retry.
+    deps.createEventDoc.mockRejectedValueOnce({ code: 6 });
+
+    const res = await POST(webhookRequest());
+
+    expect(res.status).toBe(200);
+    await expect(res.text()).resolves.toBe("Duplicate, ignored");
+    expect(deps.setUserSettings).toHaveBeenCalled();
   });
 
   it("writes subscription state from checkout completion", async () => {
@@ -250,12 +265,14 @@ describe("POST /api/stripe/webhook", () => {
     );
   });
 
-  it("returns 500 so Stripe retries when handler logic fails after idempotency", async () => {
+  it("returns 500 so Stripe retries when handler logic fails, leaving no idempotency record", async () => {
     deps.setUserSettings.mockRejectedValueOnce(new Error("write failed"));
 
     const res = await POST(webhookRequest());
 
     expect(res.status).toBe(500);
     await expect(res.text()).resolves.toBe("Handler error");
+    // No record written on failure → Stripe's retry re-runs the handler cleanly.
+    expect(deps.createEventDoc).not.toHaveBeenCalled();
   });
 });

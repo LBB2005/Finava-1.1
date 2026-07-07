@@ -514,8 +514,7 @@ export default function PortfolioPage() {
                         if (e.key === "Enter") commitCash();
                         if (e.key === "Escape") setEditingCash(false);
                       }}
-                      className="w-24 bg-transparent border-b border-[var(--color-accent)] focus:outline-none text-right"
-                      style={{ fontSize: 11 }}
+                      className="w-24 bg-transparent border-b border-[var(--color-accent)] focus:outline-none text-right text-[16px] sm:text-[11px]"
                       placeholder="0.00"
                     />
                   ) : (
@@ -696,6 +695,7 @@ export default function PortfolioPage() {
                         style={{ transition: "opacity 140ms", cursor: "pointer" }}
                         onMouseEnter={() => setHoveredTicker(seg.ticker)}
                         onMouseLeave={() => setHoveredTicker(null)}
+                        onClick={() => setHoveredTicker((prev) => (prev === seg.ticker ? null : seg.ticker))}
                       />
                     ))}
                     <text x="86" y="79" textAnchor="middle" fontSize="9.5" fill="var(--color-muted)" fontWeight="700" letterSpacing="0.16em">EQUITY</text>
@@ -711,10 +711,11 @@ export default function PortfolioPage() {
                         style={{
                           display: "flex", alignItems: "center", gap: 7,
                           opacity: hoveredTicker && hoveredTicker !== r.holding.ticker ? 0.4 : 1,
-                          transition: "opacity 140ms",
+                          transition: "opacity 140ms", cursor: "pointer",
                         }}
                         onMouseEnter={() => setHoveredTicker(r.holding.ticker)}
                         onMouseLeave={() => setHoveredTicker(null)}
+                        onClick={() => setHoveredTicker((prev) => (prev === r.holding.ticker ? null : r.holding.ticker))}
                       >
                         <span style={{ width: 8, height: 8, borderRadius: 2, background: segColor(i, rows.length), flexShrink: 0 }} />
                         <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-accent)" }}>{r.holding.ticker}</span>

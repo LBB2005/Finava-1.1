@@ -6,6 +6,7 @@
 // facts; the AI only writes the headline + take.
 
 import { generate } from "@/lib/llm";
+import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
 import { requireAuth } from "@/lib/requireAuth";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
@@ -72,6 +73,8 @@ export async function POST(req: Request) {
   const prompt = `You are Finava's markets desk writing a live signals feed. Each numbered item below is a REAL, data-derived event across the S&P 500. Write a punchy headline and a 1-2 sentence take for each, in order. This is research color, not advice — don't invent facts beyond what's given.
 
 ${lines}
+
+${DATA_ACCURACY_RULE}
 
 Respond with ONLY this JSON (no markdown):
 { "items": [ { "n": <item number>, "headline": "<≤9 words>", "take": "<1-2 sentences>" } ] }`;

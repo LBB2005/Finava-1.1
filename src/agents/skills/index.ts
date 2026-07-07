@@ -1,4 +1,5 @@
 import type { AgentSkill } from "./types";
+import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
 import riskSkill from "./risk";
 import newsSkill from "./news";
 import macroSkill from "./macro";
@@ -47,5 +48,6 @@ export function getSkillsPrompt(name: string): string {
     `## Your Strengths\n${s.strengths.map((x) => `- ${x}`).join("\n")}`,
     `## Analytical Guidelines\n${s.promptEnhancements.map((x) => `- ${x}`).join("\n")}`,
     `## Domain Patterns\n${s.learnedPatterns.map((x) => `- ${x}`).join("\n")}`,
+    DATA_ACCURACY_RULE,
   ].join("\n\n");
 }

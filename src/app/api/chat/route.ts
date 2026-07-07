@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { anthropic, MODEL } from "@/lib/anthropic";
 import { generate } from "@/lib/llm";
+import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
 import { withAuthRaw } from "@/lib/withRoute";
 import { ChatRequestSchema } from "@/lib/schemas/chat";
 import { getTemplateBlock } from "@/lib/templates.server";
@@ -39,6 +40,8 @@ export async function POST(req: Request) {
 ${portfolioContext ? `## User's Current Portfolio\n${portfolioContext}` : "The user has no portfolio holdings yet."}
 
 Be concise, data-driven, and actionable. Use markdown formatting for clarity (tables, bullet points, etc.).
+
+${DATA_ACCURACY_RULE}
 ${templateBlock ? `\n${templateBlock}\n` : ""}
 COMPLIANCE (non-negotiable): Finava is an impersonal research publication, not a registered investment adviser. Never give personalized investment advice — never tell the user what THEY should buy, sell, hold, or how to allocate THEIR portfolio, even when their holdings are shown above and even if they ask directly ("should I sell my AAPL?"). Instead, present the relevant impersonal analysis (fundamentals, valuation, risks, scenarios both ways) and remind them the decision is theirs to make with a licensed adviser. General, non-personalized analysis of any stock is fine. Note that content is not financial advice.`;
 

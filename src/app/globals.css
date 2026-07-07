@@ -1768,6 +1768,14 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 @media (max-width: 920px) {
   .research-root .board-table .lad-name { display: none; }
 }
+/* Phones: hide the secondary numeric columns (Mkt Cap / P-E / Avg Vol / RVOL)
+   and let the core table reflow, so the leaderboard fits without a horizontal
+   scroll of the whole page. `min-width` needs `!important` to beat the table's
+   inline `min-width: 980px`. Keeps #, Ticker, Last, Chg, Finava Score, Grade. */
+@media (max-width: 640px) {
+  .research-root .board-table .col-secondary { display: none; }
+  .research-root .board-table { min-width: 0 !important; }
+}
 
 /* ── Banner board: feature pick + scrollable gainers/laggards strip ──────── */
 .research-root .bn-hero {

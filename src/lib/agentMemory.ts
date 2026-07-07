@@ -32,6 +32,9 @@ const AGENT_TTL_MS: Record<string, number> = {
   run_comparables_agent:  48 * 60 * 60 * 1000,
   run_graham_agent:       48 * 60 * 60 * 1000,
   run_competitor_agent:   48 * 60 * 60 * 1000,
+  // Supply-chain relationships shift on a multi-quarter cadence (annual 10-Ks),
+  // and the extraction is the costliest call in the Money Map — cache 14 days.
+  run_supply_chain_agent: 14 * 24 * 60 * 60 * 1000,
 };
 
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000; // 6h fallback

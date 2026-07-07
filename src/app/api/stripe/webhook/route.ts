@@ -3,8 +3,9 @@
  *
  * - Verifies the signature against the RAW request body (Next.js App Router:
  *   `await req.text()` gives the raw bytes; no bodyParser config needed).
- * - Idempotent: each `event.id` is recorded in `stripeEvents/{id}` and duplicate
- *   deliveries short-circuit (Stripe retries on any non-2xx).
+ * - Idempotent: each `event.id` is recorded in `stripeEvents/{id}` AFTER its
+ *   handler succeeds, so duplicate deliveries short-circuit while a mid-handler
+ *   failure still retries cleanly (Stripe retries on any non-2xx).
  * - Maps Stripe subscription status + price id → our plan name + status.
  */
 import type Stripe from "stripe";
@@ -43,19 +44,14 @@ export async function POST(req: Request) {
     return new Response(`Webhook error: ${msg}`, { status: 400 });
   }
 
-  // ── Idempotency: record-once, short-circuit duplicates ──
-  try {
-    await db.collection("stripeEvents").doc(event.id).create({
-      type: event.type,
-      receivedAt: new Date().toISOString(),
-    });
-  } catch (e) {
-    // ALREADY_EXISTS (gRPC code 6) → we've already handled this event.
-    if ((e as { code?: number }).code === 6) {
-      return new Response("Duplicate, ignored", { status: 200 });
-    }
-    console.error("[stripe/webhook] idempotency write failed:", e);
-    // Fall through and still try to handle — a 500 would make Stripe retry.
+  // ── Idempotency (read side): if this event was already recorded, an earlier
+  // delivery fully processed it — short-circuit without re-running the handler.
+  // The record is written only AFTER a successful handler (below), so a delivery
+  // that failed mid-handler left no record and Stripe's retry re-runs cleanly. ──
+  const eventRef = db.collection("stripeEvents").doc(event.id);
+  const alreadyProcessed = await eventRef.get();
+  if (alreadyProcessed.exists) {
+    return new Response("Duplicate, ignored", { status: 200 });
   }
 
   try {
@@ -145,8 +141,29 @@ export async function POST(req: Request) {
     }
   } catch (err) {
     console.error(`[stripe/webhook] handler error (${event.type}):`, err);
-    // 500 → Stripe will retry; the idempotency guard makes the retry safe.
+    // 500 → Stripe will retry. The idempotency record is written only AFTER a
+    // handler succeeds (below), so the retry re-runs the handler rather than
+    // short-circuiting as an already-processed duplicate. Safe: every write is
+    // an idempotent `set(..., { merge: true })`.
     return new Response("Handler error", { status: 500 });
+  }
+
+  // ── Idempotency (write side): record only after the handler succeeded. Use
+  // `create` so a concurrent double-delivery that finished first is detected
+  // (ALREADY_EXISTS) rather than silently overwritten — both ran, both idempotent. ──
+  try {
+    await eventRef.create({
+      type: event.type,
+      receivedAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    // ALREADY_EXISTS (gRPC code 6) → a concurrent delivery recorded it first.
+    if ((e as { code?: number }).code === 6) {
+      return new Response("Duplicate, ignored", { status: 200 });
+    }
+    // The subscription write already landed; don't fail the request over a
+    // bookkeeping write (a 500 would only re-run the safe handler).
+    console.error("[stripe/webhook] idempotency write failed:", e);
   }
 
   return new Response("ok", { status: 200 });

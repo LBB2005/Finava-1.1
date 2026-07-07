@@ -12,6 +12,7 @@ import { requireAuth } from "@/lib/requireAuth";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
 import { fenceExternal, EXTERNAL_DATA_RULE } from "@/lib/externalContent";
+import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
 
 function fmtNum(n: number | null | undefined, opts?: Intl.NumberFormatOptions): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return "n/a";
@@ -116,7 +117,9 @@ Write 3 short paragraphs (no headers, no bullet lists):
 2. The bull vs bear tension — what the analyst picture and recent news suggest, both sides.
 3. A balanced one-line bottom line, explicitly noting this is informational research, not financial advice.
 
-Be specific with the numbers given. Do not invent data you weren't given. Keep it under ~180 words.`;
+Be specific with the numbers given. Do not invent data you weren't given. Keep it under ~180 words.
+
+${DATA_ACCURACY_RULE}`;
 
     const take = (
       await generate({

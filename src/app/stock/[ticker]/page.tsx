@@ -5,12 +5,14 @@ import { useStockBundle } from "@/hooks/useStock";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useToast } from "@/hooks/useToast";
 import StockHero from "@/components/stock/StockHero";
+import InvestorLens from "@/components/stock/InvestorLens";
 import { OverviewTab, FinancialsTab, AnalystsTab, NewsTab } from "@/components/stock/StockTabs";
 import { DcfTab } from "@/components/stock/DcfTab";
 import { FinavaTab } from "@/components/stock/FinavaTab";
+import { MoneyMapTab } from "@/components/stock/MoneyMapTab";
 import ChatContextButton from "@/components/chat/ChatContextButton";
 
-const TABS = ["Overview", "Financials", "Analysts", "News", "DCF", "Finava"] as const;
+const TABS = ["Overview", "Financials", "Analysts", "News", "DCF", "Finava", "Money Map"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function StockPage() {
@@ -124,6 +126,9 @@ export default function StockPage() {
         initialRange={bundle.candleRange}
       />
 
+      {/* The Lens — one personalized whisper drawn from the user's Investor DNA */}
+      <InvestorLens ticker={ticker} />
+
       {/* Sticky tab bar — pill lenses + mini ticker/price (F2d) */}
       <div
         style={{
@@ -170,6 +175,7 @@ export default function StockPage() {
         {tab === "News" && <NewsTab news={bundle.news} />}
         {tab === "DCF" && <DcfTab ticker={ticker} />}
         {tab === "Finava" && <FinavaTab ticker={ticker} />}
+        {tab === "Money Map" && <MoneyMapTab ticker={ticker} />}
       </div>
     </div>
   );

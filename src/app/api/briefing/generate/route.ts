@@ -3,6 +3,7 @@ import { db } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
 import { requireEntitlement } from "@/lib/entitlements";
 import { generate } from "@/lib/llm";
+import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
 import { runRiskAgent } from "@/agents/sub-agents/risk-agent";
@@ -107,6 +108,8 @@ Write a **Weekly Portfolio Briefing** in this exact structure:
 5. **Opportunities** (1-2 specific actionable ideas from the data)
 6. **Watchlist** (any new tickers worth monitoring based on this week's signals)
 
+${DATA_ACCURACY_RULE}
+
 Be specific, cite data points from the reports, and keep it scannable. Start with "# Weekly Briefing — ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}".`,
     });
 
@@ -155,6 +158,8 @@ async function runWithCache(agentName: string, input: unknown): Promise<string> 
   const fn = agentFns[agentName];
   if (!fn) throw new Error(`Unknown agent: ${agentName}`);
   const result = await fn(input);
-  saveCache(agentName, input, result).catch(() => {});
+  saveCache(agentName, input, result).catch((err) =>
+    console.warn("[briefing] cache save failed", err)
+  );
   return result;
 }

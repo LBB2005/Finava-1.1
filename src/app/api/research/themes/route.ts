@@ -7,6 +7,7 @@
 // cold requests, mirroring /api/research/factors.
 
 import { generate } from "@/lib/llm";
+import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
 import { SP500 } from "@/lib/sp500";
 import { requireAuth } from "@/lib/requireAuth";
 import { rateLimitGuard } from "@/lib/rateLimit";
@@ -49,6 +50,8 @@ ONLY use tickers from this S&P 500 universe:
 ${universeList}
 
 For each theme give 5–8 of the best-fitting tickers from that list.
+
+${DATA_ACCURACY_RULE}
 
 Respond with ONLY this JSON (no markdown):
 { "themes": [ { "name": "<theme name>", "thesis": "<1-2 sentence rationale>", "tickers": ["TICK", "..."] } ] }`;

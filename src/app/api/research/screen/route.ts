@@ -6,7 +6,9 @@
 // Filtering itself is pure + client-side (lib/screen.ts applyScreen); the model
 // only translates language ↔ structure and writes color. Failure-isolated.
 
+import { z } from "zod";
 import { generate } from "@/lib/llm";
+import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
 import { requireAuth } from "@/lib/requireAuth";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
@@ -16,6 +18,15 @@ import type { ScreenCommentary, SuggestedScreen } from "@/lib/researchAI";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+// One POST, three jobs switched by `mode`. The discriminated union rejects an
+// unknown/missing mode and enforces field types; `stocks`/`summary` stay loose
+// because the handlers already coerce them defensively.
+const ScreenRequestSchema = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("parse"), query: z.string().optional() }),
+  z.object({ mode: z.literal("commentary"), query: z.string().optional(), stocks: z.unknown().optional() }),
+  z.object({ mode: z.literal("suggest"), summary: z.unknown().optional() }),
+]);
 
 function parseJson(raw: string): Record<string, unknown> | null {
   const fenced = raw.replace(/```(?:json)?/gi, "");
@@ -70,7 +81,7 @@ async function handleCommentary(query: string, stocks: unknown) {
       return `- ${o.ticker} (${o.name}, ${o.sector}): score ${o.score}`;
     })
     .join("\n");
-  const prompt = `A user screened the S&P 500 with: "${query}". These names passed:\n${lines}\n\nWrite a short read on the resulting basket. This is research color, not advice.\n\nRespond with ONLY this JSON (no markdown):\n{ "commentary": "<2-3 sentences on what these names have in common>", "standout": "<the single most interesting name and why, one sentence>", "watchout": "<the main risk or caveat for this group, one sentence>" }`;
+  const prompt = `A user screened the S&P 500 with: "${query}". These names passed:\n${lines}\n\nWrite a short read on the resulting basket. This is research color, not advice.\n\n${DATA_ACCURACY_RULE}\n\nRespond with ONLY this JSON (no markdown):\n{ "commentary": "<2-3 sentences on what these names have in common>", "standout": "<the single most interesting name and why, one sentence>", "watchout": "<the main risk or caveat for this group, one sentence>" }`;
   const raw = await generate({ agent: "screenRead", maxTokens: 600, prompt });
   const p = parseJson(raw);
   const out: ScreenCommentary = {
@@ -114,30 +125,25 @@ export async function POST(req: Request) {
     return Response.json({ error: "AI service not configured (OPENROUTER_API_KEY missing)." }, { status: 503 });
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
+  const parsed = ScreenRequestSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
+  const body = parsed.data;
 
-  const mode = body.mode;
   try {
-    if (mode === "parse") {
-      const query = typeof body.query === "string" ? body.query.trim() : "";
+    if (body.mode === "parse") {
+      const query = (body.query ?? "").trim();
       if (!query) return Response.json({ error: "Empty query." }, { status: 400 });
       return await handleParse(query);
     }
-    if (mode === "commentary") {
-      const query = typeof body.query === "string" ? body.query.trim() : "";
+    if (body.mode === "commentary") {
+      const query = (body.query ?? "").trim();
       return await handleCommentary(query, body.stocks);
     }
-    if (mode === "suggest") {
-      return await handleSuggest(body.summary);
-    }
-    return Response.json({ error: "Unknown mode." }, { status: 400 });
+    return await handleSuggest(body.summary); // mode === "suggest"
   } catch (err) {
-    console.error("[research/screen]", mode, err);
+    console.error("[research/screen]", body.mode, err);
     return Response.json({ error: "The screener AI failed. Try again." }, { status: 502 });
   }
 }

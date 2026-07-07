@@ -86,10 +86,10 @@ export default function Leaderboard({
               <th onClick={() => th("ticker")} style={{ textAlign: "left", width: 188 }}>Ticker{ar("ticker")}</th>
               <th onClick={() => th("price")} className="num" style={{ width: 82 }}>Last{ar("price")}</th>
               <th onClick={() => th("chg")} className="num" style={{ width: 72 }}>Chg{ar("chg")}</th>
-              <th onClick={() => th("marketCap")} className="num" style={{ width: 94 }}>Mkt Cap{ar("marketCap")}</th>
-              <th onClick={() => th("pe")} className="num" style={{ width: 62 }}>P/E{ar("pe")}</th>
-              <th onClick={() => th("avgVol")} className="num" style={{ width: 86 }}>Avg Vol{ar("avgVol")}</th>
-              <th onClick={() => th("rvol")} className="num" style={{ width: 72 }}>RVOL{ar("rvol")}</th>
+              <th onClick={() => th("marketCap")} className="num col-secondary" style={{ width: 94 }}>Mkt Cap{ar("marketCap")}</th>
+              <th onClick={() => th("pe")} className="num col-secondary" style={{ width: 62 }}>P/E{ar("pe")}</th>
+              <th onClick={() => th("avgVol")} className="num col-secondary" style={{ width: 86 }}>Avg Vol{ar("avgVol")}</th>
+              <th onClick={() => th("rvol")} className="num col-secondary" style={{ width: 72 }}>RVOL{ar("rvol")}</th>
               <th onClick={() => th("score")} style={{ textAlign: "left", minWidth: 160 }}>Finava Score{ar("score")}</th>
               <th style={{ textAlign: "center", width: 54 }}>Grd</th>
             </tr>

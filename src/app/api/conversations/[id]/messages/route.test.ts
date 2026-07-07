@@ -47,6 +47,9 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
   deps.convGet.mockResolvedValue({ exists: true });
   deps.convUpdate.mockResolvedValue(undefined);
+  // Fire-and-forget title generation: the route attaches a `.catch`, so the mock
+  // must return a promise (it no-ops internally in production).
+  deps.generateConversationTitle.mockResolvedValue(undefined);
   deps.messageAdd.mockResolvedValue({
     get: vi.fn().mockResolvedValue({
       id: "msg_1",
@@ -84,6 +87,7 @@ describe("POST /api/conversations/[id]/messages", () => {
       mode: "agent",
       agentTrace: JSON.stringify([{ step: "dcf" }]),
       durationMs: 1200,
+      context: null,
       createdAt: "2026-06-15T12:00:00.000Z",
     });
     expect(deps.convUpdate).toHaveBeenCalledWith({ updatedAt: "2026-06-15T12:00:00.000Z" });
@@ -101,8 +105,22 @@ describe("POST /api/conversations/[id]/messages", () => {
       mode: "simple",
       agentTrace: null,
       durationMs: null,
+      context: null,
     }));
     expect(deps.generateConversationTitle).not.toHaveBeenCalled();
+  });
+
+  it("persists the page context (citation pill) when a message carries one", async () => {
+    await POST(new Request("http://localhost/api/conversations/conv_1/messages", {
+      method: "POST",
+      body: JSON.stringify({ role: "user", content: "What's going on?", context: "stock:AAPL" }),
+    }), { params: Promise.resolve({ id: "conv_1" }) });
+
+    expect(deps.messageAdd).toHaveBeenCalledWith(expect.objectContaining({
+      role: "user",
+      content: "What's going on?",
+      context: "stock:AAPL",
+    }));
   });
 
   it("returns the shared not_found shape when the conversation does not exist", async () => {

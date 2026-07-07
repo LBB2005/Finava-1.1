@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { contextFromPath, contextLabel } from "./chatContext";
+import { contextFromPath, contextLabel, contextPill } from "./chatContext";
 
 describe("contextFromPath", () => {
   it("maps page routes", () => {
@@ -28,5 +28,24 @@ describe("contextLabel", () => {
   });
   it("labels null as ALL", () => {
     expect(contextLabel(null)).toBe("ALL");
+  });
+});
+
+describe("contextPill", () => {
+  it("formats a stock context as '<TICKER> · Stock page'", () => {
+    expect(contextPill("stock:AAPL")).toBe("AAPL · Stock page");
+    expect(contextPill("stock:msft")).toBe("MSFT · Stock page");
+  });
+  it("labels the page contexts", () => {
+    expect(contextPill("watchlist")).toBe("Watchlist");
+    expect(contextPill("portfolio")).toBe("Portfolio");
+    expect(contextPill("research")).toBe("Research");
+  });
+  it("returns null when there is no page context (main chat area)", () => {
+    expect(contextPill(null)).toBeNull();
+  });
+  it("returns null for an empty stock ticker or unknown context", () => {
+    expect(contextPill("stock:")).toBeNull();
+    expect(contextPill("something-else")).toBeNull();
   });
 });

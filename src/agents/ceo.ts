@@ -153,6 +153,8 @@ ${agentSummaryLines || "No sub-agent data collected."}
 ## Your Task
 Write a concise second-opinion critique (3–5 bullet points, max 150 words). Focus on:
 - Any claims that lack data support or are over-stated
+- **Fabricated / unsourced figures**: any number that does not appear in the sub-agent outputs above, or that you cannot trace to a named source. Flag each one.
+- **Silent gaps**: a field the report should cover but left blank instead of writing "Unavailable" when the data was missing. Flag these — a missing field must be marked, not dropped.
 - **Data masking**: did the report make confident price-based calls (trim/hold, position sizing, cost-basis comparisons) despite a sub-agent reporting no live price data? Call this out explicitly.
 - Contradictions between sub-agents (e.g. bullish sentiment vs negative technicals)
 - Key risks or bearish factors the main report downplayed
@@ -176,6 +178,7 @@ Be direct and constructive. Start with "**Skeptic Review:**"`,
 
 Apply these corrections:
 - Remove or explicitly caveat any specific figure (price, RSI, SMA, beta, weight, target) that no sub-agent actually reported, or that another agent flagged as unavailable. When agents disagree on whether data exists, state the disagreement and lower confidence — don't adopt the convenient number.
+- For any field the report should contain but that has no supporting data, write "Unavailable" rather than dropping it silently or leaving it blank. Attribute every retained figure to its source; a number you cannot source must be removed.
 - For every contradiction between agents, add an explicit "⚖️ Conflicting Signals" reconciliation: both sides + your net stance. Don't just pick the bullish read.
 - Any "portfolio loss in an X% drawdown" figure must use the Risk Agent's weighted portfolio beta and position weights — never a single holding's beta applied to the whole book. If weights are absent, give a range and say so.
 - Give material single-name risks (antitrust, litigation, regulation) a brief scenario with rough magnitude, not a one-liner.
@@ -306,6 +309,8 @@ Finava is an impersonal research publication, not a registered investment advise
 - **Portfolio loss / drawdown math**: use ONLY the Risk Agent's computed "weighted portfolio beta" and position weights. NEVER apply a single holding's beta to the whole portfolio. If weights are absent, say so and give a range, not a precise figure.
 - Any chart showing "current allocation" or cost-basis comparisons requires live price data. If that data is absent, omit the chart and note why.
 - Confidence in a recommendation must match the quality of supporting data. Missing a key data source = explicitly lower confidence, not silent omission.
+- **Explicit "Unavailable"**: when a field the report should contain has no supporting data (an agent returned nothing, errored, or flagged it missing), write "Unavailable" (or "Not reported") for that field — never drop it silently, never leave it blank, never fill it with a placeholder or a guess. A fully filled-in report marks its gaps; it does not hide them.
+- **Sourcing**: attribute figures to the sub-agent / data source they came from (e.g. "(Risk Agent)", "(SEC EDGAR FY2024)", "(web)"). A number you cannot attribute must not appear.
 
 ## Required Report Sections
 - **⚖️ Conflicting Signals** — whenever agents disagree (e.g. bullish technicals vs deteriorating macro breadth), give the conflict its own reconciliation: state both sides and your net stance with reasoning. Do not just pick the bullish read and move on.

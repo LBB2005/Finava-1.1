@@ -116,12 +116,13 @@ export default function ChatEngine() {
     content: string,
     mode: ChatMode,
     agentTrace?: AgentStep[],
-    durationMs?: number
+    durationMs?: number,
+    context?: ChatContext
   ) {
     await authFetch(`/api/conversations/${convId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role, content, mode, agentTrace, durationMs }),
+      body: JSON.stringify({ role, content, mode, agentTrace, durationMs, context }),
     });
   }
 
@@ -695,6 +696,7 @@ export default function ChatEngine() {
         content: text,
         mode,
         createdAt: new Date().toISOString(),
+        context,
       });
       s().setStreaming(convId, true);
       s().clearStreamingContent(convId);
@@ -709,7 +711,7 @@ export default function ChatEngine() {
       // for planning, so build the context without them and start the crew now.
       const portfolioContext = buildPortfolioContext(holdings, cashBalance, quoteMap, {});
 
-      saveMessage(convId!, "user", text, mode).catch((e) => console.warn("[send] saveMessage failed:", e));
+      saveMessage(convId!, "user", text, mode, undefined, undefined, context).catch((e) => console.warn("[send] saveMessage failed:", e));
 
       const agentHistory = prior
         .filter((m) => m.mode === "agent" || m.mode === "deep_research" || m.mode === "auto")

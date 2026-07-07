@@ -37,12 +37,14 @@ import {
   type FinavaEvent,
 } from "@/lib/finava";
 import { fenceExternal, EXTERNAL_DATA_RULE } from "@/lib/externalContent";
+import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const JSON_RULES =
-  'Respond with ONLY a JSON object, no prose, no markdown fence: {"score": <0-100 integer, 50=neutral>, "headline": "<≤8 words>", "detail": "<1-2 sentences, specific to the numbers given>"}. Higher score = more bullish.';
+  'Respond with ONLY a JSON object, no prose, no markdown fence: {"score": <0-100 integer, 50=neutral>, "headline": "<≤8 words>", "detail": "<1-2 sentences, specific to the numbers given>"}. Higher score = more bullish. If the data above is missing or empty, score 50 (neutral) and say the input was Unavailable — never invent a number to justify a score.\n\n' +
+  DATA_ACCURACY_RULE;
 
 function fmt(n: number | null | undefined, d = 1): string {
   return typeof n === "number" && Number.isFinite(n)
@@ -268,6 +270,8 @@ export async function POST(
           .join("\n");
 
         const synthPrompt = `You are Finava's lead equity analyst. Synthesise these five signal scores for ${name} (${symbol}) into one verdict for a retail investor. This is research color, not advice.
+
+${DATA_ACCURACY_RULE}
 
 Current price: $${fmt(price, 2)}
 Analyst mean target (Street): ${street != null ? `$${fmt(street, 2)}` : "n/a"}

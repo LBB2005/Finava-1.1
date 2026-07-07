@@ -1,5 +1,6 @@
 import type { ScoutPick, DiscoverTier, DiscoverLayout, WaveEvidence } from "@/lib/scoutTypes";
 import type { Brand } from "@/lib/models";
+import type { ChatContext } from "@/lib/chatContext";
 
 export type ChatMode = "auto" | "simple" | "agent" | "deep_research" | "backtest" | "discover";
 
@@ -43,6 +44,9 @@ export interface ChatMessage {
   scoutPicks?: ScoutPick[];
   /** Discovery: which tier produced this message. */
   tier?: DiscoverTier;
+  /** Which page this message was asked from (`stock:AAPL`, `portfolio`, …), or
+   *  absent when typed in the main /chat area. Drives the citation pill. */
+  context?: ChatContext;
 }
 
 export type AgentName =

@@ -34,6 +34,7 @@ import { ResponseReceipt } from "./ResponseTiming";
 import type { BacktestResult as BacktestResultType } from "@/app/api/backtest/route";
 import DiscoverResult from "./DiscoverResult";
 import type { DiscoverMessageContent } from "@/lib/scoutTypes";
+import { contextPill, type ChatContext } from "@/lib/chatContext";
 
 /* ── Agent focus blurbs (mirrors MessageList) ────────────────────────── */
 const AGENT_FOCUS: Record<string, string> = {
@@ -444,6 +445,57 @@ function VerdictBlock({
   );
 }
 
+/* ── Citation pill — which page the question was asked from ──────────── */
+function PillGlyph({ ctx }: { ctx: ChatContext }) {
+  const common = {
+    width: 11,
+    height: 11,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    style: { flexShrink: 0 },
+  };
+  if (ctx?.startsWith("stock:")) {
+    return <svg {...common}><polyline points="3 16 9 10 13 14 21 6" /></svg>;
+  }
+  if (ctx === "watchlist") {
+    return <svg {...common}><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" /><circle cx="12" cy="12" r="3" /></svg>;
+  }
+  if (ctx === "portfolio") {
+    return <svg {...common}><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>;
+  }
+  // research
+  return <svg {...common}><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>;
+}
+
+function CitationPill({ ctx }: { ctx: ChatContext }) {
+  const label = contextPill(ctx);
+  if (!label) return null;
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        marginTop: 7,
+        padding: "3px 9px",
+        borderRadius: 99,
+        fontSize: 11,
+        fontWeight: 500,
+        color: "var(--color-muted)",
+        background: "var(--color-surface)",
+        border: "1px solid var(--color-border)",
+      }}
+    >
+      <PillGlyph ctx={ctx} />
+      {label}
+    </div>
+  );
+}
+
 /* ── Prompt bubble — soft-tinted navy ───────────────────────────────── */
 function PromptBubble({ message }: { message: ChatMessage }) {
   const timestamp = new Date(message.createdAt).toLocaleTimeString([], {
@@ -479,6 +531,7 @@ function PromptBubble({ message }: { message: ChatMessage }) {
       >
         {message.content}
       </div>
+      <CitationPill ctx={message.context ?? null} />
       <div
         style={{
           fontSize: 11,

@@ -4,6 +4,7 @@ import { mutate } from "swr";
 import { useChatStore } from "@/stores/chatStore";
 import { authFetch } from "@/lib/authFetch";
 import type { ChatMode, AgentStep } from "@/types/chat";
+import type { ChatContext } from "@/lib/chatContext";
 import type { Conversation } from "@/components/layout/ConversationList";
 
 type ConvMessage = Conversation["messages"][number];
@@ -22,6 +23,7 @@ function toStoreMessages(messages: ConvMessage[]) {
       createdAt: m.createdAt,
       agentTrace,
       durationMs: typeof m.durationMs === "number" ? m.durationMs : undefined,
+      context: (m.context as ChatContext) ?? undefined,
     };
   });
 }

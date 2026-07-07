@@ -51,22 +51,22 @@ export default function BoardRow({ s, highlight = false }: { s: RankedStock; hig
       </td>
 
       {/* Market cap */}
-      <td className="mono num" style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+      <td className="mono num col-secondary" style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
         {fmtMktCap(s.marketCap)}
       </td>
 
       {/* P/E */}
-      <td className="mono num" style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+      <td className="mono num col-secondary" style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
         {fmtPE(s.pe)}
       </td>
 
       {/* Avg volume (10-day, consolidated) */}
-      <td className="mono num" style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+      <td className="mono num col-secondary" style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
         {fmtVol(s.avgVol)}
       </td>
 
       {/* Relative volume */}
-      <td className="mono num" style={{ fontSize: 12, fontWeight: 600, color: s.rvol != null && s.rvol >= 1.5 ? "var(--color-accent)" : "var(--color-text-secondary)" }}>
+      <td className="mono num col-secondary" style={{ fontSize: 12, fontWeight: 600, color: s.rvol != null && s.rvol >= 1.5 ? "var(--color-accent)" : "var(--color-text-secondary)" }}>
         {fmtRvol(s.rvol)}
       </td>
 

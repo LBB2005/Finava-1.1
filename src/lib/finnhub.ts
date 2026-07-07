@@ -227,6 +227,24 @@ export async function getPeers(ticker: string) {
   return fhFetch(`/stock/peers?symbol=${ticker}`);
 }
 
+// Institutional ownership — largest holders by position size. Cached 12h
+// (13F-derived, moves on a quarterly cadence). Premium-gated on some plans;
+// callers wrap in try/catch and degrade to "owners unavailable".
+export async function getOwnership(ticker: string) {
+  return fhFetch(`/stock/ownership?symbol=${ticker}&limit=20`, 43200);
+}
+
+// Mutual-fund / ETF ownership of a ticker. Cached 12h (see getOwnership).
+export async function getFundOwnership(ticker: string) {
+  return fhFetch(`/stock/fund-ownership?symbol=${ticker}&limit=20`, 43200);
+}
+
+// Symbol search — resolve a company name to its ticker(s). Cached 24h; used by
+// the supply-chain agent to make AI-extracted supplier/customer nodes clickable.
+export async function searchSymbol(query: string) {
+  return fhFetch(`/search?q=${encodeURIComponent(query)}`, 86400);
+}
+
 // Major sector ETFs for macro context
 export async function getMarketSnapshot(): Promise<TickerSnapshot[]> {
   const etfs = ["SPY", "QQQ", "IWM", "XLK", "XLF", "XLV", "XLE", "XLY", "XLI", "XLP"];

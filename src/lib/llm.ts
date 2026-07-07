@@ -40,6 +40,7 @@ export type AgentKey =
   | "chat" // chat route main stream (stays on Anthropic SDK — SSE; key kept for completeness)
   | "aiTake"
   | "finavaSynthesis"
+  | "supplyChain" // Money Map — extract suppliers/customers from 10-K text
   | "briefingSynthesis"
   | "portfolioStatement"
   | "risk"
@@ -79,6 +80,7 @@ const ROUTED_MODELS: Record<AgentKey, string> = {
   chat: SONNET,
   aiTake: SONNET,
   finavaSynthesis: SONNET,
+  supplyChain: SONNET, // reading-comprehension extraction over 10-K prose
   briefingSynthesis: SONNET,
   portfolioStatement: SONNET,
   risk: SONNET,

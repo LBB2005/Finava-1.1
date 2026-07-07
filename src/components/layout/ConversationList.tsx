@@ -5,7 +5,7 @@ import { useChatStore } from "@/stores/chatStore";
 import { useToast } from "@/hooks/useToast";
 
 interface ConvMessage {
-  id: string; role: string; content: string; mode: string; createdAt: string; agentTrace?: string; durationMs?: number;
+  id: string; role: string; content: string; mode: string; createdAt: string; agentTrace?: string; durationMs?: number; context?: string | null;
 }
 export interface Conversation {
   id: string; title: string | null; createdAt: string; updatedAt: string;

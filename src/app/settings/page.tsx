@@ -28,6 +28,7 @@ interface UserData {
   capabilities?: Record<string, boolean>;
   allowDataTraining: boolean;
   locationMetadata: boolean;
+  allowInvestorDNA: boolean;
   stats: { conversations: number; briefings: number };
 }
 
@@ -1011,6 +1012,12 @@ function PrivacySection({ userData, mutate }: { userData: UserData | undefined; 
       </Row>
       <Row label="Location metadata" description="Use coarse location (city/region) to improve market context.">
         <Toggle checked={userData?.locationMetadata ?? true} onChange={(v) => patch("locationMetadata", v)} />
+      </Row>
+      <Row
+        label="Investor DNA"
+        description="Let Finava learn how you invest from your holdings to personalize your research. Off hides your DNA and the per-stock Lens."
+      >
+        <Toggle checked={userData?.allowInvestorDNA ?? true} onChange={(v) => patch("allowInvestorDNA", v)} />
       </Row>
       <Row label="Export data" description="Download a copy of your conversations, portfolio, and preferences.">
         <Btn variant="soft" onClick={exportData} disabled={exporting}>

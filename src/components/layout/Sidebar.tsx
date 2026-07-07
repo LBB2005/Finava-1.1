@@ -741,7 +741,8 @@ export default function Sidebar({
   const isOnHedgeFund = pathname === "/hedge-fund";
   const isOnResearch = pathname === "/research";
   const isOnWatchlist = pathname === "/watchlist" || pathname.startsWith("/watchlist/");
-  const isOnChat = !isOnPortfolio && !isOnHedgeFund && !isOnResearch && !isOnWatchlist;
+  const isOnDna = pathname === "/dna";
+  const isOnChat = !isOnPortfolio && !isOnHedgeFund && !isOnResearch && !isOnWatchlist && !isOnDna;
   // Fresh, unsent chat — highlight the "New chat" affordance so the click registers.
   const newChatActive = isOnChat && conversationId === null;
 
@@ -841,6 +842,22 @@ export default function Sidebar({
 
           {/* Portfolio (expandable) */}
           <PortfolioNavItem active={isOnPortfolio} live={liveContexts.has("portfolio")} onAddClick={() => setShowAddMenu(true)} onNavigate={onNavigate} />
+
+          {/* Investor DNA — the model-of-you, derived from holdings + the factor engine */}
+          <NavLink
+            href="/dna"
+            active={isOnDna}
+            onNavigate={onNavigate}
+            icon={
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 4c0 4 10 4 10 8s-10 4-10 8" />
+                <path d="M17 4c0 4-10 4-10 8s10 4 10 8" />
+                <line x1="8.5" y1="7" x2="15.5" y2="7" />
+                <line x1="8.5" y1="17" x2="15.5" y2="17" />
+              </svg>
+            }
+            label="Investor DNA"
+          />
 
           {/* Research */}
           <NavLink

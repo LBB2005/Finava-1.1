@@ -12,7 +12,9 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      all: true,
+      // Vitest 4 reports every file matched by `include` below even when no test
+      // imports it (the old `all: true` flag is the default now), so untested
+      // route glue still counts against the ratchet.
       // Logic layer only — UI (.tsx) is intentionally excluded from the
       // coverage denominator and tested separately (RTL/Playwright) later.
       include: [

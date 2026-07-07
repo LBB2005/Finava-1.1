@@ -461,7 +461,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                     onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTicker(); } }}
                     placeholder="AAPL, NVDA…" maxLength={8}
-                    className="flex-1 text-[12px] px-2.5 py-1.5 rounded-[7px] focus:outline-none"
+                    className="flex-1 text-[16px] sm:text-[12px] px-2.5 py-1.5 rounded-[7px] focus:outline-none"
                     style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text)", fontFamily: "var(--font-sans)" }} />
                   <button onClick={addTicker} className="px-2.5 py-1.5 rounded-[7px] text-[12px] font-semibold"
                     style={{ background: "var(--color-accent)", color: "white" }}>Add</button>
