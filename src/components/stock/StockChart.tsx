@@ -107,6 +107,7 @@ export default function StockChart({ candles, range, mode, height = 300, loading
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    setWidth(el.clientWidth); // seed synchronously on mount, before the first RO tick
     const ro = new ResizeObserver((entries) => {
       setWidth(entries[0]?.contentRect.width ?? el.clientWidth);
     });
