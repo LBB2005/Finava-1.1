@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useChatStore } from "@/stores/chatStore";
+import { buildPortfolioSnapshot } from "@/lib/pageContext";
 import { useToast } from "@/hooks/useToast";
 import type { Holding, Quote } from "@/types/portfolio";
 import ConnectBrokerageButton from "@/components/portfolio/ConnectBrokerageButton";
@@ -442,6 +443,26 @@ export default function PortfolioPage() {
   const totalGain = equityValue - totalCost;
   const totalGainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
   rows.forEach((r) => { r.pct = equityValue > 0 ? (r.mv / equityValue) * 100 : 0; });
+
+  // Publish a compact portfolio snapshot as app-wide page context so a chat sent
+  // here ("how am I doing?", "which of my holdings is riskiest?") is scoped to
+  // these positions. Full holdings detail still rides in portfolioContext. Built
+  // inline (cheap) rather than memoized — `rows` is mutated above, which the
+  // React Compiler won't let a useMemo depend on; the effect keys off the string.
+  const portfolioSnapshot = buildPortfolioSnapshot({
+    totalValue: totalAccountValue,
+    totalGainPct,
+    positions: holdings.length,
+    cash: cashBalance,
+    top: [...rows]
+      .sort((a, b) => b.mv - a.mv)
+      .map((r) => ({ ticker: r.holding.ticker, weightPct: r.pct, gainLossPct: r.gainLossPct })),
+  });
+  useEffect(() => {
+    const setActivePageContext = useChatStore.getState().setActivePageContext;
+    setActivePageContext({ kind: "portfolio", label: "Portfolio", snapshot: portfolioSnapshot });
+    return () => setActivePageContext(null);
+  }, [portfolioSnapshot]);
 
   const hasQuotes = rows.some((r) => !!r.quote);
   const totalDayChange = rows.reduce((s, r) => {

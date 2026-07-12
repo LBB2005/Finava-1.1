@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     userId = authResult.userId;
     const gate = await requireEntitlement(userId, "weeklyBriefings");
     if (gate) return gate;
-    const throttled = userRateLimit(userId, "briefing-generate");
+    const throttled = await userRateLimit(userId, "briefing-generate");
     if (throttled) return throttled;
     const limited = await checkUsageLimit(userId);
     if (limited) return limited;

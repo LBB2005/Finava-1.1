@@ -15,8 +15,16 @@
  *   - checkUsageLimit(): called at the top of each AI route to ENFORCE the plan
  *     allowance (hard cap) before any model spend happens.
  *
- * NOTE: MODEL_PRICING, CREDIT_USD and PLAN_LIMITS are product/billing constants.
- * The numbers below are reasonable placeholders — TUNE them before shipping.
+ * ⚠️ TUNE BEFORE SHIPPING — these are product/billing constants set to placeholder
+ * values. Getting them wrong mis-charges every user's allowance. Before charging
+ * real money, verify against live provider rate cards:
+ *   1. MODEL_PRICING     — per-1M-token input/output USD for EVERY slug/id the app
+ *                          actually routes to (both the OpenRouter slugs and the
+ *                          direct Anthropic ids below); add any missing model so it
+ *                          doesn't silently hit FALLBACK_PRICE.
+ *   2. CREDIT_USD         — the USD value of one displayed credit.
+ *   3. CACHE_READ_MULTIPLIER — the provider's cached-input discount.
+ *   4. Plan allowances    — daily/weekly/monthly caps live in `@/lib/plans`.
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import * as admin from "firebase-admin";
@@ -36,7 +44,8 @@ export function withUsageContext<T>(userId: string, fn: () => T): T {
 
 // ── Pricing ──────────────────────────────────────────────────────────────────
 // USD per 1M tokens. Keyed by BOTH the OpenRouter slugs `generate()` uses and the
-// direct Anthropic model ids the streaming chat/CEO paths use. TUNE to live rates.
+// direct Anthropic model ids the streaming chat/CEO paths use.
+// ⚠️ Placeholder rates — TUNE to live provider rate cards before billing (see header).
 interface Price {
   in: number;
   out: number;

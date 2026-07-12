@@ -225,7 +225,7 @@ async function resolve(startUrl: string): Promise<OgResult> {
 export async function POST(req: NextRequest) {
   // Server-side fetch primitive — throttle per client so it can't be used as a
   // high-volume scanning/SSRF probe even within the resolved-IP allowlist.
-  const limited = rateLimitGuard(req, "og-image", { capacity: 20, refillPerSec: 1 });
+  const limited = await rateLimitGuard(req, "og-image", { capacity: 20, refillPerSec: 1 });
   if (limited) return limited;
 
   const body = await req.json().catch(() => null);

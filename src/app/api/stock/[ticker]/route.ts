@@ -13,7 +13,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ ticker: string }> }
 ) {
-  const limited = rateLimitGuard(req, "stock", { capacity: 20, refillPerSec: 0.5 });
+  const limited = await rateLimitGuard(req, "stock", { capacity: 20, refillPerSec: 0.5 });
   if (limited) return limited;
 
   const { ticker } = await params;

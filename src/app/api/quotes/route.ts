@@ -4,7 +4,7 @@ import { rateLimitGuard } from "@/lib/rateLimit";
 import { MAX_BATCH_TICKERS, parseTickersParam } from "@/lib/tickers";
 
 export async function GET(req: Request) {
-  const limited = rateLimitGuard(req, "quotes");
+  const limited = await rateLimitGuard(req, "quotes");
   if (limited) return limited;
 
   const { searchParams } = new URL(req.url);

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PageContextSchema } from "@/lib/pageContext";
 
 /**
  * Body schema for `POST /api/agent` (SSE multi-agent crew).
@@ -22,6 +23,9 @@ export const AgentRequestSchema = z.object({
   wave: z.record(z.string(), z.unknown()).optional(),
   /** Optional response-template id whose instructions/format shape the answer. */
   templateId: z.string().max(200).optional(),
+  /** Snapshot of the stock/research page the message was composed on, so the
+   *  crew scopes its work to that ticker. */
+  pageContext: PageContextSchema.optional(),
 });
 
 export type AgentRequestBody = z.infer<typeof AgentRequestSchema>;

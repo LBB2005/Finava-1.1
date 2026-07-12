@@ -1,8 +1,10 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { HORIZONS, overlayLive, ranked, UNIVERSE, type HorizonKey } from "@/lib/research";
 import { useLiveBoard } from "@/hooks/useLiveBoard";
 import { useFactorUniverse } from "@/hooks/useFactorUniverse";
+import { useChatStore } from "@/stores/chatStore";
+import { buildResearchSnapshot } from "@/lib/pageContext";
 import VerdictHero from "@/components/research/VerdictHero";
 import BoardLeaderboard from "@/components/research/BoardLeaderboard";
 import MoversRail from "@/components/research/MoversRail";
@@ -73,7 +75,21 @@ export default function ResearchPage() {
   const isLoading = pricesLoading || factorsLoading;
   const asOfLabel = asOf ? fmtAsOf(asOf) : "Loading…";
 
-  const feature = useMemo(() => ranked(horizon, universe)[0], [horizon, universe]);
+  const rankedTop = useMemo(() => ranked(horizon, universe).slice(0, 8), [horizon, universe]);
+  const feature = rankedTop[0];
+
+  // Publish the active lens + top-ranked names as the app-wide page context, so a
+  // chat sent here ("what are the best of these?") is scoped to what's shown.
+  useEffect(() => {
+    const setActivePageContext = useChatStore.getState().setActivePageContext;
+    const modeLabel = MODES.find((m) => m.key === mode)?.label ?? mode;
+    setActivePageContext({
+      kind: "research",
+      label: `${modeLabel} lens`,
+      snapshot: buildResearchSnapshot(mode, horizon, rankedTop),
+    });
+    return () => setActivePageContext(null);
+  }, [mode, horizon, rankedTop]);
 
   return (
     <div className="research-root term vB1 flex flex-col h-full overflow-hidden">

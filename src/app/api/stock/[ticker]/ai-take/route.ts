@@ -28,7 +28,7 @@ export async function POST(
   // stays public (read-only market data); only this opt-in generation requires it.
   const { userId, error: authError } = await requireAuth();
   if (authError) return authError;
-  const throttled = userRateLimit(userId, "ai-take");
+  const throttled = await userRateLimit(userId, "ai-take");
   if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;

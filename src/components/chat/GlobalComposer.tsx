@@ -13,7 +13,7 @@ import ChatInput from "./ChatInput";
 export default function GlobalComposer() {
   const pathname = usePathname() ?? "";
   const router = useRouter();
-  const { mode, setMode, setPendingMessage, setPendingContext } = useChatStore();
+  const { mode, setMode, setPendingMessage, setPendingContext, setPendingPageContext } = useChatStore();
   const { watchlists } = useWatchlists();
   const { activeId } = useWatchlistStore();
 
@@ -38,6 +38,12 @@ export default function GlobalComposer() {
       msg = `Re: my ${active?.name ?? "watchlist"} watchlist — ${val}`;
     }
     setPendingContext(contextFromPath(pathname));
+    // Capture the viewed page's snapshot NOW, while the page is still mounted —
+    // routing to /chat unmounts it and clears activePageContext. When off-page
+    // (activePageContext null) don't clobber a context a launcher may have primed;
+    // a plain follow-up simply falls back to what the conversation remembers.
+    const active = useChatStore.getState().activePageContext;
+    if (active) setPendingPageContext(active);
     setPendingMessage(msg);
     if (!isChat) router.push("/chat");
   }

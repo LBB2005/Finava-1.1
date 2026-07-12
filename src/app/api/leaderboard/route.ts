@@ -19,7 +19,7 @@ const LIMITS = { capacity: 10, refillPerSec: 0.2 };
 const MAX_TICKERS = 600;
 
 export async function GET(req: Request) {
-  const limited = rateLimitGuard(req, "leaderboard", LIMITS);
+  const limited = await rateLimitGuard(req, "leaderboard", LIMITS);
   if (limited) return limited;
 
   const { searchParams } = new URL(req.url);

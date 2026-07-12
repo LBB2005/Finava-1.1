@@ -4,6 +4,7 @@ import { generate } from "@/lib/llm";
 import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
 import { withAuthRaw } from "@/lib/withRoute";
 import { ChatRequestSchema } from "@/lib/schemas/chat";
+import { pageContextPrompt } from "@/lib/pageContext";
 import { getTemplateBlock } from "@/lib/templates.server";
 import { checkUsageLimit, recordUsage, usageStore } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
@@ -17,11 +18,11 @@ export async function POST(req: Request) {
   if (res instanceof NextResponse) return res;
 
   const { userId, body } = res;
-  const { messages, portfolioContext, templateId } = body;
+  const { messages, portfolioContext, templateId, pageContext } = body;
 
   // Per-user burst throttle, then the hard credit cap. The throttle caps
   // concurrent/scripted bursts the read-then-act meter could otherwise overshoot.
-  const throttled = userRateLimit(userId, "chat");
+  const throttled = await userRateLimit(userId, "chat");
   if (throttled) return throttled;
 
   // Hard cap: block before any model spend if the user is over their allowance.
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
   // (this chat message + the follow-up generate()) is metered to this user.
   return usageStore.run({ userId }, () => {
     const systemPrompt = `You are Finava, an expert AI financial research assistant. You help users research stocks, analyze their portfolio, and make informed investment decisions.
-
+${pageContext ? `\n${pageContextPrompt(pageContext)}\n` : ""}
 ${portfolioContext ? `## User's Current Portfolio\n${portfolioContext}` : "The user has no portfolio holdings yet."}
 
 Be concise, data-driven, and actionable. Use markdown formatting for clarity (tables, bullet points, etc.).

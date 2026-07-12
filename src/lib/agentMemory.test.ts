@@ -6,14 +6,77 @@ const deps = vi.hoisted(() => ({
   cacheGet: vi.fn(),
   cacheSet: vi.fn(),
   cacheDelete: vi.fn(),
-  memoryAdd: vi.fn(),
+  batchSet: vi.fn(),
   batchDelete: vi.fn(),
   batchCommit: vi.fn(),
+  autoId: 0,
 }));
+
+// firebase-admin: only firestore.Timestamp is used by agentMemory (for the TTL
+// field written to agentCache). Provide a minimal Timestamp stand-in.
+vi.mock("firebase-admin", () => {
+  class Timestamp {
+    constructor(public _ms: number) {}
+    static fromDate(d: Date) {
+      return new Timestamp(d.getTime());
+    }
+    toDate() {
+      return new Date(this._ms);
+    }
+  }
+  return { firestore: { Timestamp } };
+});
+
+// In-memory tickerMemory query builder supporting where(==/in) + orderBy + limit
+// + get + count, plus collection.doc() for batched writes.
+function makeTickerQuery(filter: { in?: string[]; eq?: string }) {
+  const matching = () =>
+    deps.memoryDocs
+      .map((data, idx) => ({ data, idx }))
+      .filter(({ data }) => {
+        const t = data.ticker as string;
+        if (filter.eq != null) return t === filter.eq;
+        if (filter.in != null) return filter.in.includes(t);
+        return true;
+      });
+
+  const snapshot = (dir: "asc" | "desc", limitN?: number) => {
+    const sorted = matching().sort((a, b) => {
+      const av = String(a.data.createdAt);
+      const bv = String(b.data.createdAt);
+      return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+    const sliced = limitN == null ? sorted : sorted.slice(0, limitN);
+    return {
+      size: sliced.length,
+      docs: sliced.map(({ data, idx }) => ({
+        id: `mem_${idx}`,
+        data: () => data,
+        ref: { id: `mem_${idx}` },
+      })),
+    };
+  };
+
+  return {
+    where: (_field: string, op: string, val: string | string[]) =>
+      op === "in"
+        ? makeTickerQuery({ ...filter, in: val as string[] })
+        : makeTickerQuery({ ...filter, eq: val as string }),
+    orderBy: (_field: string, dir: "asc" | "desc") => ({
+      limit: (n: number) => ({ get: vi.fn(async () => snapshot(dir, n)) }),
+      get: vi.fn(async () => snapshot(dir)),
+    }),
+    count: () => ({
+      get: vi.fn(async () => ({ data: () => ({ count: matching().length }) })),
+    }),
+    doc: vi.fn(() => ({ id: `mem_new_${deps.autoId++}` })),
+  };
+}
 
 vi.mock("@/lib/firebase-admin", () => ({
   db: {
     batch: vi.fn(() => ({
+      set: deps.batchSet,
       delete: deps.batchDelete,
       commit: deps.batchCommit,
     })),
@@ -33,35 +96,7 @@ vi.mock("@/lib/firebase-admin", () => ({
         };
       }
       if (name === "tickerMemory") {
-        const query = {
-          where: vi.fn((_field: string, _op: string, ticker: string) => ({
-            orderBy: vi.fn((_field2: string, direction: "asc" | "desc") => ({
-              limit: vi.fn(() => ({
-                get: vi.fn(async () => ({
-                  docs: deps.memoryDocs
-                    .filter((d) => d.ticker === ticker)
-                    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
-                    .map((d, i) => ({ id: `${ticker}_${i}`, data: () => d, ref: { id: `${ticker}_${i}` } })),
-                })),
-              })),
-              get: vi.fn(async () => ({
-                size: deps.memoryDocs.filter((d) => d.ticker === ticker).length,
-                docs: deps.memoryDocs
-                  .filter((d) => d.ticker === ticker)
-                  .sort((a, b) =>
-                    direction === "asc"
-                      ? String(a.createdAt).localeCompare(String(b.createdAt))
-                      : String(b.createdAt).localeCompare(String(a.createdAt))
-                  )
-                  .map((d, i) => ({ id: `${ticker}_${i}`, data: () => d, ref: { id: `${ticker}_${i}` } })),
-              })),
-            })),
-          })),
-          add: deps.memoryAdd.mockImplementation(async (row) => {
-            deps.memoryDocs.push(row);
-          }),
-        };
-        return query;
+        return makeTickerQuery({});
       }
       throw new Error(`unexpected collection ${name}`);
     }),
@@ -82,6 +117,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   deps.cacheDocs = new Map();
   deps.memoryDocs = [];
+  deps.autoId = 0;
   deps.batchCommit.mockResolvedValue(undefined);
 });
 
@@ -103,31 +139,31 @@ describe("agent result cache", () => {
     ).resolves.toBe("cached");
   });
 
-  it("uses agent-specific TTLs and default TTLs when saving cache rows", async () => {
+  it("uses agent-specific TTLs and default TTLs, storing expiresAt as a Timestamp", async () => {
     await saveCache("run_dcf_agent", { ticker: "AAPL" }, "dcf");
     await saveCache("custom_agent", { ticker: "AAPL" }, "custom");
 
     const rows = [...deps.cacheDocs.values()];
-    expect(rows[0]).toMatchObject({
-      agentName: "run_dcf_agent",
-      result: "dcf",
-      expiresAt: "2026-06-17T12:00:00.000Z",
-      createdAt: "2026-06-15T12:00:00.000Z",
-    });
-    expect(rows[1]).toMatchObject({
-      agentName: "custom_agent",
-      result: "custom",
-      expiresAt: "2026-06-15T18:00:00.000Z",
-    });
+    const iso = (v: unknown) => (v as { toDate: () => Date }).toDate().toISOString();
+
+    expect(rows[0]).toMatchObject({ agentName: "run_dcf_agent", result: "dcf" });
+    // 48h TTL for the DCF agent.
+    expect(iso(rows[0].expiresAt)).toBe("2026-06-17T12:00:00.000Z");
+    expect(iso(rows[0].createdAt)).toBe("2026-06-15T12:00:00.000Z");
+
+    expect(rows[1]).toMatchObject({ agentName: "custom_agent", result: "custom" });
+    // 6h default TTL for unknown agents.
+    expect(iso(rows[1].expiresAt)).toBe("2026-06-15T18:00:00.000Z");
   });
 
-  it("lazily deletes expired cache entries and swallows Firestore errors", async () => {
+  it("treats expired cache entries as a miss without deleting, and swallows Firestore errors", async () => {
     await saveCache("run_news_agent", { ticker: "AAPL" }, "old");
     const savedKey = [...deps.cacheDocs.keys()][0];
     deps.cacheDocs.set(savedKey, { result: "old", expiresAt: "2026-06-15T11:59:59.000Z" });
 
     await expect(checkCache("run_news_agent", { ticker: "AAPL" })).resolves.toBeNull();
-    expect(deps.cacheDelete).toHaveBeenCalled();
+    // Native TTL reclaims expired rows — no application-side delete write.
+    expect(deps.cacheDelete).not.toHaveBeenCalled();
 
     deps.cacheGet.mockRejectedValueOnce(new Error("firestore down"));
     await expect(checkCache("run_news_agent", { ticker: "AAPL" })).resolves.toBeNull();
@@ -165,7 +201,7 @@ describe("ticker memory", () => {
     await expect(getTickerMemory([])).resolves.toBe("");
   });
 
-  it("saves parsed ticker insights and prunes beyond the per-ticker cap", async () => {
+  it("saves parsed insights in one batch and prunes the oldest beyond the cap", async () => {
     deps.memoryDocs = Array.from({ length: 15 }, (_, i) => ({
       ticker: "AAPL",
       insight: `old ${i}`,
@@ -186,20 +222,22 @@ describe("ticker memory", () => {
 
     await saveTickerMemory(["AAPL", "MSFT"], "analysis text", anthropicClient as never);
 
-    expect(deps.memoryAdd).toHaveBeenCalledWith({
+    // Adds go through a single batched write, not per-line add() calls.
+    expect(deps.batchSet).toHaveBeenCalledWith(expect.anything(), {
       ticker: "AAPL",
       insight: "DCF fair value is still below spot.",
       source: null,
       createdAt: "2026-06-15T12:00:00.000Z",
     });
-    expect(deps.memoryAdd).toHaveBeenCalledWith({
+    expect(deps.batchSet).toHaveBeenCalledWith(expect.anything(), {
       ticker: "MSFT",
       insight: "Azure growth supports margins.",
       source: null,
       createdAt: "2026-06-15T12:00:00.000Z",
     });
-    expect(deps.batchDelete).toHaveBeenCalled();
-    expect(deps.batchCommit).toHaveBeenCalled();
+    // AAPL had 15 rows; adding 1 forces exactly one prune-delete. One commit total.
+    expect(deps.batchDelete).toHaveBeenCalledTimes(1);
+    expect(deps.batchCommit).toHaveBeenCalledTimes(1);
   });
 
   it("skips memory saves when there is no ticker or response body", async () => {

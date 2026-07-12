@@ -189,6 +189,7 @@ describe("/api/conversations", () => {
       userId: "user_123",
       title: "Client id",
       context: { source: "stock", ticker: "AAPL" },
+      pageContext: null,
       createdAt: "2026-06-15T12:00:00.000Z",
       updatedAt: "2026-06-15T12:00:00.000Z",
     });
@@ -210,6 +211,7 @@ describe("/api/conversations", () => {
       userId: "user_123",
       title: null,
       context: null,
+      pageContext: null,
       createdAt: "2026-06-15T12:00:00.000Z",
       updatedAt: "2026-06-15T12:00:00.000Z",
     });

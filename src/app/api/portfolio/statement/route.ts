@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/requireAuth";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { apiError } from "@/lib/apiError";
 import { userRateLimit } from "@/lib/rateLimit";
+import { DATA_ACCURACY_RULE_JSON } from "@/lib/dataAccuracy";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -19,7 +20,7 @@ const SUPPORTED_TYPES = new Set([
 export async function POST(req: Request) {
   const { userId, error } = await requireAuth();
   if (error) return error;
-  const throttled = userRateLimit(userId, "portfolio-statement", {
+  const throttled = await userRateLimit(userId, "portfolio-statement", {
     capacity: 3,
     refillPerSec: 0.03,
   });
@@ -58,6 +59,8 @@ Rules for buyingPower:
 - Look for labels like: Buying Power, Cash, Cash Balance, Available Cash, Settled Cash, Available to Trade, Cash & Cash Equivalents, Money Market
 - Use the total USD cash/buying power value as a number (float)
 - Use null if no cash balance is visible in the statement
+
+${DATA_ACCURACY_RULE_JSON}
 
 Return only the JSON object, no other text`;
 

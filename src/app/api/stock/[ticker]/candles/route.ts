@@ -3,11 +3,15 @@
 
 import { NextResponse } from "next/server";
 import { getStockCandles, isChartRange } from "@/lib/stockData";
+import { rateLimitGuard } from "@/lib/rateLimit";
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ ticker: string }> }
 ) {
+  const limited = await rateLimitGuard(req, "stock-candles", { capacity: 20, refillPerSec: 0.5 });
+  if (limited) return limited;
+
   const { ticker } = await params;
   const symbol = (ticker ?? "").trim().toUpperCase();
   const { searchParams } = new URL(req.url);

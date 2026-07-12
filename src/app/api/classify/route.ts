@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { generate } from "@/lib/llm";
 import { withAuthRaw } from "@/lib/withRoute";
 import { ClassifyRequestSchema } from "@/lib/schemas/chat";
+import { pageContextRouteHint } from "@/lib/pageContext";
 import { checkUsageLimit, usageStore } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
 
@@ -72,10 +73,10 @@ export async function POST(req: Request) {
   if (res instanceof NextResponse) return res;
 
   const { userId, body } = res;
-  const { userPrompt, history, portfolioContext } = body;
+  const { userPrompt, history, portfolioContext, pageContext } = body;
 
   // Generous throttle — fires once per Auto-mode send, but it's a tiny call.
-  const throttled = userRateLimit(userId, "classify", { capacity: 15, refillPerSec: 1 });
+  const throttled = await userRateLimit(userId, "classify", { capacity: 15, refillPerSec: 1 });
   if (throttled) return throttled;
 
   const limited = await checkUsageLimit(userId);
@@ -90,8 +91,13 @@ export async function POST(req: Request) {
         .slice(-6)
         .map((m) => `${m.role}: ${m.content.slice(0, 300)}`)
         .join("\n");
+      // A viewed page pins the subject: vague references ("is this a buy?",
+      // "review these") are about what's on that page, so route accordingly and
+      // never clarify "which stock?" — the subject is already known.
+      const pageBlock = pageContext ? `${pageContextRouteHint(pageContext)}\n` : "";
       const prompt = [
         historyBlock ? `Recent conversation:\n${historyBlock}\n` : "",
+        pageBlock,
         portfolioContext ? "The user HAS a portfolio with holdings.\n" : "",
         `Latest message: ${userPrompt.slice(0, 2000)}`,
       ]

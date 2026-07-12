@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   // Public, unauthenticated, and sends an email + writes Firestore on first
   // signup — throttle per client IP so it can't be scripted into a mail-bomb or
   // unbounded write spam against Resend/Firestore.
-  const limited = rateLimitGuard(request, "waitlist", { capacity: 5, refillPerSec: 0.05 });
+  const limited = await rateLimitGuard(request, "waitlist", { capacity: 5, refillPerSec: 0.05 });
   if (limited) return limited;
 
   let email: string;

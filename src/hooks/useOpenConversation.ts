@@ -37,7 +37,7 @@ function toStoreMessages(messages: ConvMessage[]) {
  *  background and swapped in once it lands. */
 export function useOpenConversation() {
   const router = useRouter();
-  const { setMessages, setConversationId } = useChatStore();
+  const { setMessages, setConversationId, setPageContextForConv } = useChatStore();
 
   return function openConversation(conv: Conversation, opts?: { navigate?: boolean }) {
     // Each conversation keeps its own slice + messages keyed by id, so viewing
@@ -48,6 +48,9 @@ export function useOpenConversation() {
     if (!slice?.isStreaming) {
       setMessages(conv.id, toStoreMessages(conv.messages));
     }
+    // Rehydrate the page context so a follow-up typed on /chat keeps the ticker+
+    // data scope even across a reload (in-memory pageContextByConv is gone then).
+    if (conv.pageContext) setPageContextForConv(conv.id, conv.pageContext);
     setConversationId(conv.id);
 
     void (async () => {

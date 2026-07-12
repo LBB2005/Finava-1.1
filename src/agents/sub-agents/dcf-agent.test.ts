@@ -64,14 +64,32 @@ describe("runDcfAgent", () => {
     expect(p).toMatch(/dcfEstimatePerShare["\s:]+"\$/);
   });
 
-  it("reports a fetch failure when Finnhub throws", async () => {
+  it("reports a fetch failure (transport, not no-data) when Finnhub throws", async () => {
     vi.stubEnv("FINNHUB_API_KEY", "key");
     getBasicFinancials.mockRejectedValue(new Error("rate limited"));
     getFinancialsReported.mockResolvedValue({ data: [] });
     getSnapshots.mockResolvedValue([{ price: 1 }]);
     const { runDcfAgent } = await import("./dcf-agent");
     await runDcfAgent({ ticker: "AAPL" });
-    expect(lastPrompt().prompt).toContain("Could not fetch financials for AAPL");
+    const p = lastPrompt().prompt;
+    expect(p).toContain("Could not fetch financials for AAPL");
+    expect(p).toContain("temporarily unavailable"); // framed as a reachability problem
+  });
+
+  it("says 'no financials on file' when Finnhub responds with an empty report set", async () => {
+    // Distinct from the transport failure above: the source answered, it just has
+    // nothing on record — so we must not present it as a fetch problem, nor emit a
+    // wall of N/A that looks like a real (empty) valuation.
+    vi.stubEnv("FINNHUB_API_KEY", "key");
+    getBasicFinancials.mockResolvedValue({ metric: {} });
+    getFinancialsReported.mockResolvedValue({ data: [] });
+    getSnapshots.mockResolvedValue([{ price: 100 }]);
+    const { runDcfAgent } = await import("./dcf-agent");
+    await runDcfAgent({ ticker: "AAPL" });
+    const p = lastPrompt().prompt;
+    expect(p).toContain("No financial statements on file for AAPL");
+    expect(p).not.toContain("Could not fetch"); // not a transport failure
+    expect(p).not.toContain("dcfEstimatePerShare"); // no fake JSON valuation
   });
 
   it("returns a safe fallback string when the model yields nothing", async () => {

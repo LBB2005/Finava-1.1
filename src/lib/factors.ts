@@ -34,6 +34,7 @@ import { getCikByTicker, getCompanyFacts } from "@/lib/edgar";
 import { SP500 } from "@/lib/sp500";
 import { EXTRA_CONSTITUENTS } from "@/lib/extraUniverse";
 import type { FactorScores, Stock } from "@/lib/research";
+import type { SourceStatus } from "@/lib/fetchRetry";
 
 // ── small utilities ───────────────────────────────────────────────────────────
 function num(v: unknown): number | null {
@@ -166,19 +167,32 @@ function parseEdgar(facts: any): Fundamentals | null {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-async function fetchFundamentals(ticker: string): Promise<Fundamentals | null> {
+// Fundamentals plus a typed provenance so downstream can tell "we couldn't reach
+// the API" (failed) apart from "the API says this ticker has no filings"
+// (unavailable) — instead of collapsing both to a null → neutral-50 score.
+interface FundamentalsResult {
+  status: SourceStatus;
+  data: Fundamentals | null;
+}
+
+async function fetchFundamentals(ticker: string): Promise<FundamentalsResult> {
+  // `reached` stays true only while every source we tried answered without a
+  // transport error. A thrown fetch (post-retry 429/5xx/network) flips it false;
+  // an empty-but-successful response leaves it true (authoritative "no data").
+  let reached = true;
   try {
     const f = parsePolygon(await getAnnualFinancials(ticker));
-    if (f && f.revenue.length) return f;
-  } catch { /* fall through to EDGAR */ }
+    if (f && f.revenue.length) return { status: "ok", data: f };
+  } catch { reached = false; /* couldn't reach Polygon — fall through to EDGAR */ }
   try {
     const cik = await getCikByTicker(ticker);
     if (cik) {
       const f = parseEdgar(await getCompanyFacts(cik));
-      if (f && f.revenue.length) return f;
+      if (f && f.revenue.length) return { status: "ok", data: f };
     }
-  } catch { /* give up — this ticker's fundamentals stay null */ }
-  return null;
+    // cik == null: SEC's ticker file loaded and this ticker isn't in it → no filings.
+  } catch { reached = false; /* couldn't reach EDGAR */ }
+  return { status: reached ? "unavailable" : "failed", data: null };
 }
 
 // ── analyst (Finnhub) ─────────────────────────────────────────────────────────
@@ -188,6 +202,9 @@ async function fetchFundamentals(ticker: string): Promise<Fundamentals | null> {
 // stronger, more widely-covered indicator.
 interface AnalystRaw {
   skew: number | null; // -1 (all sell) … +1 (all strong buy)
+  // Same failed/unavailable provenance as fundamentals: a rate-limited Finnhub
+  // call (failed) must not read as "no analysts cover this name" (unavailable).
+  status: SourceStatus;
 }
 
 async function fetchAnalyst(ticker: string): Promise<AnalystRaw> {
@@ -197,10 +214,11 @@ async function fetchAnalyst(ticker: string): Promise<AnalystRaw> {
       const r = rec[0] as Record<string, number>; // latest period first
       const sb = r.strongBuy ?? 0, b = r.buy ?? 0, h = r.hold ?? 0, s = r.sell ?? 0, ss = r.strongSell ?? 0;
       const total = sb + b + h + s + ss;
-      if (total > 0) return { skew: (2 * sb + b - s - 2 * ss) / (2 * total) }; // normalise to [-1, 1]
+      if (total > 0) return { skew: (2 * sb + b - s - 2 * ss) / (2 * total), status: "ok" }; // normalise to [-1, 1]
     }
-  } catch { /* rate-limited or unknown symbol → neutral */ }
-  return { skew: null };
+    return { skew: null, status: "unavailable" }; // responded, but no coverage for this ticker
+  } catch { /* rate-limited or network → we don't know */ }
+  return { skew: null, status: "failed" };
 }
 
 // ── momentum (from daily closes) ───────────────────────────────────────────────
@@ -298,7 +316,19 @@ function sectorPercentile(raw: (number | null)[], sectors: string[], dir: Dir): 
 export interface FactorUniverse {
   stocks: Stock[];
   asOf: string;
-  coverage: { total: number; fundamentals: number; analyst: number; momentum: number; priced: number };
+  coverage: {
+    total: number;
+    fundamentals: number;
+    analyst: number;
+    momentum: number;
+    priced: number;
+    // How many names fell back to neutral scores because a source could not be
+    // reached (transient), NOT because the data genuinely doesn't exist. Lets a
+    // caller distinguish "the board is thin right now" from "these names have no
+    // filings" — the whole point of threading SourceStatus through.
+    fundamentalsFailed: number;
+    analystFailed: number;
+  };
 }
 
 export async function computeFactorUniverse(): Promise<FactorUniverse> {
@@ -318,7 +348,7 @@ export async function computeFactorUniverse(): Promise<FactorUniverse> {
   ]);
 
   const price = (i: number) => snaps.get(tickers[i])?.price ?? null;
-  const fund = (i: number) => funds[i] ?? EMPTY_FUND;
+  const fund = (i: number) => funds[i].data ?? EMPTY_FUND;
   const mom = tickers.map((t) => momentum(closeHist.get(t)));
 
   // Per-stock raw sub-metrics (index-aligned).
@@ -401,15 +431,22 @@ export async function computeFactorUniverse(): Promise<FactorUniverse> {
       marketCap: cap,
       pe: peVal,
       live: p != null,
+      // Provenance of the fundamentals behind `f`: "ok" = real inputs, "unavailable"
+      // = no filings on record, "failed" = source unreachable (scores are a neutral
+      // placeholder, not a judgement). The UI can flag "failed" instead of implying
+      // the neutral 50 is real data.
+      fundStatus: funds[i].status,
     };
   });
 
   const coverage = {
     total: list.length,
-    fundamentals: funds.filter((f) => f && f.revenue.length).length,
-    analyst: analysts.filter((a) => a.skew != null).length,
+    fundamentals: funds.filter((r) => r.status === "ok").length,
+    analyst: analysts.filter((a) => a.status === "ok").length,
     momentum: mom.filter((m) => m.ret3 != null).length,
     priced: tickers.filter((_, i) => price(i) != null).length,
+    fundamentalsFailed: funds.filter((r) => r.status === "failed").length,
+    analystFailed: analysts.filter((a) => a.status === "failed").length,
   };
 
   return { stocks, asOf: new Date().toISOString(), coverage };

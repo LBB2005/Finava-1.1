@@ -50,12 +50,13 @@ export const GET = withRoute({}, async ({ req, userId }) => {
 });
 
 export const POST = withRoute({ body: CreateConversationSchema }, async ({ userId, body }) => {
-  const { id, title, context } = body;
+  const { id, title, context, pageContext } = body;
   const now = new Date().toISOString();
   const data = {
     userId,
     title: title ?? null,
     context: context ?? null,
+    pageContext: pageContext ?? null,
     createdAt: now,
     updatedAt: now,
   };

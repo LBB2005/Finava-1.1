@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PageContextSchema } from "@/lib/pageContext";
 
 /**
  * Body schema for `POST /api/chat` (SSE).
@@ -22,6 +23,9 @@ export const ChatRequestSchema = z.object({
   portfolioContext: z.string().optional(),
   /** Optional response-template id whose instructions/format shape the answer. */
   templateId: z.string().max(200).optional(),
+  /** Snapshot of the stock/research page the message was composed on, so the
+   *  model scopes its answer to that ticker and resolves vague references. */
+  pageContext: PageContextSchema.optional(),
 });
 
 export type ChatRequestBody = z.infer<typeof ChatRequestSchema>;
@@ -46,6 +50,9 @@ export const ClassifyRequestSchema = z.object({
     .max(20)
     .optional(),
   portfolioContext: z.string().optional(),
+  /** Page the message was composed on. Lets the router resolve vague references
+   *  ("is this a buy?") to the viewed ticker instead of asking "which stock?". */
+  pageContext: PageContextSchema.optional(),
 });
 
 export type ClassifyRequestBody = z.infer<typeof ClassifyRequestSchema>;

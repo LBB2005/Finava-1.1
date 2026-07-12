@@ -32,7 +32,7 @@ export default function ChatContextButton({ context }: { context: ChatContext })
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const openConversation = useOpenConversation();
-  const { reset, setPendingContext } = useChatStore();
+  const { reset, setPendingContext, setPendingPageContext } = useChatStore();
 
   const { data } = useSWR<Conversation[]>("/api/conversations", authFetcher, {
     refreshInterval: 30_000, revalidateOnFocus: true,
@@ -54,8 +54,15 @@ export default function ChatContextButton({ context }: { context: ChatContext })
   }, [open]);
 
   function newChat() {
-    setPendingContext(context);
+    // Capture the page's snapshot before we navigate away (this button lives on
+    // the stock page, so activePageContext is populated here).
+    const pc = useChatStore.getState().activePageContext;
+    // reset() FIRST — it nulls pendingContext, so the tag/page context must be
+    // primed AFTER it or they'd be wiped (this ordering was previously inverted,
+    // silently dropping the page tag from launched chats).
     reset();
+    setPendingContext(context);
+    if (pc) setPendingPageContext(pc);
     setOpen(false);
     router.push("/chat");
   }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PageContextSchema } from "@/lib/pageContext";
 
 const OptionalTrimmedString = (max: number) =>
   z.preprocess(
@@ -10,6 +11,9 @@ export const CreateConversationSchema = z.object({
   id: OptionalTrimmedString(128),
   title: OptionalTrimmedString(200).nullable().optional(),
   context: z.string().max(50_000).nullable().optional(),
+  /** Page snapshot (ticker + data) the chat was started from, persisted so
+   *  follow-ups survive a reload with their scope intact. */
+  pageContext: PageContextSchema.nullable().optional(),
 });
 
 export type CreateConversationBody = z.infer<typeof CreateConversationSchema>;

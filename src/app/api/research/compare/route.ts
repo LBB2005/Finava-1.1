@@ -54,7 +54,7 @@ function describe(s: CompareStock): string {
 export async function POST(req: Request) {
   const { userId, error: authError } = await requireAuth();
   if (authError) return authError;
-  const throttled = userRateLimit(userId, "research-compare");
+  const throttled = await userRateLimit(userId, "research-compare");
   if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;

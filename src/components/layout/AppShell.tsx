@@ -36,12 +36,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isShare = pathname.startsWith("/share/");
   // Legal pages are public marketing-style pages — no app chrome.
   const isLegal = pathname === "/privacy" || pathname === "/terms";
-  // Experimental landing prototypes (v2, v3, …) render full-bleed like marketing.
-  const isLandingProto = /^\/v\d+(\/|$)/.test(pathname);
 
   // Marketing landing is always full-bleed, even mid auth-resolution, so the
   // sidebar never flashes for an authed user before the /chat redirect lands.
-  if (isLanding || isShare || isLandingProto || isLegal) {
+  if (isLanding || isShare || isLegal) {
     return <main className="h-full w-full overflow-y-auto">{children}</main>;
   }
 

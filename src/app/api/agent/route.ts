@@ -3,6 +3,7 @@ import { runCeoAgent } from "@/agents/ceo";
 import { runDiscoveryWave, runDiscoverySynthesis } from "@/agents/discovery";
 import { withAuthRaw } from "@/lib/withRoute";
 import { AgentRequestSchema } from "@/lib/schemas/agent";
+import { pageContextPrompt } from "@/lib/pageContext";
 import { userRateLimit } from "@/lib/rateLimit";
 import {
   checkUsageLimit,
@@ -32,12 +33,20 @@ export async function POST(req: Request) {
     tier,
     wave,
     templateId,
+    pageContext,
   } = body;
+
+  // Fold the viewed-page snapshot into the CEO's context block so the crew scopes
+  // its work to the stock the user is looking at (and resolves "this"/"it" to that
+  // ticker), without threading a new arg through every sub-agent.
+  const ceoContext = pageContext
+    ? `${pageContextPrompt(pageContext)}\n\n${portfolioContext ?? ""}`.trim()
+    : portfolioContext ?? "";
 
   // Per-user burst throttle: each run is a long, expensive crew, so cap
   // concurrent/scripted bursts before the read-then-act credit meter can be
   // overshot. Tighter than the chat default since one run does far more work.
-  const throttled = userRateLimit(userId, "agent", { capacity: 4, refillPerSec: 0.1 });
+  const throttled = await userRateLimit(userId, "agent", { capacity: 4, refillPerSec: 0.1 });
   if (throttled) return throttled;
 
   // Hard cap: block before any model spend if the user is over their allowance.
@@ -79,7 +88,7 @@ export async function POST(req: Request) {
             await runDiscoveryWave(wave as unknown as WaveRequest, emit);
           } else {
             // Normal CEO turn (incl. quick discover + deep shortlist emit).
-            await runCeoAgent(userPrompt ?? "", portfolioContext ?? "", emit, {
+            await runCeoAgent(userPrompt ?? "", ceoContext, emit, {
               deepResearch: !!deepResearch,
               // Length-capped by the schema; element shape is consumed loosely
               // downstream, so cast to the expected param types.

@@ -27,8 +27,8 @@ describe("rateLimit", () => {
   });
 
   it("returns retryable 429 responses for exhausted user and request buckets", async () => {
-    expect(userRateLimit("user_123", "agent", { capacity: 1, refillPerSec: 0 })).toBeNull();
-    const userBlocked = userRateLimit("user_123", "agent", { capacity: 1, refillPerSec: 0 });
+    expect(await userRateLimit("user_123", "agent", { capacity: 1, refillPerSec: 0 })).toBeNull();
+    const userBlocked = await userRateLimit("user_123", "agent", { capacity: 1, refillPerSec: 0 });
 
     expect(userBlocked?.status).toBe(429);
     expect(userBlocked?.headers.get("Retry-After")).toBe("10");
@@ -39,7 +39,7 @@ describe("rateLimit", () => {
     const req = new Request("http://localhost/api/quotes", {
       headers: { "x-forwarded-for": "203.0.113.9" },
     });
-    expect(rateLimitGuard(req, "quotes", { capacity: 1, refillPerSec: 0 })).toBeNull();
-    expect(rateLimitGuard(req, "quotes", { capacity: 1, refillPerSec: 0 })?.status).toBe(429);
+    expect(await rateLimitGuard(req, "quotes", { capacity: 1, refillPerSec: 0 })).toBeNull();
+    expect((await rateLimitGuard(req, "quotes", { capacity: 1, refillPerSec: 0 }))?.status).toBe(429);
   });
 });

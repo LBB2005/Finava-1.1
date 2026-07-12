@@ -27,7 +27,7 @@ export async function POST(
 ) {
   const { userId, error: authError } = await requireAuth();
   if (authError) return authError;
-  const throttled = userRateLimit(userId, "money-map");
+  const throttled = await userRateLimit(userId, "money-map");
   if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;

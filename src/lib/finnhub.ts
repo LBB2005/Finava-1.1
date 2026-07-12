@@ -1,5 +1,6 @@
 import { getAggregates } from "@/lib/polygon";
 import { getAlpacaBars, hasAlpacaData } from "@/lib/alpaca";
+import { fetchWithRetry } from "@/lib/fetchRetry";
 
 const BASE = "https://finnhub.io/api/v1";
 const KEY = process.env.FINNHUB_API_KEY;
@@ -7,10 +8,13 @@ const FETCH_TIMEOUT_MS = 10_000;
 
 async function fhFetch(path: string, revalidate = 30) {
   const sep = path.includes("?") ? "&" : "?";
-  const res = await fetch(`${BASE}${path}${sep}token=${KEY}`, {
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    next: { revalidate },
-  });
+  // Retry transient 429/5xx/network blips before giving up (see fetchWithRetry):
+  // at S&P 500 scale a single free-tier rate-limit shouldn't null a metric.
+  const res = await fetchWithRetry(
+    `${BASE}${path}${sep}token=${KEY}`,
+    { next: { revalidate } },
+    { timeoutMs: FETCH_TIMEOUT_MS },
+  );
   if (!res.ok) throw new Error(`Finnhub ${res.status}: ${path}`);
   return res.json();
 }

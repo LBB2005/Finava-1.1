@@ -75,4 +75,44 @@ describe("runSupplyChainAgent", () => {
     mGen.mockRejectedValueOnce(new Error("model down"));
     expect(await runSupplyChainAgent("NVDA", "Nvidia")).toEqual([]);
   });
+
+  it("recomputes when the cache entry is corrupt JSON instead of crashing", async () => {
+    mCheck.mockResolvedValueOnce("{not valid json"); // survives JSON.parse throw
+    mCik.mockResolvedValueOnce(null);
+    mGen.mockResolvedValueOnce(JSON.stringify({ customers: [], suppliers: [] }));
+    const out = await runSupplyChainAgent("NVDA", "Nvidia");
+    expect(out).toEqual([]);
+    expect(mGen).toHaveBeenCalledOnce(); // fell through to a fresh compute
+  });
+
+  it("recomputes when the cache entry is valid JSON but not an array", async () => {
+    mCheck.mockResolvedValueOnce(JSON.stringify({ unexpected: "shape" }));
+    mCik.mockResolvedValueOnce(null);
+    mGen.mockResolvedValueOnce(JSON.stringify({ customers: [], suppliers: [] }));
+    await runSupplyChainAgent("NVDA", "Nvidia");
+    expect(mGen).toHaveBeenCalledOnce();
+  });
+
+  it("does not attach foreign/compound symbols to an unresolved node", async () => {
+    mCheck.mockResolvedValueOnce(null);
+    mCik.mockResolvedValueOnce(null);
+    mGen.mockResolvedValueOnce(
+      JSON.stringify({ customers: [{ name: "Taiwan Semi", ticker: null }], suppliers: [] }),
+    );
+    // Finnhub returns a foreign listing — the "." must disqualify it.
+    mSearch.mockResolvedValueOnce({ result: [{ symbol: "TSM.L" }] });
+    const out = await runSupplyChainAgent("NVDA", "Nvidia");
+    expect(out.find((r) => r.name === "Taiwan Semi")!.ticker).toBeFalsy(); // stayed non-clickable
+  });
+
+  it("leaves a node non-clickable when the symbol search errors", async () => {
+    mCheck.mockResolvedValueOnce(null);
+    mCik.mockResolvedValueOnce(null);
+    mGen.mockResolvedValueOnce(
+      JSON.stringify({ customers: [{ name: "Mystery Co", ticker: null }], suppliers: [] }),
+    );
+    mSearch.mockRejectedValueOnce(new Error("finnhub 429"));
+    const out = await runSupplyChainAgent("NVDA", "Nvidia");
+    expect(out.find((r) => r.name === "Mystery Co")!.ticker).toBeFalsy();
+  });
 });

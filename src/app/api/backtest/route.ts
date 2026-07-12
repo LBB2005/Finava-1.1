@@ -40,7 +40,7 @@ export interface BacktestResult {
 export const POST = withRoute({ body: BacktestRequestSchema }, async ({ userId, body }) => {
   const gate = await requireEntitlement(userId, "quantSuite");
   if (gate) return gate;
-  const throttled = userRateLimit(userId, "backtest");
+  const throttled = await userRateLimit(userId, "backtest");
   if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;

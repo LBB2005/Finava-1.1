@@ -168,6 +168,9 @@ describe("computeFactorUniverse", () => {
     // No usable fundamentals/momentum/analyst → neutral 50 across factors.
     expect(ddd.f.growth).toBe(50);
     expect(ddd.f.analyst).toBe(50);
+    // Both sources RESPONDED with no data (Polygon empty, no CIK) → "unavailable",
+    // NOT "failed". This is the genuine-no-data half of the distinction.
+    expect(ddd.fundStatus).toBe("unavailable");
   });
 
   it("reports coverage counts for analyst and priced names", async () => {
@@ -175,5 +178,41 @@ describe("computeFactorUniverse", () => {
     const { coverage } = await computeFactorUniverse();
     expect(coverage.analyst).toBe(3); // AAA, BBB, CCC have a skew; DDD null
     expect(coverage.priced).toBe(3); // AAA, BBB, CCC priced; DDD absent
+    // Happy path: nothing throws, so nothing is a transport failure.
+    expect(coverage.fundamentalsFailed).toBe(0);
+    expect(coverage.analystFailed).toBe(0);
+  });
+
+  it("marks a name 'failed' (not 'unavailable') when its sources can't be reached", async () => {
+    // Distinguishing these is the whole point: a rate-limit blip must not read as
+    // "this company has no financials". Force a transport failure for DDD.
+    const { getAnnualFinancials } = await import("@/lib/polygon");
+    const { getRecommendationTrends } = await import("@/lib/finnhub");
+    const polyImpl = vi.mocked(getAnnualFinancials).getMockImplementation()!;
+    const recImpl = vi.mocked(getRecommendationTrends).getMockImplementation()!;
+    vi.mocked(getAnnualFinancials).mockImplementation(async (t: string) => {
+      if (t === "DDD") throw new Error("429 rate limited");
+      return polyImpl(t);
+    });
+    // DDD has no CIK (EDGAR fallback finds nothing to reach), and Finnhub throws too.
+    vi.mocked(getRecommendationTrends).mockImplementation(async (t: string) => {
+      if (t === "DDD") throw new Error("429 rate limited");
+      return recImpl(t);
+    });
+
+    try {
+      const { computeFactorUniverse } = await import("./factors");
+      const { stocks, coverage } = await computeFactorUniverse();
+      const ddd = stocks.find((s) => s.ticker === "DDD")!;
+      expect(ddd.fundStatus).toBe("failed"); // couldn't reach the source, ≠ no data
+      expect(ddd.f.growth).toBe(50); // still on the board with a neutral placeholder
+      expect(coverage.fundamentalsFailed).toBe(1);
+      expect(coverage.analystFailed).toBe(1);
+      // The genuinely-scored names are unaffected.
+      expect(coverage.fundamentals).toBe(3);
+    } finally {
+      vi.mocked(getAnnualFinancials).mockImplementation(polyImpl);
+      vi.mocked(getRecommendationTrends).mockImplementation(recImpl);
+    }
   });
 });

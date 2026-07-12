@@ -115,7 +115,7 @@ async function handleSuggest(summary: unknown) {
 export async function POST(req: Request) {
   const { userId, error: authError } = await requireAuth();
   if (authError) return authError;
-  const throttled = userRateLimit(userId, "research-screen");
+  const throttled = await userRateLimit(userId, "research-screen");
   if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;

@@ -14,6 +14,8 @@ import {
 import ChatContextButton from "@/components/chat/ChatContextButton";
 import PageHeader from "@/components/layout/PageHeader";
 import AddTickerSearch from "@/components/watchlist/AddTickerSearch";
+import { useChatStore } from "@/stores/chatStore";
+import { buildWatchlistSnapshot } from "@/lib/pageContext";
 
 // ─── Data helpers ────────────────────────────────────────────────────────────
 
@@ -377,6 +379,20 @@ export default function WatchlistSplitRail() {
 
   const active = watchlists.find((w) => w.id === activeId) ?? null;
   const tickers = active?.tickers ?? [];
+
+  // Publish the active watchlist as app-wide page context, so a chat sent here
+  // ("which of these looks strongest?") is scoped to these names.
+  useEffect(() => {
+    const setActivePageContext = useChatStore.getState().setActivePageContext;
+    if (active) {
+      setActivePageContext({
+        kind: "watchlist",
+        label: active.name,
+        snapshot: buildWatchlistSnapshot(active.name, active.tickers),
+      });
+    }
+    return () => setActivePageContext(null);
+  }, [active?.id, active?.name, tickers.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { liveMap } = useLiveBoard(tickers);
   const { universe } = useFactorUniverse();

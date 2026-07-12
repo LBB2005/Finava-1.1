@@ -11,6 +11,8 @@
    (nightly job → Firestore/API); every function here stays the same.
    ============================================================ */
 
+import type { SourceStatus } from "@/lib/fetchRetry";
+
 export type FactorKey = "mom" | "growth" | "quality" | "analyst" | "value" | "health";
 
 export interface Factor {
@@ -57,6 +59,13 @@ export interface Stock {
   rvol?: number | null;
   /** True once a live quote has been applied (so the UI can stop showing a loading state). */
   live?: boolean;
+  /**
+   * Provenance of the fundamentals behind `f`: "ok" = scored from real filings,
+   * "unavailable" = no filings on record, "failed" = the data source couldn't be
+   * reached so the factor scores are a neutral placeholder rather than a real
+   * reading. Undefined on seed/overlay rows that never fetched fundamentals.
+   */
+  fundStatus?: SourceStatus;
 }
 
 /** Live market-data overlay for one ticker, as returned by /api/leaderboard. */

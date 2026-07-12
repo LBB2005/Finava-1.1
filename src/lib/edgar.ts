@@ -1,10 +1,13 @@
+import { fetchWithRetry } from "@/lib/fetchRetry";
+
 const EDGAR_BASE = "https://data.sec.gov";
 const USER_AGENT = "Finava App liamblackshawbrown@gmail.com";
 
 async function edgarFetch(url: string) {
-  const res = await fetch(url, {
+  // Retry transient 429/5xx/network blips before giving up (see fetchWithRetry) —
+  // SEC throttles bursts, and this is the factor engine's fundamentals fallback.
+  const res = await fetchWithRetry(url, {
     headers: { "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(10_000),
     next: { revalidate: 3600 },
   });
   if (!res.ok) throw new Error(`EDGAR ${res.status}: ${url}`);

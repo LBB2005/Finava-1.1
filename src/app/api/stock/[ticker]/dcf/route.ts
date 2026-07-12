@@ -13,6 +13,7 @@ import {
 import { getQuote, getCompanyProfile } from "@/lib/finnhub";
 import { suggestedWaccFromBeta, type DcfInputs } from "@/lib/dcf";
 import { getBasicFinancials } from "@/lib/finnhub";
+import { rateLimitGuard } from "@/lib/rateLimit";
 
 function num(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
@@ -29,9 +30,12 @@ function revenueCagr(series: { year: number; value: number }[]): number | null {
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ ticker: string }> }
 ) {
+  const limited = await rateLimitGuard(req, "stock-dcf", { capacity: 20, refillPerSec: 0.5 });
+  if (limited) return limited;
+
   const { ticker } = await params;
   const symbol = (ticker ?? "").trim().toUpperCase();
   if (!symbol) return NextResponse.json({ error: "Missing ticker." }, { status: 400 });

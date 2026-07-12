@@ -105,7 +105,7 @@ export async function GET(req: Request) {
   // abuse even though warm results are served from the shared in-process cache.
   const { error } = await requireAuth();
   if (error) return error;
-  const limited = rateLimitGuard(req, "research-themes", { capacity: 5, refillPerSec: 0.1 });
+  const limited = await rateLimitGuard(req, "research-themes", { capacity: 5, refillPerSec: 0.1 });
   if (limited) return limited;
 
   if (!process.env.OPENROUTER_API_KEY) {

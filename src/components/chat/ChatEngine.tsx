@@ -11,6 +11,7 @@ import { buildPortfolioContext } from "./ChatContainer";
 import type { Conversation } from "@/components/layout/ConversationList";
 import type { ChatMessage, ChatMode, AgentEvent, AgentStep } from "@/types/chat";
 import type { ChatContext } from "@/lib/chatContext";
+import type { PageContext } from "@/lib/pageContext";
 import {
   WAVE_SIZE,
   VALUATION_PER_WAVE,
@@ -102,11 +103,11 @@ export default function ChatEngine() {
   // Persist the conversation under the client-generated id. Awaited before any
   // message write so the parent doc exists, but NOT before the streaming UI
   // renders — that's already shown optimistically.
-  async function createConversation(id: string, context: ChatContext): Promise<void> {
+  async function createConversation(id: string, context: ChatContext, pageContext?: PageContext | null): Promise<void> {
     await authFetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, title: null, context }),
+      body: JSON.stringify({ id, title: null, context, pageContext: pageContext ?? undefined }),
     });
   }
 
@@ -162,7 +163,7 @@ export default function ChatEngine() {
     }
   }
 
-  async function runSimpleChat(text: string, portfolioContext: string, convId: string, mode: ChatMode, history: ChatMessage[], templateId?: string) {
+  async function runSimpleChat(text: string, portfolioContext: string, convId: string, mode: ChatMode, history: ChatMessage[], templateId?: string, pageContext?: PageContext | null) {
     const apiMessages = [
       ...history.filter((m) => m.mode === "simple" || m.mode === "auto"),
       { role: "user" as const, content: text, mode: "simple" as ChatMode },
@@ -172,7 +173,7 @@ export default function ChatEngine() {
       const res = await authFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages, portfolioContext, templateId }),
+        body: JSON.stringify({ messages: apiMessages, portfolioContext, templateId, pageContext: pageContext ?? undefined }),
         signal: streamAborters.get(convId)?.signal,
       });
 
@@ -225,11 +226,11 @@ export default function ChatEngine() {
     }
   }
 
-  async function runAgentMode(text: string, portfolioContext: string, convId: string, mode: ChatMode, deepResearch = false, conversationHistory: { role: "user" | "assistant"; content: string }[] = [], templateId?: string) {
+  async function runAgentMode(text: string, portfolioContext: string, convId: string, mode: ChatMode, deepResearch = false, conversationHistory: { role: "user" | "assistant"; content: string }[] = [], templateId?: string, pageContext?: PageContext | null) {
     s().setAgentSteps(convId, []);
     s().setCeoThinking(convId, "");
 
-    const retry = () => { void runAgentMode(text, portfolioContext, convId, mode, deepResearch, conversationHistory, templateId); };
+    const retry = () => { void runAgentMode(text, portfolioContext, convId, mode, deepResearch, conversationHistory, templateId, pageContext); };
 
     try {
       const res = await authFetch("/api/agent", {
@@ -242,6 +243,7 @@ export default function ChatEngine() {
           conversationHistory,
           holdings: ctxRef.current.holdings.map((h) => ({ ticker: h.ticker, shares: h.shares })),
           templateId,
+          pageContext: pageContext ?? undefined,
         }),
         signal: streamAborters.get(convId)?.signal,
       });
@@ -579,9 +581,10 @@ export default function ChatEngine() {
     portfolioContext: string,
     convId: string,
     prior: ChatMessage[],
-    templateId?: string
+    templateId?: string,
+    pageContext?: PageContext | null
   ) {
-    const retry = () => { void runAuto(text, portfolioContext, convId, prior, templateId); };
+    const retry = () => { void runAuto(text, portfolioContext, convId, prior, templateId, pageContext); };
     try {
       // Clarify continuation: if we asked a question last turn, this message is
       // the answer — fold it into the original prompt and don't clarify again.
@@ -608,6 +611,7 @@ export default function ChatEngine() {
             userPrompt: combined,
             history: prior.slice(-6).map((m) => ({ role: m.role, content: m.content })),
             portfolioContext,
+            pageContext: pageContext ?? undefined,
           }),
           signal: streamAborters.get(convId)?.signal,
         });
@@ -653,9 +657,9 @@ export default function ChatEngine() {
         const agentHistory = prior
           .filter((m) => m.mode === "agent" || m.mode === "deep_research" || m.mode === "auto")
           .map((m) => ({ role: m.role, content: m.content }));
-        await runAgentMode(combined, portfolioContext, convId, "agent", false, agentHistory, templateId);
+        await runAgentMode(combined, portfolioContext, convId, "agent", false, agentHistory, templateId, pageContext);
       } else {
-        await runSimpleChat(combined, portfolioContext, convId, "simple", prior, templateId);
+        await runSimpleChat(combined, portfolioContext, convId, "simple", prior, templateId, pageContext);
       }
     } catch (err) {
       console.error("[auto] error:", err);
@@ -680,6 +684,12 @@ export default function ChatEngine() {
     // History BEFORE the new user message is added (for context building).
     const prior = s().messagesOf(convId);
 
+    // Resolve the page context for this turn: the snapshot captured at send time
+    // (user was on the page), else the one this conversation already remembers
+    // (a follow-up typed on /chat after navigating away). Either way it's threaded
+    // into the model payload AND persisted so the NEXT follow-up keeps it too.
+    const pageContext = req.pageContext ?? (convId ? s().pageContextByConv[convId] ?? null : null);
+
     try {
       // New chat: render everything optimistically (id, sidebar row, streaming
       // state) before any network call, then persist in the background.
@@ -688,6 +698,7 @@ export default function ChatEngine() {
         s().setConversationId(convId); // view the new chat
         insertOptimisticConversation(convId, context, text, mode);
       }
+      if (pageContext) s().setPageContextForConv(convId, pageContext);
       streamAborters.set(convId, new AbortController());
 
       s().addMessage(convId, {
@@ -702,7 +713,9 @@ export default function ChatEngine() {
       s().clearStreamingContent(convId);
 
       // Persist the parent doc before any message write, but after the UI is live.
-      if (isNew) await createConversation(convId, context);
+      // Store the page context on it too, so follow-ups keep the ticker+data even
+      // after a reload rehydrates the conversation from scratch.
+      if (isNew) await createConversation(convId, context, pageContext);
 
       const { holdings, cashBalance, quoteMap } = ctxRef.current;
       // Markov signals used to block the entire send — each holding spawns a
@@ -718,17 +731,17 @@ export default function ChatEngine() {
         .map((m) => ({ role: m.role, content: m.content }));
 
       if (mode === "auto") {
-        await runAuto(text, portfolioContext, convId, prior, templateId);
+        await runAuto(text, portfolioContext, convId, prior, templateId, pageContext);
       } else if (mode === "backtest") {
         await runBacktest(text, convId, mode);
       } else if (mode === "simple") {
-        await runSimpleChat(text, portfolioContext, convId, mode, prior, templateId);
+        await runSimpleChat(text, portfolioContext, convId, mode, prior, templateId, pageContext);
       } else if (mode === "discover") {
         await runDiscoverMode(text, portfolioContext, convId, "quick");
       } else if (mode === "deep_research") {
-        await runAgentMode(text, portfolioContext, convId, mode, true, agentHistory, templateId);
+        await runAgentMode(text, portfolioContext, convId, mode, true, agentHistory, templateId, pageContext);
       } else {
-        await runAgentMode(text, portfolioContext, convId, mode, false, agentHistory, templateId);
+        await runAgentMode(text, portfolioContext, convId, mode, false, agentHistory, templateId, pageContext);
       }
     } catch (err) {
       console.error("[send] top-level error:", err);
@@ -739,7 +752,7 @@ export default function ChatEngine() {
         streamAborters.delete(failedId);
       }
       notifyChatError(failedId, "Couldn't send your message. Check your connection and retry.", () =>
-        s().enqueueSend({ convId: failedId, text, mode, context, kind: "send" })
+        s().enqueueSend({ convId: failedId, text, mode, context, pageContext, kind: "send" })
       );
     }
   }
@@ -762,17 +775,19 @@ export default function ChatEngine() {
   // follow-up typed on /chat) continues the viewed conversation.
   useEffect(() => {
     if (!pendingMessage) return;
-    const { conversationId, mode, pendingContext, activeTemplate } = useChatStore.getState();
+    const { conversationId, mode, pendingContext, pendingPageContext, activeTemplate } = useChatStore.getState();
     useChatStore.getState().setPendingMessage("");
     useChatStore.getState().enqueueSend({
       convId: pendingContext ? null : conversationId,
       text: pendingMessage,
       mode,
       context: pendingContext,
+      pageContext: pendingPageContext,
       kind: "send",
       templateId: activeTemplate?.id,
     });
     if (pendingContext) useChatStore.getState().setPendingContext(null);
+    if (pendingPageContext) useChatStore.getState().setPendingPageContext(null);
     if (activeTemplate) useChatStore.getState().setActiveTemplate(null);
   }, [pendingMessage]);
 

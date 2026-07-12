@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import type { ChatMessage, ChatMode, AgentStep } from "@/types/chat";
 import type { ChatContext } from "@/lib/chatContext";
+import type { PageContext } from "@/lib/pageContext";
 
 // ── Per-conversation streaming state ────────────────────────────────────────
 // Each conversation owns its own live slice so multiple chats can stream at the
@@ -40,6 +41,10 @@ export interface SendRequest {
   mode: ChatMode;
   /** Context to stamp on a newly-created conversation. */
   context: ChatContext;
+  /** Rich snapshot of the page this send was composed on (ticker + data), so the
+   *  model can scope its answer. Captured at enqueue time — before the composing
+   *  page can unmount — then remembered per-conversation for follow-up turns. */
+  pageContext?: PageContext | null;
   /** "send" routes by mode; "deepen" escalates a quick discover to a deep run. */
   kind: "send" | "deepen";
   /** Optional response-template id whose instructions/format shape this answer. */
@@ -61,6 +66,16 @@ interface ChatState {
   pendingMessage: string;
   /** Context to stamp on the NEXT conversation created. Consumed at create time. */
   pendingContext: ChatContext;
+  /** The page context the currently-viewed page publishes (e.g. the stock page
+   *  writes its loaded bundle snapshot here). Read at send time; null off-page. */
+  activePageContext: PageContext | null;
+  /** Rich page context riding on the next send. Captured synchronously from
+   *  activePageContext by the composer/launcher before navigation unmounts the
+   *  page, then consumed by the engine's pendingMessage effect. */
+  pendingPageContext: PageContext | null;
+  /** Page context remembered per conversation, so a follow-up typed on /chat
+   *  (after navigating away from the stock page) still carries the ticker+data. */
+  pageContextByConv: Record<string, PageContext>;
   /** Response template riding on the next send (shown as a composer chip).
    *  Shared between the composer and the empty-state picker; cleared on send. */
   activeTemplate: { id: string; title: string } | null;
@@ -74,6 +89,9 @@ interface ChatState {
   setMode: (mode: ChatMode) => void;
   setPendingMessage: (msg: string) => void;
   setPendingContext: (ctx: ChatContext) => void;
+  setActivePageContext: (pc: PageContext | null) => void;
+  setPendingPageContext: (pc: PageContext | null) => void;
+  setPageContextForConv: (convId: string, pc: PageContext) => void;
   setActiveTemplate: (t: { id: string; title: string } | null) => void;
 
   // ── send queue ──
@@ -118,6 +136,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   sendQueue: [],
   pendingMessage: "",
   pendingContext: null,
+  activePageContext: null,
+  pendingPageContext: null,
+  pageContextByConv: {},
   activeTemplate: null,
 
   slice: (convId) => (convId ? get().streamsByConv[convId] ?? emptySlice() : emptySlice()),
@@ -127,6 +148,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setMode: (mode) => set({ mode }),
   setPendingMessage: (msg) => set({ pendingMessage: msg }),
   setPendingContext: (ctx) => set({ pendingContext: ctx }),
+  setActivePageContext: (pc) => set({ activePageContext: pc }),
+  setPendingPageContext: (pc) => set({ pendingPageContext: pc }),
+  setPageContextForConv: (convId, pc) =>
+    set((s) => ({ pageContextByConv: { ...s.pageContextByConv, [convId]: pc } })),
   setActiveTemplate: (t) => set({ activeTemplate: t }),
 
   enqueueSend: (req) =>
@@ -212,5 +237,5 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }),
 
-  reset: () => set({ conversationId: null, pendingMessage: "", pendingContext: null, activeTemplate: null }),
+  reset: () => set({ conversationId: null, pendingMessage: "", pendingContext: null, pendingPageContext: null, activeTemplate: null }),
 }));

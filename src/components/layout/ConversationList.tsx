@@ -3,6 +3,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { useChatStore } from "@/stores/chatStore";
 import { useToast } from "@/hooks/useToast";
+import type { PageContext } from "@/lib/pageContext";
 
 interface ConvMessage {
   id: string; role: string; content: string; mode: string; createdAt: string; agentTrace?: string; durationMs?: number; context?: string | null;
@@ -10,6 +11,7 @@ interface ConvMessage {
 export interface Conversation {
   id: string; title: string | null; createdAt: string; updatedAt: string;
   context?: string | null;
+  pageContext?: PageContext | null;
   messages: ConvMessage[];
 }
 

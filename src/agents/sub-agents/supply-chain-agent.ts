@@ -11,6 +11,7 @@ import { getCikByTicker, getLatest10KText } from "@/lib/edgar";
 import { searchSymbol } from "@/lib/finnhub";
 import { checkCache, saveCache } from "@/lib/agentMemory";
 import { fenceExternal, EXTERNAL_DATA_RULE } from "@/lib/externalContent";
+import { DATA_ACCURACY_RULE_JSON } from "@/lib/dataAccuracy";
 import { parseSupplyChainRelations, relationId, type MoneyRelation } from "@/lib/moneyMap";
 
 const CACHE_AGENT = "run_supply_chain_agent";
@@ -51,7 +52,9 @@ Respond with ONLY this JSON (no markdown, no prose):
   "customers": [{"name": "<company>", "ticker": "<US stock ticker or null>", "weightPct": <0-100 share of revenue, or null>, "note": "<≤12 word reason>"}],
   "suppliers": [{"name": "<company>", "ticker": "<US stock ticker or null>", "weightPct": <0-100 estimated dependence, or null>, "note": "<≤12 word reason>"}]
 }
-Rules: at most 6 of each, most material first. Set weightPct only when the filing states or strongly implies a figure, otherwise null. Set ticker only for publicly listed companies you are confident about, otherwise null. If you genuinely don't know, return empty arrays.`;
+Rules: at most 6 of each, most material first. Set weightPct only when the filing states or strongly implies a figure, otherwise null. Set ticker only for publicly listed companies you are confident about, otherwise null. If you genuinely don't know, return empty arrays.
+
+${DATA_ACCURACY_RULE_JSON}`;
 
   let raw: string;
   try {

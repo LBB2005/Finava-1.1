@@ -11,8 +11,11 @@
  */
 
 import { createHash } from "crypto";
+import * as admin from "firebase-admin";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/firebase-admin";
+
+const { Timestamp } = admin.firestore;
 
 // ── TTL configuration (milliseconds) ─────────────────────────────────────────
 
@@ -40,6 +43,18 @@ const AGENT_TTL_MS: Record<string, number> = {
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000; // 6h fallback
 
 const MAX_INSIGHTS_PER_TICKER = 15;
+
+// Firestore `in` filters accept at most 30 comparison values per query.
+const TICKER_IN_LIMIT = 30;
+
+/** Coerce a Firestore Timestamp | ISO string | Date into a Date. */
+function toDate(value: unknown): Date {
+  if (value == null) return new Date(0);
+  if (typeof value === "string") return new Date(value);
+  if (value instanceof Date) return value;
+  const ts = value as { toDate?: () => Date };
+  return typeof ts.toDate === "function" ? ts.toDate() : new Date(0);
+}
 
 // ── Cache key construction ────────────────────────────────────────────────────
 
@@ -76,7 +91,10 @@ function buildCacheKey(agentName: string, input: unknown): string {
 
 /**
  * Returns the cached result string if it exists and hasn't expired.
- * Lazily deletes expired entries.
+ *
+ * Expired rows are treated as a miss and left in place — Firestore's native TTL
+ * policy on the `expiresAt` field reclaims them server-side (see saveCache and
+ * docs/firestore-setup.md). We no longer issue per-read delete writes.
  */
 export async function checkCache(
   agentName: string,
@@ -87,14 +105,8 @@ export async function checkCache(
     const snap = await db.collection("agentCache").doc(key).get();
     if (!snap.exists) return null;
     const row = snap.data()!;
-    const expiresAt = typeof row.expiresAt === "string"
-      ? new Date(row.expiresAt)
-      : row.expiresAt?.toDate?.() ?? new Date(0);
-    if (expiresAt < new Date()) {
-      // Expired — delete lazily (non-blocking)
-      db.collection("agentCache").doc(key).delete().catch(() => {});
-      return null;
-    }
+    const expiresAt = toDate(row.expiresAt);
+    if (expiresAt.getTime() <= Date.now()) return null;
     console.log(`[cache HIT] ${agentName} (expires ${expiresAt.toISOString()})`);
     return row.result as string;
   } catch (err) {
@@ -106,6 +118,9 @@ export async function checkCache(
 /**
  * Saves an agent result to the cache with the appropriate TTL.
  * Uses upsert so re-runs within TTL refresh the entry.
+ *
+ * `expiresAt` is stored as a Firestore Timestamp so the native TTL policy can
+ * garbage-collect expired rows without any application-side deletes.
  */
 export async function saveCache(
   agentName: string,
@@ -115,14 +130,13 @@ export async function saveCache(
   try {
     const key = buildCacheKey(agentName, input);
     const ttl = AGENT_TTL_MS[agentName] ?? DEFAULT_TTL_MS;
-    const expiresAt = new Date(Date.now() + ttl).toISOString();
-    const now = new Date().toISOString();
+    const now = new Date();
     await db.collection("agentCache").doc(key).set({
       cacheKey: key,
       agentName,
       result,
-      expiresAt,
-      createdAt: now,
+      expiresAt: Timestamp.fromDate(new Date(now.getTime() + ttl)),
+      createdAt: Timestamp.fromDate(now),
     });
   } catch (err) {
     console.error("[agentMemory] saveCache error:", err);
@@ -165,25 +179,53 @@ export function extractTickers(text: string): string[] {
 export async function getTickerMemory(tickers: string[]): Promise<string> {
   if (!tickers.length) return "";
   try {
-    const rows = await Promise.all(
-      tickers.map((ticker) =>
+    const upper = [...new Set(tickers.map((t) => t.toUpperCase()))];
+
+    // Batch the reads: one `in` query per 30-ticker chunk instead of one query
+    // per ticker. Each ticker holds at most MAX_INSIGHTS_PER_TICKER rows, so a
+    // limit of chunk.length * cap can never truncate a ticker's history.
+    const chunks: string[][] = [];
+    for (let i = 0; i < upper.length; i += TICKER_IN_LIMIT) {
+      chunks.push(upper.slice(i, i + TICKER_IN_LIMIT));
+    }
+    const snaps = await Promise.all(
+      chunks.map((chunk) =>
         db.collection("tickerMemory")
-          .where("ticker", "==", ticker.toUpperCase())
+          .where("ticker", "in", chunk)
           .orderBy("createdAt", "desc")
-          .limit(MAX_INSIGHTS_PER_TICKER)
+          .limit(chunk.length * MAX_INSIGHTS_PER_TICKER)
           .get()
-          .then((snap) => snap.docs.map((d) => d.data()))
       )
     );
-    const flat = rows.flat();
-    if (!flat.length) return "";
 
-    const lines = flat.map((r) => {
-      const createdAt = typeof r.createdAt === "string" ? r.createdAt : r.createdAt?.toDate?.().toISOString() ?? "";
-      const date = createdAt.slice(0, 10);
-      const src = r.source ? ` · ${r.source}` : "";
-      return `[${r.ticker} · ${date}${src}] ${r.insight}`;
-    });
+    // Group newest-first per ticker, capping each at MAX_INSIGHTS_PER_TICKER.
+    const byTicker = new Map<string, Record<string, unknown>[]>();
+    for (const snap of snaps) {
+      for (const doc of snap.docs) {
+        const row = doc.data();
+        const key = String(row.ticker);
+        const arr = byTicker.get(key) ?? [];
+        if (arr.length < MAX_INSIGHTS_PER_TICKER) {
+          arr.push(row);
+          byTicker.set(key, arr);
+        }
+      }
+    }
+
+    // Emit in the caller's ticker order to keep the injected block stable.
+    const lines: string[] = [];
+    for (const ticker of upper) {
+      for (const r of byTicker.get(ticker) ?? []) {
+        const createdAt =
+          typeof r.createdAt === "string"
+            ? r.createdAt
+            : toDate(r.createdAt).toISOString();
+        const date = createdAt.slice(0, 10);
+        const src = r.source ? ` · ${r.source}` : "";
+        lines.push(`[${r.ticker} · ${date}${src}] ${r.insight}`);
+      }
+    }
+    if (!lines.length) return "";
 
     return `## Previous Analysis Memory\nThe following insights were distilled from earlier analyses. Use them to identify what has changed and add longitudinal perspective:\n${lines.join("\n")}`;
   } catch (err) {
@@ -231,39 +273,68 @@ ${finalResponse.slice(0, 3500)}`,
 
     const text = (response.content[0] as { type: string; text: string }).text;
 
-    // Parse "TICKER: insight" lines
-    const lines = text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => /^[A-Z]{2,5}:/.test(l));
-
-    for (const line of lines) {
+    // Parse "TICKER: insight" lines and group insights by ticker.
+    const insightsByTicker = new Map<string, string[]>();
+    for (const raw of text.split("\n")) {
+      const line = raw.trim();
+      if (!/^[A-Z]{2,5}:/.test(line)) continue;
       const colonIdx = line.indexOf(":");
       const ticker = line.slice(0, colonIdx).trim().toUpperCase();
       const insight = line.slice(colonIdx + 1).trim();
       if (!insight || !tickers.includes(ticker)) continue;
-
-      await db.collection("tickerMemory").add({
-        ticker,
-        insight,
-        source: null,
-        createdAt: new Date().toISOString(),
-      });
-
-      // Prune to cap: delete oldest entries beyond the limit
-      const allSnap = await db.collection("tickerMemory")
-        .where("ticker", "==", ticker)
-        .orderBy("createdAt", "asc")
-        .get();
-      if (allSnap.size > MAX_INSIGHTS_PER_TICKER) {
-        const toDelete = allSnap.docs.slice(0, allSnap.size - MAX_INSIGHTS_PER_TICKER);
-        const batch = db.batch();
-        toDelete.forEach((d) => batch.delete(d.ref));
-        await batch.commit();
-      }
+      const arr = insightsByTicker.get(ticker) ?? [];
+      arr.push(insight);
+      insightsByTicker.set(ticker, arr);
     }
 
-    console.log(`[memory] Saved ${lines.length} insights for ${tickers.join(", ")}`);
+    if (!insightsByTicker.size) {
+      console.log(`[memory] No insights parsed for ${tickers.join(", ")}`);
+      return;
+    }
+
+    const col = db.collection("tickerMemory");
+    // Never write more than the cap in a single run, so the per-ticker invariant
+    // (<= MAX_INSIGHTS_PER_TICKER rows) holds even if the model over-produces.
+    const entries = [...insightsByTicker.entries()].map(
+      ([ticker, insights]) =>
+        [ticker, insights.slice(0, MAX_INSIGHTS_PER_TICKER)] as const
+    );
+
+    // Bounded prune: count each ticker's rows (one cheap aggregate read), then
+    // fetch ONLY the oldest N that must go so existing_kept + new == the cap.
+    // The freshly-added rows are always the newest, so they're always kept.
+    const pruneRefs = await Promise.all(
+      entries.map(async ([ticker, insights]) => {
+        const keepExisting = Math.max(0, MAX_INSIGHTS_PER_TICKER - insights.length);
+        const countSnap = await col.where("ticker", "==", ticker).count().get();
+        const existing = countSnap.data().count as number;
+        const deleteCount = existing - keepExisting;
+        if (deleteCount <= 0) return [];
+        const oldSnap = await col
+          .where("ticker", "==", ticker)
+          .orderBy("createdAt", "asc")
+          .limit(deleteCount)
+          .get();
+        return oldSnap.docs.map((d) => d.ref);
+      })
+    );
+
+    // Single batched write: every add and every prune-delete in one commit.
+    const now = new Date().toISOString();
+    const batch = db.batch();
+    let added = 0;
+    for (const [ticker, insights] of entries) {
+      for (const insight of insights) {
+        batch.set(col.doc(), { ticker, insight, source: null, createdAt: now });
+        added++;
+      }
+    }
+    for (const refs of pruneRefs) {
+      for (const ref of refs) batch.delete(ref);
+    }
+    await batch.commit();
+
+    console.log(`[memory] Saved ${added} insights for ${tickers.join(", ")}`);
   } catch (err) {
     console.error("[agentMemory] saveTickerMemory error:", err);
   }

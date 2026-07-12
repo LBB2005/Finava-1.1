@@ -1,12 +1,12 @@
+import { fetchWithRetry } from "@/lib/fetchRetry";
+
 const BASE = "https://api.polygon.io";
 const KEY = process.env.POLYGON_API_KEY;
 
 async function polyFetch(path: string, revalidate = 30) {
   const sep = path.includes("?") ? "&" : "?";
-  const res = await fetch(`${BASE}${path}${sep}apiKey=${KEY}`, {
-    signal: AbortSignal.timeout(10_000),
-    next: { revalidate },
-  });
+  // Retry transient 429/5xx/network blips before giving up (see fetchWithRetry).
+  const res = await fetchWithRetry(`${BASE}${path}${sep}apiKey=${KEY}`, { next: { revalidate } });
   if (!res.ok) throw new Error(`Polygon ${res.status}: ${path}`);
   return res.json();
 }

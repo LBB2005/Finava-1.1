@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useStockBundle } from "@/hooks/useStock";
 import { useQuotes } from "@/hooks/useQuotes";
+import { useChatStore } from "@/stores/chatStore";
+import { buildStockSnapshot } from "@/lib/pageContext";
 import { useToast } from "@/hooks/useToast";
 import StockHero from "@/components/stock/StockHero";
 import InvestorLens from "@/components/stock/InvestorLens";
@@ -36,6 +38,18 @@ export default function StockPage() {
       toast.error(`Couldn't load ${ticker}. The data service may be unavailable — please retry.`);
     }
   }, [error, ticker, toast]);
+
+  // Publish the loaded bundle as the app-wide "active page context" so the chat
+  // composer can attach a ticker+data snapshot to whatever the user asks — and
+  // resolve vague references ("is this a buy?") to this stock. Cleared on
+  // unmount / ticker change so a stale ticker can never leak into an off-page chat.
+  useEffect(() => {
+    const setActivePageContext = useChatStore.getState().setActivePageContext;
+    if (bundle && ticker) {
+      setActivePageContext({ kind: "stock", ticker, snapshot: buildStockSnapshot(bundle) });
+    }
+    return () => setActivePageContext(null);
+  }, [bundle, ticker]);
 
   // Arm a slow-load timer while loading; the cleanup clears it and resets the
   // flag whenever the ticker changes or the bundle finishes loading.

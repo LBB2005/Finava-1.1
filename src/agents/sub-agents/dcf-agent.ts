@@ -19,6 +19,10 @@ export async function runDcfAgent(input: unknown): Promise<string> {
     ticker: string; wacc?: number; growthRate?: number;
   };
 
+  // Default when no key is configured. The catch below overrides this with a
+  // transport-failure message that is deliberately distinct from a genuine
+  // "no financials on file" — a rate-limited fetch must never read to the model
+  // (or the user) as "this company reports no data".
   let summary = "Financial data unavailable.";
 
   if (process.env.FINNHUB_API_KEY) {
@@ -32,8 +36,12 @@ export async function runDcfAgent(input: unknown): Promise<string> {
       const m = metrics.metric ?? {};
       const currentPrice = snaps[0]?.price ?? 0;
 
-       
-      const latestReport = (financials.data ?? [])[0]?.report ?? {};
+      // Finnhub answered but carries no reported financials for this ticker — an
+      // authoritative "no data on file", distinct from the catch's transport
+      // failure below. Say so plainly instead of emitting a wall of "N/A" that
+      // reads like a real (empty) valuation.
+      const reports = Array.isArray(financials.data) ? financials.data : [];
+      const latestReport = reports[0]?.report ?? {};
       // Finnhub returns these as arrays; guard so a missing/object value can't throw
       // (.find on {}) and silently nuke the whole valuation.
       const cf = Array.isArray(latestReport.cf) ? latestReport.cf : [];
@@ -65,7 +73,9 @@ export async function runDcfAgent(input: unknown): Promise<string> {
         dcfPerShare = ev / sharesOutstanding;
       }
 
-      summary = JSON.stringify({
+      summary = reports.length === 0
+        ? `No financial statements on file for ${ticker}.`
+        : JSON.stringify({
         ticker,
         currentPrice,
         revenue: revenue ? `$${(revenue / 1e9).toFixed(2)}B` : "N/A",
@@ -86,7 +96,10 @@ export async function runDcfAgent(input: unknown): Promise<string> {
         assumptions: { wacc: `${(wacc * 100).toFixed(1)}%`, terminalGrowth: `${(terminalGrowth * 100).toFixed(1)}%` },
       }, null, 2);
     } catch {
-      summary = `Could not fetch financials for ${ticker}.`;
+      // Transport failure (rate-limit/network/timeout, already retried) — NOT an
+      // authoritative "no data". Keep it clearly a fetch problem so the model
+      // treats the valuation as temporarily unavailable, not as a dataless company.
+      summary = `Could not fetch financials for ${ticker} (data source temporarily unavailable).`;
     }
   }
 
