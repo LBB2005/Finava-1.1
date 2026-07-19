@@ -1,21 +1,12 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "crypto";
 import { db } from "@/lib/firebase-admin";
+import { secretMatches } from "@/lib/secretMatches";
 import { parseMarkovOutput, isMarkovDataValid } from "@/lib/markov";
 
 export const runtime = "nodejs";
 
 // Same constraint the GET route enforces — keeps cache doc ids well-formed.
 const TICKER_RE = /^[A-Z][A-Z0-9.\-]{0,9}$/;
-
-function secretMatches(provided: string | null): boolean {
-  const expected = process.env.MARKOV_INGEST_SECRET;
-  if (!expected || !provided) return false;
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  // timingSafeEqual throws on length mismatch — guard first.
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 // POST /api/markov/ingest
 // Body: { ticker: string, years: number, stdout: string }
@@ -25,7 +16,7 @@ function secretMatches(provided: string | null): boolean {
 // external scheduled job (GitHub Actions) runs it, captures stdout, and POSTs it
 // here so we can parse + warm the Firestore cache the GET route reads from.
 export async function POST(request: Request) {
-  if (!secretMatches(request.headers.get("x-ingest-secret"))) {
+  if (!secretMatches(request.headers.get("x-ingest-secret"), process.env.MARKOV_INGEST_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

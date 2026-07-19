@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/requireAuth";
 import { requireEntitlement } from "@/lib/entitlements";
 import { generate } from "@/lib/llm";
 import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
-import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { checkUsageLimit, usageStore, makeRunContext } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
 import { runRiskAgent } from "@/agents/sub-agents/risk-agent";
 import { runNewsAgent } from "@/agents/sub-agents/news-agent";
@@ -15,6 +15,7 @@ import { runInsiderAgent } from "@/agents/sub-agents/insider-agent";
 import { runSentimentAgent } from "@/agents/sub-agents/sentiment-agent";
 import { runAnalystAgent } from "@/agents/sub-agents/analyst-agent";
 import { checkCache, saveCache } from "@/lib/agentMemory";
+import { secretMatches } from "@/lib/secretMatches";
 
 export const maxDuration = 300;
 
@@ -22,7 +23,7 @@ export const maxDuration = 300;
 export async function POST(req: Request) {
   // Allow cron secret OR authenticated user
   const cronSecret = req.headers.get("x-cron-secret");
-  const isCron = cronSecret && cronSecret === process.env.CRON_SECRET;
+  const isCron = secretMatches(cronSecret, process.env.CRON_SECRET);
 
   let userId: string;
   if (isCron) {
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
 async function generateForUser(userId: string): Promise<NextResponse> {
   // Meter every model call this briefing makes to the user (works for both the
   // interactive path and the cron path, which calls this per user).
-  usageStore.enterWith({ userId });
+  usageStore.enterWith(makeRunContext(userId));
   try {
     const holdingsSnap = await db
       .collection("users").doc(userId).collection("holdings")

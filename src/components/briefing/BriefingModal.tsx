@@ -29,8 +29,8 @@ export default function BriefingModal({ briefing, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(13,22,38,0.45)", backdropFilter: "blur(4px)" }}
+      className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center"
+      style={{ background: "color-mix(in oklab, var(--color-text) 28%, transparent)", backdropFilter: "blur(2px)" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div

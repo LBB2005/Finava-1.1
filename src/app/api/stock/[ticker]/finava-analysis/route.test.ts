@@ -21,6 +21,7 @@ vi.mock("@/lib/requireAuth", () => ({ requireAuth: deps.requireAuth }));
 vi.mock("@/lib/rateLimit", () => ({ userRateLimit: deps.userRateLimit }));
 vi.mock("@/lib/usage", () => ({
   checkUsageLimit: deps.checkUsageLimit,
+  makeRunContext: (u: string) => ({ userId: u }),
   usageStore: { enterWith: deps.usageEnterWith },
 }));
 vi.mock("@/lib/llm", () => ({

@@ -175,9 +175,14 @@ export function extractTickers(text: string): string[] {
 /**
  * Fetches the most recent insights for each ticker and formats them as a
  * "Previous Analysis Memory" block for injection into the CEO system prompt.
+ *
+ * Scoped to `userId`: a user only ever sees insights distilled from their OWN
+ * analyses. Ticker memory is portfolio-aware, so a shared/global store would
+ * leak one user's holdings-derived insights into another's prompt and open a
+ * persistent cross-user prompt-injection path.
  */
-export async function getTickerMemory(tickers: string[]): Promise<string> {
-  if (!tickers.length) return "";
+export async function getTickerMemory(userId: string, tickers: string[]): Promise<string> {
+  if (!userId || !tickers.length) return "";
   try {
     const upper = [...new Set(tickers.map((t) => t.toUpperCase()))];
 
@@ -191,6 +196,7 @@ export async function getTickerMemory(tickers: string[]): Promise<string> {
     const snaps = await Promise.all(
       chunks.map((chunk) =>
         db.collection("tickerMemory")
+          .where("userId", "==", userId)
           .where("ticker", "in", chunk)
           .orderBy("createdAt", "desc")
           .limit(chunk.length * MAX_INSIGHTS_PER_TICKER)
@@ -240,13 +246,17 @@ export async function getTickerMemory(tickers: string[]): Promise<string> {
  *
  * IMPORTANT: This should be called fire-and-forget (no await at call site).
  * It runs after the response stream has closed, so it adds zero user-visible latency.
+ *
+ * Rows are stamped with `userId` and every read/prune is scoped to it, so a
+ * user's insights never bleed into another user's memory (see getTickerMemory).
  */
 export async function saveTickerMemory(
+  userId: string,
   tickers: string[],
   finalResponse: string,
   anthropicClient: Anthropic
 ): Promise<void> {
-  if (!tickers.length || !finalResponse) return;
+  if (!userId || !tickers.length || !finalResponse) return;
 
   try {
     const response = await anthropicClient.messages.create({
@@ -306,11 +316,16 @@ ${finalResponse.slice(0, 3500)}`,
     const pruneRefs = await Promise.all(
       entries.map(async ([ticker, insights]) => {
         const keepExisting = Math.max(0, MAX_INSIGHTS_PER_TICKER - insights.length);
-        const countSnap = await col.where("ticker", "==", ticker).count().get();
+        const countSnap = await col
+          .where("userId", "==", userId)
+          .where("ticker", "==", ticker)
+          .count()
+          .get();
         const existing = countSnap.data().count as number;
         const deleteCount = existing - keepExisting;
         if (deleteCount <= 0) return [];
         const oldSnap = await col
+          .where("userId", "==", userId)
           .where("ticker", "==", ticker)
           .orderBy("createdAt", "asc")
           .limit(deleteCount)
@@ -325,7 +340,7 @@ ${finalResponse.slice(0, 3500)}`,
     let added = 0;
     for (const [ticker, insights] of entries) {
       for (const insight of insights) {
-        batch.set(col.doc(), { ticker, insight, source: null, createdAt: now });
+        batch.set(col.doc(), { userId, ticker, insight, source: null, createdAt: now });
         added++;
       }
     }

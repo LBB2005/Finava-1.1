@@ -4,6 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, Cell, PieChart, Pie,
 } from "recharts";
+import { CHART_SERIES as PALETTE, CHART_TICK } from "@/lib/chartPalette";
 
 export interface ChartData {
   type: "bar" | "line" | "area" | "donut";
@@ -14,11 +15,6 @@ export interface ChartData {
   series?: Array<{ key: string; color?: string; label?: string }>;
 }
 
-const PALETTE = [
-  "#1a4b8f", "#2563c4", "#3b82f6", "#10b981", "#f59e0b",
-  "#8b5cf6", "#ef4444", "#06b6d4", "#ec4899", "#6366f1",
-];
-
 function fmt(val: number, unit?: string) {
   if (unit === "%" || unit === "percent") return `${val > 0 ? "+" : ""}${val.toFixed(1)}%`;
   if (unit === "$" || unit === "usd") return `$${Math.abs(val).toLocaleString()}`;
@@ -26,15 +22,15 @@ function fmt(val: number, unit?: string) {
 }
 
 function valueColor(v: number) {
-  return v >= 0 ? "#10b981" : "#ef4444";
+  return v >= 0 ? "var(--color-bull)" : "var(--color-bear)";
 }
 
 // Tooltip component
 function CustomTooltip({ active, payload, label, unit }: { active?: boolean; payload?: Array<{value: number; name: string; color: string}>; label?: string; unit?: string }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-lg px-3 py-2.5 text-xs">
-      <p className="font-semibold text-slate-700 mb-1">{label}</p>
+    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl shadow-lg px-3 py-2.5 text-xs">
+      <p className="font-semibold text-[var(--color-text)] mb-1">{label}</p>
       {payload.map((p) => (
         <p key={p.name} style={{ color: p.color }} className="font-medium">
           {p.name !== "value" ? `${p.name}: ` : ""}{fmt(p.value, unit)}
@@ -51,9 +47,9 @@ function BarChartView({ data, unit, series }: ChartData) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 4 }} barSize={isMultiSeries ? 12 : 24}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-        <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false}
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+        <XAxis dataKey="name" tick={{ fontSize: 11, fill: CHART_TICK }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11, fill: CHART_TICK }} axisLine={false} tickLine={false}
           tickFormatter={(v) => isPercentage ? `${v}%` : v} />
         <Tooltip content={<CustomTooltip unit={unit} />} />
         {isMultiSeries && <Legend wrapperStyle={{ fontSize: 11 }} />}
@@ -79,9 +75,9 @@ function LineChartView({ data, unit, series }: ChartData) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-        <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+        <XAxis dataKey="name" tick={{ fontSize: 11, fill: CHART_TICK }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11, fill: CHART_TICK }} axisLine={false} tickLine={false} />
         <Tooltip content={<CustomTooltip unit={unit} />} />
         {keys.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
         {keys.map((s, i) => (
@@ -107,9 +103,9 @@ function AreaChartView({ data, unit, series }: ChartData) {
             </linearGradient>
           ))}
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-        <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+        <XAxis dataKey="name" tick={{ fontSize: 11, fill: CHART_TICK }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11, fill: CHART_TICK }} axisLine={false} tickLine={false} />
         <Tooltip content={<CustomTooltip unit={unit} />} />
         {keys.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
         {keys.map((s, i) => (
@@ -129,7 +125,7 @@ function DonutChartView({ data, unit }: ChartData) {
       <ResponsiveContainer width={160} height={160}>
         <PieChart>
           <Pie data={data} cx="50%" cy="50%" innerRadius={48} outerRadius={72}
-            dataKey="value" strokeWidth={2} stroke="#fff" paddingAngle={2}>
+            dataKey="value" strokeWidth={2} stroke="var(--color-surface)" paddingAngle={2}>
             {data.map((entry, i) => (
               <Cell key={i} fill={entry.color ?? PALETTE[i % PALETTE.length]} />
             ))}
@@ -141,8 +137,8 @@ function DonutChartView({ data, unit }: ChartData) {
         {data.map((entry, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: entry.color ?? PALETTE[i % PALETTE.length] }} />
-            <span className="text-xs font-semibold text-slate-700 w-16 truncate">{entry.name}</span>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs font-semibold text-[var(--color-text)] w-16 truncate">{entry.name}</span>
+            <span className="text-xs text-[var(--color-muted)]">
               {total > 0 ? `${((Math.abs(entry.value) / total) * 100).toFixed(1)}%` : fmt(entry.value, unit)}
             </span>
           </div>
@@ -159,14 +155,21 @@ export default function ChartBlock({ raw }: { raw: string }) {
     if (!chart.data || !Array.isArray(chart.data)) throw new Error("invalid");
   } catch {
     return (
-      <div className="my-3 p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-500">
+      <div
+        className="my-3 p-3 rounded-xl border text-xs"
+        style={{
+          borderColor: "color-mix(in srgb, var(--color-bear) 35%, transparent)",
+          background: "color-mix(in srgb, var(--color-bear) 8%, transparent)",
+          color: "var(--color-bear)",
+        }}
+      >
         Invalid chart data
       </div>
     );
   }
 
   return (
-    <div className="my-4 rounded-xl border border-[var(--color-border)] bg-white shadow-sm overflow-hidden">
+    <div className="my-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm overflow-hidden">
       {(chart.title || chart.description) && (
         <div className="px-4 pt-3.5 pb-2 border-b border-[var(--color-border)]">
           {chart.title && <p className="text-sm font-semibold text-[var(--color-text)]">{chart.title}</p>}

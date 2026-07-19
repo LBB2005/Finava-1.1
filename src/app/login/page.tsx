@@ -19,7 +19,7 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="bg-white border border-[var(--color-border)] rounded-2xl shadow-sm px-8 py-8">
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-sm px-8 py-8">
           <h1 className="text-lg font-semibold text-[var(--color-text)] text-center mb-1">
             Welcome back
           </h1>
@@ -28,7 +28,7 @@ export default function LoginPage() {
           </p>
 
           {betaDenied && (
-            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-800">
+            <div className="mb-5 rounded-xl border border-[color-mix(in_srgb,var(--color-warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--color-warn)_8%,transparent)] px-4 py-3 text-center text-sm text-[var(--color-warn)]">
               Finava is in private beta. Your account isn&apos;t on the list yet —
               join the waitlist and we&apos;ll be in touch.
             </div>
@@ -37,7 +37,7 @@ export default function LoginPage() {
           <button
             onClick={signIn}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl border border-[var(--color-border)] bg-white hover:bg-[var(--color-sidebar)] text-sm font-medium text-[var(--color-text)] transition-colors duration-150 shadow-sm disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-sidebar)] text-sm font-medium text-[var(--color-text)] transition-colors duration-150 shadow-sm disabled:opacity-50"
           >
             {/* Google icon */}
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">

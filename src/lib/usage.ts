@@ -26,20 +26,29 @@
  *   3. CACHE_READ_MULTIPLIER — the provider's cached-input discount.
  *   4. Plan allowances    — daily/weekly/monthly caps live in `@/lib/plans`.
  */
-import { AsyncLocalStorage } from "node:async_hooks";
 import * as admin from "firebase-admin";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase-admin";
 import { resolvePlan } from "@/lib/entitlements";
 import { jsonLimit, nextPaidPlan, TRIAL_DEEP_RESEARCH_CAP } from "@/lib/plans";
 
-// ── Request-scoped user context ──────────────────────────────────────────────
-// recordUsage() reads userId from here when the caller doesn't pass one.
-export const usageStore = new AsyncLocalStorage<{ userId: string }>();
+// ── Request-scoped run context ───────────────────────────────────────────────
+// The AsyncLocalStorage store lives in the dependency-light `runContext` module
+// so the route wrapper and logger can enter/read it without importing this heavy
+// (Firestore-backed) file. Re-exported here for the existing metering call-sites.
+import {
+  usageStore,
+  makeRunContext,
+  newRequestId,
+  currentRunCredits,
+  type RunContext,
+} from "@/lib/runContext";
+export { usageStore, makeRunContext, newRequestId, currentRunCredits };
+export type { RunContext };
 
-/** Run `fn` with `userId` available to any recordUsage() call inside it. */
-export function withUsageContext<T>(userId: string, fn: () => T): T {
-  return usageStore.run({ userId }, fn);
+/** Run `fn` inside a fresh run context (userId/requestId/credits in scope). */
+export function withUsageContext<T>(userId: string, fn: () => T, requestId?: string): T {
+  return usageStore.run(makeRunContext(userId, requestId), fn);
 }
 
 // ── Pricing ──────────────────────────────────────────────────────────────────
@@ -186,6 +195,13 @@ export function recordUsage(input: RecordUsageInput): Promise<void> {
     flat > 0
       ? flat
       : creditsFor(input.model, inputTokens, outputTokens, cacheRead);
+
+  // Accumulate into the in-run total so a long crew can be aborted before it
+  // blows its per-run cost cap. Hooked HERE (the single metering choke-point) so
+  // it catches both awaited (pendingWrites) and fire-and-forget recordUsage paths.
+  const store = usageStore.getStore();
+  if (store) store.credits.total += credits;
+
   const key = dayKey();
   const inc = admin.firestore.FieldValue.increment;
 

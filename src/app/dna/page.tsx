@@ -81,11 +81,11 @@ export default function DnaPage() {
 function DnaSkeleton() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <div className="animate-pulse" style={{ height: 180, borderRadius: "var(--radius-xl)", background: "var(--color-surface)", border: "1px solid var(--color-border)" }} />
-      <div className="animate-pulse" style={{ height: 230, borderRadius: "var(--radius-lg)", background: "var(--color-surface)", border: "1px solid var(--color-border)" }} />
+      <div className="skeleton" style={{ height: 180, borderRadius: "var(--radius-xl)", border: "1px solid var(--color-border)" }} />
+      <div className="skeleton" style={{ height: 230, borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)" }} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
         {[0, 1, 2].map((i) => (
-          <div key={i} className="animate-pulse" style={{ height: 92, borderRadius: "var(--radius-lg)", background: "var(--color-surface)", border: "1px solid var(--color-border)" }} />
+          <div key={i} className="skeleton" style={{ height: 92, borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)" }} />
         ))}
       </div>
     </div>

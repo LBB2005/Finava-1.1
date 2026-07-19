@@ -203,7 +203,7 @@ function Head({ title, description }: { title: string; description?: string }) {
   return (
     <div>
       <div className="mb-2">
-        <h2 className="text-[19px] font-bold tracking-[-0.01em]" style={{ color: "var(--color-text)" }}>
+        <h2 className="serif text-[19px] font-extrabold tracking-[-0.01em]" style={{ color: "var(--color-text)" }}>
           {title}
         </h2>
         {description && (
@@ -492,7 +492,7 @@ function PlaidRow() {
         </Btn>
       ) : (
         <ConnectBrokerageButton
-          className="inline-flex items-center gap-1.5 px-[13px] py-[7px] text-[12.5px] font-semibold rounded-[8px] bg-[var(--color-accent)] text-white transition-colors duration-150"
+          className="inline-flex items-center gap-1.5 px-[13px] py-[7px] text-[12.5px] font-semibold rounded-[8px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 text-white transition-colors duration-150"
           label="Connect"
           onLinked={refresh}
         />
@@ -659,7 +659,7 @@ function TemplatesSection() {
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
                 maxLength={80}
                 placeholder="e.g. Earnings deep-dive"
-                className="w-full text-[13px] px-[11px] py-[8px] rounded-[8px] outline-none mb-4"
+                className="std-focus w-full text-[13px] px-[11px] py-[8px] rounded-[8px] mb-4"
                 style={{ background: "var(--color-bg)", border: "1px solid var(--color-border-strong)", color: "var(--color-text)" }}
               />
 
@@ -672,7 +672,7 @@ function TemplatesSection() {
                 maxLength={2000}
                 rows={3}
                 placeholder="Lead with the bottom line, always quantify the key numbers, and end with the biggest risk to watch."
-                className="w-full text-[13px] px-[11px] py-[8px] rounded-[8px] outline-none resize-none mb-5 leading-relaxed"
+                className="std-focus w-full text-[13px] px-[11px] py-[8px] rounded-[8px] resize-none mb-5 leading-relaxed"
                 style={{ background: "var(--color-bg)", border: "1px solid var(--color-border-strong)", color: "var(--color-text)" }}
               />
 

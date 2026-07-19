@@ -152,6 +152,31 @@ describe("runCeoAgent orchestration", () => {
     );
   });
 
+  it("scopes the run_risk_agent cache key by user + holdings, but not other agents", async () => {
+    finalMessages.push(
+      { stop_reason: "tool_use", content: [toolUse("t1", "run_risk_agent"), toolUse("t2", "run_news_agent")], usage: {} },
+      { stop_reason: "end_turn", content: [text("report")], usage: {} },
+    );
+    const { runCeoAgent } = await import("./ceo");
+    await runCeoAgent("analyze AAPL", "", () => {}, {
+      userId: "userA",
+      holdings: [
+        { ticker: "NVDA", shares: 5 },
+        { ticker: "AAPL", shares: 10 },
+      ],
+    });
+
+    // Risk output embeds the caller's private holdings, so its cache entry is
+    // namespaced per user + a stable (sorted) holdings signature — User B asking
+    // about the same tickers can never hit User A's cached portfolio figures.
+    expect(checkCache).toHaveBeenCalledWith("run_risk_agent", {
+      _userId: "userA",
+      _holdings: "AAPL:10,NVDA:5",
+    });
+    // Impersonal agents keep the shared cross-user cache — bare input, no scoping.
+    expect(checkCache).toHaveBeenCalledWith("run_news_agent", {});
+  });
+
   it("runs the skeptic→revision pass and ships the REVISED report, not the draft", async () => {
     skepticCritique = "**Skeptic Review:** the beta claim is unsourced.";
     finalMessages.push(

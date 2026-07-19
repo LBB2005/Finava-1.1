@@ -93,7 +93,7 @@ export default function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {mounted &&
         createPortal(
-          <div className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2">
+          <div className="pointer-events-none fixed bottom-4 right-4 z-[var(--z-toast)] flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2">
             {/* Errors get an assertive live region so they interrupt the user. */}
             <div role="alert" aria-live="assertive" className="flex flex-col gap-2">
               <AnimatePresence initial={false}>

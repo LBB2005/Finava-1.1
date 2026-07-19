@@ -6,7 +6,7 @@
 // ready so the graph fills progressively. Mirrors the finava-analysis SSE route.
 
 import { requireAuth } from "@/lib/requireAuth";
-import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { checkUsageLimit, usageStore, makeRunContext } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
 import { getCompanyProfile, getPeers, getOwnership, getFundOwnership } from "@/lib/finnhub";
 import { runSupplyChainAgent } from "@/agents/sub-agents/supply-chain-agent";
@@ -31,7 +31,7 @@ export async function POST(
   if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;
-  usageStore.enterWith({ userId });
+  usageStore.enterWith(makeRunContext(userId));
 
   const { ticker } = await params;
   const symbol = (ticker ?? "").trim().toUpperCase();

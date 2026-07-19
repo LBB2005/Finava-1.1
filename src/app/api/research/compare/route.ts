@@ -9,7 +9,7 @@ import { z } from "zod";
 import { generate } from "@/lib/llm";
 import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
 import { requireAuth } from "@/lib/requireAuth";
-import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { checkUsageLimit, usageStore, makeRunContext } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
 import { FACTORS } from "@/lib/research";
 import type { CompareStock, CompareVerdict, ComparePerStock } from "@/lib/researchAI";
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
   if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;
-  usageStore.enterWith({ userId });
+  usageStore.enterWith(makeRunContext(userId));
 
   if (!process.env.OPENROUTER_API_KEY) {
     return Response.json({ error: "AI service not configured (OPENROUTER_API_KEY missing)." }, { status: 503 });

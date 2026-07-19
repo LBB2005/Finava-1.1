@@ -352,7 +352,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
 
               {modeOpen && (
                 <div
-                  className="absolute bottom-full left-0 mb-2 z-[60] rounded-[14px] p-1.5 fade-in"
+                  className="absolute bottom-full left-0 mb-2 z-[var(--z-dropdown)] rounded-[14px] p-1.5 fade-in"
                   style={{ width: 248, background: "var(--color-bg)", border: "1px solid var(--color-border)", boxShadow: "0 8px 32px rgba(15,23,42,0.14)" }}
                 >
                   {MODE_ORDER.map((m) => {
@@ -461,10 +461,11 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                     onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTicker(); } }}
                     placeholder="AAPL, NVDA…" maxLength={8}
-                    className="flex-1 text-[16px] sm:text-[12px] px-2.5 py-1.5 rounded-[7px] focus:outline-none"
+                    className="std-focus flex-1 text-[16px] sm:text-[12px] px-2.5 py-1.5 rounded-[7px]"
                     style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text)", fontFamily: "var(--font-sans)" }} />
-                  <button onClick={addTicker} className="px-2.5 py-1.5 rounded-[7px] text-[12px] font-semibold"
-                    style={{ background: "var(--color-accent)", color: "white" }}>Add</button>
+                  <button onClick={addTicker}
+                    className="px-2.5 py-1.5 rounded-[7px] text-[12px] font-semibold text-white bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors duration-150"
+                    disabled={!tickerInput.trim()}>Add</button>
                 </div>
               </div>
 

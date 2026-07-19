@@ -10,10 +10,11 @@ const variantClasses = {
   primary:
     "bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] disabled:opacity-50",
   ghost:
-    "bg-transparent text-[var(--color-muted)] hover:bg-[var(--color-sidebar-hover)] hover:text-[var(--color-text)]",
-  danger: "bg-red-50 text-red-600 hover:bg-red-100",
+    "bg-transparent text-[var(--color-muted)] hover:bg-[var(--color-accent-light)] hover:text-[var(--color-text)]",
+  danger:
+    "bg-[color-mix(in_srgb,var(--color-bear)_8%,transparent)] text-[var(--color-bear)] hover:bg-[color-mix(in_srgb,var(--color-bear)_14%,transparent)]",
   outline:
-    "border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-surface)]",
+    "border border-[var(--color-border-strong)] text-[var(--color-text)] hover:bg-[var(--color-accent-light)]",
 };
 
 const sizeClasses = {

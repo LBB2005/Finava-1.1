@@ -97,7 +97,7 @@ export default function SidebarStockSearch() {
           spellCheck={false}
           autoCapitalize="characters"
           autoComplete="off"
-          className="sidebar-search-input w-full bg-[var(--color-surface)] rounded-[9px] py-[9px] pl-[34px] pr-3 text-[13px] focus:outline-none transition-colors duration-150"
+          className="sidebar-search-input std-focus w-full bg-[var(--color-surface)] rounded-[9px] py-[9px] pl-[34px] pr-3 text-[13px] transition-colors duration-150"
           style={{
             border: "1px solid var(--color-accent-medium)",
             color: "var(--color-text)",

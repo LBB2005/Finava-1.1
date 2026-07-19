@@ -258,7 +258,7 @@ export default function ChatHeaderMenu() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-1.5 z-[70] fade-in"
+          className="absolute right-0 top-full mt-1.5 z-[var(--z-dropdown)] fade-in"
           style={{
             width: 232,
             background: "var(--color-bg)",
@@ -330,7 +330,7 @@ export default function ChatHeaderMenu() {
         <Modal
           onClose={() => setDigest(null)}
           label="Conversation digest"
-          className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 flex flex-col"
+          className="bg-[var(--color-surface)] rounded-2xl shadow-xl w-full max-w-lg mx-4 flex flex-col"
         >
           <div className="flex items-center justify-between px-6 pt-5 pb-3" style={{ borderBottom: "1px solid var(--color-border)" }}>
             <h2 className="text-[15px] font-semibold" style={{ color: "var(--color-text)" }}>Digest</h2>

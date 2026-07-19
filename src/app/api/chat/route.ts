@@ -6,7 +6,7 @@ import { withAuthRaw } from "@/lib/withRoute";
 import { ChatRequestSchema } from "@/lib/schemas/chat";
 import { pageContextPrompt } from "@/lib/pageContext";
 import { getTemplateBlock } from "@/lib/templates.server";
-import { checkUsageLimit, recordUsage, usageStore } from "@/lib/usage";
+import { checkUsageLimit, recordUsage, usageStore, makeRunContext } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 
   // Run the whole stream inside the usage context so every model call it makes
   // (this chat message + the follow-up generate()) is metered to this user.
-  return usageStore.run({ userId }, () => {
+  return usageStore.run(makeRunContext(userId), () => {
     const systemPrompt = `You are Finava, an expert AI financial research assistant. You help users research stocks, analyze their portfolio, and make informed investment decisions.
 ${pageContext ? `\n${pageContextPrompt(pageContext)}\n` : ""}
 ${portfolioContext ? `## User's Current Portfolio\n${portfolioContext}` : "The user has no portfolio holdings yet."}

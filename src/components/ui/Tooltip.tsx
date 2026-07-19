@@ -58,7 +58,7 @@ export default function Tooltip({ label, placement = "top", delay = 250, childre
         <span
           role="tooltip"
           id={id}
-          className="pointer-events-none absolute z-[200] whitespace-nowrap text-[11px] font-medium leading-none fade-in"
+          className="pointer-events-none absolute z-[var(--z-tooltip)] whitespace-nowrap text-[11px] font-medium leading-none fade-in"
           style={{
             ...POS[placement],
             padding: "5px 8px",

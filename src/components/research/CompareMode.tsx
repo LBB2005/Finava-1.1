@@ -11,9 +11,11 @@ import {
 import { authFetch } from "@/lib/authFetch";
 import type { CompareStock, CompareVerdict } from "@/lib/researchAI";
 import { RadarOverlay } from "./primitives";
+import { CHART_SERIES } from "@/lib/chartPalette";
+import Spinner from "@/components/ui/Spinner";
 
 // Distinct series colours for up to 5 overlaid stocks.
-const COLORS = ["var(--color-accent)", "#e0734d", "#3fae6b", "#b06bd6", "#d6a93f"];
+const COLORS = CHART_SERIES;
 const MAX = 5;
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -239,7 +241,7 @@ export default function CompareMode({ universe, loading }: { universe: Stock[]; 
         <div style={{ padding: "16px" }}>
           {status === "loading" ? (
             <div className="flex flex-col items-center justify-center" style={{ minHeight: 240, gap: 10 }}>
-              <div className="spin" style={{ width: 28, height: 28, border: "2.5px solid var(--color-border)", borderTopColor: "var(--color-accent)", borderRadius: "50%" }} />
+              <span style={{ color: "var(--color-accent)" }}><Spinner size={28} /></span>
               <p style={{ fontSize: 12, color: "var(--color-muted)" }}>Weighing the head-to-head…</p>
             </div>
           ) : status === "error" ? (

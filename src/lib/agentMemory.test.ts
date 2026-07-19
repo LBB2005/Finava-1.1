@@ -29,11 +29,12 @@ vi.mock("firebase-admin", () => {
 
 // In-memory tickerMemory query builder supporting where(==/in) + orderBy + limit
 // + get + count, plus collection.doc() for batched writes.
-function makeTickerQuery(filter: { in?: string[]; eq?: string }) {
+function makeTickerQuery(filter: { in?: string[]; eq?: string; userIdEq?: string }) {
   const matching = () =>
     deps.memoryDocs
       .map((data, idx) => ({ data, idx }))
       .filter(({ data }) => {
+        if (filter.userIdEq != null && data.userId !== filter.userIdEq) return false;
         const t = data.ticker as string;
         if (filter.eq != null) return t === filter.eq;
         if (filter.in != null) return filter.in.includes(t);
@@ -58,10 +59,12 @@ function makeTickerQuery(filter: { in?: string[]; eq?: string }) {
   };
 
   return {
-    where: (_field: string, op: string, val: string | string[]) =>
-      op === "in"
+    where: (field: string, op: string, val: string | string[]) => {
+      if (field === "userId") return makeTickerQuery({ ...filter, userIdEq: val as string });
+      return op === "in"
         ? makeTickerQuery({ ...filter, in: val as string[] })
-        : makeTickerQuery({ ...filter, eq: val as string }),
+        : makeTickerQuery({ ...filter, eq: val as string });
+    },
     orderBy: (_field: string, dir: "asc" | "desc") => ({
       limit: (n: number) => ({ get: vi.fn(async () => snapshot(dir, n)) }),
       get: vi.fn(async () => snapshot(dir)),
@@ -180,29 +183,32 @@ describe("ticker memory", () => {
   it("formats recent ticker insights for CEO prompt injection", async () => {
     deps.memoryDocs = [
       {
+        userId: "u1",
         ticker: "AAPL",
         insight: "AAPL trades above the last DCF range.",
         source: "ceo",
         createdAt: "2026-06-10T00:00:00.000Z",
       },
       {
+        userId: "u1",
         ticker: "MSFT",
         insight: "MSFT margins remain resilient.",
         createdAt: { toDate: () => new Date("2026-06-12T00:00:00.000Z") },
       },
     ];
 
-    await expect(getTickerMemory(["aapl", "MSFT"])).resolves.toContain(
+    await expect(getTickerMemory("u1", ["aapl", "MSFT"])).resolves.toContain(
       "[AAPL · 2026-06-10 · ceo] AAPL trades above the last DCF range."
     );
-    await expect(getTickerMemory(["aapl", "MSFT"])).resolves.toContain(
+    await expect(getTickerMemory("u1", ["aapl", "MSFT"])).resolves.toContain(
       "[MSFT · 2026-06-12] MSFT margins remain resilient."
     );
-    await expect(getTickerMemory([])).resolves.toBe("");
+    await expect(getTickerMemory("u1", [])).resolves.toBe("");
   });
 
   it("saves parsed insights in one batch and prunes the oldest beyond the cap", async () => {
     deps.memoryDocs = Array.from({ length: 15 }, (_, i) => ({
+      userId: "u1",
       ticker: "AAPL",
       insight: `old ${i}`,
       createdAt: `2026-06-${String(i + 1).padStart(2, "0")}T00:00:00.000Z`,
@@ -220,16 +226,19 @@ describe("ticker memory", () => {
       },
     };
 
-    await saveTickerMemory(["AAPL", "MSFT"], "analysis text", anthropicClient as never);
+    await saveTickerMemory("u1", ["AAPL", "MSFT"], "analysis text", anthropicClient as never);
 
-    // Adds go through a single batched write, not per-line add() calls.
+    // Adds go through a single batched write, not per-line add() calls, and each
+    // row is stamped with the owning userId.
     expect(deps.batchSet).toHaveBeenCalledWith(expect.anything(), {
+      userId: "u1",
       ticker: "AAPL",
       insight: "DCF fair value is still below spot.",
       source: null,
       createdAt: "2026-06-15T12:00:00.000Z",
     });
     expect(deps.batchSet).toHaveBeenCalledWith(expect.anything(), {
+      userId: "u1",
       ticker: "MSFT",
       insight: "Azure growth supports margins.",
       source: null,
@@ -243,9 +252,34 @@ describe("ticker memory", () => {
   it("skips memory saves when there is no ticker or response body", async () => {
     const anthropicClient = { messages: { create: vi.fn() } };
 
-    await saveTickerMemory([], "analysis", anthropicClient as never);
-    await saveTickerMemory(["AAPL"], "", anthropicClient as never);
+    await saveTickerMemory("u1", [], "analysis", anthropicClient as never);
+    await saveTickerMemory("u1", ["AAPL"], "", anthropicClient as never);
 
+    expect(anthropicClient.messages.create).not.toHaveBeenCalled();
+  });
+
+  it("scopes reads to the user — never returns another user's insights", async () => {
+    deps.memoryDocs = [
+      {
+        userId: "u1",
+        ticker: "AAPL",
+        insight: "AAPL is user one's private read.",
+        createdAt: "2026-06-10T00:00:00.000Z",
+      },
+    ];
+
+    // Same ticker, different user → no cross-user leak (this is the fix for the
+    // global-tickerMemory disclosure/prompt-injection finding).
+    await expect(getTickerMemory("u2", ["AAPL"])).resolves.toBe("");
+    await expect(getTickerMemory("u1", ["AAPL"])).resolves.toContain(
+      "AAPL is user one's private read."
+    );
+  });
+
+  it("skips reads and writes when no userId is supplied", async () => {
+    const anthropicClient = { messages: { create: vi.fn() } };
+    await expect(getTickerMemory("", ["AAPL"])).resolves.toBe("");
+    await saveTickerMemory("", ["AAPL"], "analysis text", anthropicClient as never);
     expect(anthropicClient.messages.create).not.toHaveBeenCalled();
   });
 });

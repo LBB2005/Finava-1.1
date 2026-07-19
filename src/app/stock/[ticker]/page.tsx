@@ -13,6 +13,7 @@ import { DcfTab } from "@/components/stock/DcfTab";
 import { FinavaTab } from "@/components/stock/FinavaTab";
 import { MoneyMapTab } from "@/components/stock/MoneyMapTab";
 import ChatContextButton from "@/components/chat/ChatContextButton";
+import Spinner from "@/components/ui/Spinner";
 
 const TABS = ["Overview", "Financials", "Analysts", "News", "DCF", "Finava", "Money Map"] as const;
 type Tab = (typeof TABS)[number];
@@ -104,7 +105,7 @@ export default function StockPage() {
 
           {!slow ? (
             <p className="mt-3.5 text-[12px] flex items-center gap-2" style={{ color: "var(--color-muted)" }}>
-              <span className="inline-block w-3 h-3 rounded-full border-2 border-[var(--color-border-strong)] border-t-[var(--color-accent)] animate-spin" />
+              <span className="inline-flex" style={{ color: "var(--color-accent)" }}><Spinner size={12} /></span>
               Loading quote &amp; chart for {ticker}…
             </p>
           ) : (

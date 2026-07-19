@@ -10,22 +10,22 @@ export default function AgentStep({ step }: { step: AgentStepType }) {
   const isSkeptic = step.agent === "skeptic_review";
 
   return (
-    <div className={`flex flex-col gap-1 ${isSkeptic ? "mt-1 pt-2 border-t border-amber-200/60" : ""}`}>
+    <div className={`flex flex-col gap-1 ${isSkeptic ? "mt-1 pt-2 border-t border-[color-mix(in_srgb,var(--color-warn)_35%,transparent)]" : ""}`}>
       <div className="flex items-center gap-2">
         {step.status === "running" && (
-          <span className={isSkeptic ? "text-amber-500" : "text-[var(--color-accent)]"}>
+          <span className={isSkeptic ? "text-[var(--color-warn)]" : "text-[var(--color-accent)]"}>
             <Spinner size={14} />
           </span>
         )}
         {step.status === "complete" && (
-          <span className="text-green-500">
+          <span className="text-[var(--color-bull)]">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </span>
         )}
         {step.status === "error" && (
-          <span className="text-red-400">
+          <span className="text-[var(--color-bear)]">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
@@ -38,11 +38,11 @@ export default function AgentStep({ step }: { step: AgentStepType }) {
         <span
           className={`text-xs font-medium ${
             step.status === "running"
-              ? isSkeptic ? "text-amber-600" : "text-[var(--color-accent)]"
+              ? isSkeptic ? "text-[var(--color-warn)]" : "text-[var(--color-accent)]"
               : step.status === "complete"
-              ? isSkeptic ? "text-amber-700" : "text-[var(--color-text)]"
+              ? isSkeptic ? "text-[var(--color-warn)]" : "text-[var(--color-text)]"
               : step.status === "error"
-              ? "text-red-400"
+              ? "text-[var(--color-bear)]"
               : "text-[var(--color-muted)]"
           }`}
         >
@@ -69,7 +69,7 @@ export default function AgentStep({ step }: { step: AgentStepType }) {
       )}
 
       {step.status === "error" && step.error && (
-        <p className="ml-5 text-xs text-red-400">{step.error}</p>
+        <p className="ml-5 text-xs text-[var(--color-bear)]">{step.error}</p>
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { authFetch } from "@/lib/authFetch";
 import { apiErrorMessage } from "@/lib/apiErrorMessage";
 import Modal from "@/components/ui/Modal";
+import Spinner from "@/components/ui/Spinner";
 import { useToast } from "@/hooks/useToast";
 
 interface ExtractedHolding {
@@ -89,12 +90,12 @@ export default function StatementUploadModal({ onClose, onAdd }: Props) {
     <Modal
       onClose={onClose}
       label="Upload portfolio statement"
-      className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
+      className="bg-[var(--color-surface)] border border-[var(--color-border-strong)] rounded-[var(--radius-xl)] shadow-[var(--shadow-pop)] w-full max-w-lg mx-4 overflow-hidden"
     >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
           <div>
-            <h2 className="text-sm font-semibold text-[var(--color-text)]">Upload Portfolio Statement</h2>
+            <h2 className="text-lg font-semibold text-[var(--color-text)]">Upload Portfolio Statement</h2>
             <p className="text-[11px] text-[var(--color-muted)] mt-0.5">Photo or PDF — AI will extract your holdings</p>
           </div>
           <button onClick={onClose} className="text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors">
@@ -141,7 +142,7 @@ export default function StatementUploadModal({ onClose, onAdd }: Props) {
               <button
                 onClick={scan}
                 disabled={!file}
-                className="w-full py-2.5 rounded-xl bg-[var(--color-accent)] text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-opacity"
+                className="w-full py-2.5 rounded-lg bg-[var(--color-accent)] text-white text-sm font-medium disabled:opacity-50 hover:bg-[var(--color-accent-hover)] transition-colors"
               >
                 Scan with AI
               </button>
@@ -150,7 +151,7 @@ export default function StatementUploadModal({ onClose, onAdd }: Props) {
 
           {step === "scanning" && (
             <div className="flex flex-col items-center gap-4 py-8">
-              <span className="w-10 h-10 rounded-full border-2 border-[var(--color-accent)] border-t-transparent animate-spin" />
+              <Spinner size={40} className="text-[var(--color-accent)]" />
               <p className="text-sm text-[var(--color-text)]">Scanning statement…</p>
               <p className="text-xs text-[var(--color-muted)]">AI is reading your holdings</p>
             </div>
@@ -158,15 +159,15 @@ export default function StatementUploadModal({ onClose, onAdd }: Props) {
 
           {step === "adding" && (
             <div className="flex flex-col items-center gap-4 py-8">
-              <span className="w-10 h-10 rounded-full border-2 border-[var(--color-accent)] border-t-transparent animate-spin" />
+              <Spinner size={40} className="text-[var(--color-accent)]" />
               <p className="text-sm text-[var(--color-text)]">Adding holdings…</p>
             </div>
           )}
 
           {step === "error" && (
             <div className="flex flex-col items-center gap-4 py-6">
-              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500">
+              <div className="w-10 h-10 rounded-full bg-[color-mix(in_srgb,var(--color-bear)_8%,transparent)] flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--color-bear)]">
                   <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               </div>
@@ -248,7 +249,7 @@ export default function StatementUploadModal({ onClose, onAdd }: Props) {
                 <button
                   onClick={confirm}
                   disabled={selected.size === 0}
-                  className="flex-1 py-2 rounded-xl bg-[var(--color-accent)] text-white text-xs font-medium disabled:opacity-40 hover:opacity-90 transition-opacity"
+                  className="flex-1 py-2 rounded-lg bg-[var(--color-accent)] text-white text-sm font-medium disabled:opacity-50 hover:bg-[var(--color-accent-hover)] transition-colors"
                 >
                   {replaceMode ? "Replace portfolio" : `Add ${selected.size} holding${selected.size !== 1 ? "s" : ""}`}
                 </button>

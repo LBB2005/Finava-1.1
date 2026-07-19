@@ -2,6 +2,7 @@ import { anthropic, MODEL } from "@/lib/anthropic";
 import { generate, AGENT_MODELS, type AgentKey } from "@/lib/llm";
 import { badgeBrands, type Brand } from "@/lib/models";
 import { recordUsage } from "@/lib/usage";
+import { logger } from "@/lib/logger";
 import { allTools, scoutTool } from "./tools/index";
 import { runRiskAgent } from "./sub-agents/risk-agent";
 import { runNewsAgent } from "./sub-agents/news-agent";
@@ -26,6 +27,8 @@ import type { AgentEvent, AgentName } from "@/types/chat";
 import type { MessageParam, ToolResultBlockParam } from "@anthropic-ai/sdk/resources/messages";
 
 type EventEmitter = (event: AgentEvent) => void;
+
+const log = logger("ceo");
 
 // Deep agents run complex multi-step analysis or external APIs — they get a longer
 // wall-clock cap, but every agent is still capped so one stuck upstream can't hang
@@ -351,7 +354,9 @@ Use charts liberally:
 - Peer comparison (P/E, margins) → bar chart
 - Always set a descriptive title and unit`;
 
-  console.log("[ceo] starting for prompt:", userPrompt.slice(0, 60));
+  // Log run metadata only — never the prompt text (privacy/GDPR). requestId is
+  // picked up from the run context so the whole crew's logs correlate.
+  log.info("run started", { promptChars: userPrompt.length });
 
   // ── Extract tickers + inject previous analysis memory ─────────────────────
   const mentionedTickers = [
@@ -363,7 +368,7 @@ Use charts liberally:
   ];
   // Independent Firestore reads — fetch in parallel.
   const [memoryBlock, userStyle, templateBlock] = await Promise.all([
-    getTickerMemory(mentionedTickers),
+    getTickerMemory(userId ?? "", mentionedTickers),
     userId ? getUserPreference(userId) : Promise.resolve(undefined),
     // Discovery output is tightly structured already — don't let a response
     // template fight the scout-only narrative rules.
@@ -537,8 +542,27 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
               : agentDispatch[block.name];
           if (!handler) throw new Error(`Unknown agent: ${block.name}`);
 
+          // run_risk_agent folds the caller's private holdings (priced value +
+          // position weights) into its output, so its cache entry MUST be scoped
+          // per user + holdings — never shared on ticker-set alone, or one user's
+          // portfolio figures would surface for another asking about the same
+          // tickers. Every other agent emits impersonal public-data output and
+          // keeps the shared cross-user cache. Holdings (not just userId) are in
+          // the key so a holdings change within the TTL invalidates the stale row.
+          const cacheInput =
+            block.name === "run_risk_agent"
+              ? {
+                  ...(block.input as Record<string, unknown>),
+                  _userId: userId ?? null,
+                  _holdings: holdings
+                    .map((h) => `${h.ticker}:${h.shares}`)
+                    .sort()
+                    .join(","),
+                }
+              : block.input;
+
           // ── Cache check ───────────────────────────────────────────────────
-          const cached = await checkCache(block.name, block.input);
+          const cached = await checkCache(block.name, cacheInput);
           if (cached) {
             agentOutputs.set(block.name, cached);
             emit({ type: "agent_complete", agent: agentName, result: cached, models: modelsForAgent(agentName) });
@@ -557,7 +581,7 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
 
           // ── Cache save (deferred, flushed before "done") ──────────────────
           pendingWrites.push(
-            saveCache(block.name, block.input, result).catch((e) =>
+            saveCache(block.name, cacheInput, result).catch((e) =>
               console.error("[cache] save error:", e)
             )
           );
@@ -636,7 +660,7 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
     // Persist ticker memory + investing style from the FINAL (revised) report.
     if (mentionedTickers.length) {
       pendingWrites.push(
-        saveTickerMemory(mentionedTickers, finalResponse, anthropic).catch((e) =>
+        saveTickerMemory(userId ?? "", mentionedTickers, finalResponse, anthropic).catch((e) =>
           console.error("[memory] save error:", e)
         )
       );

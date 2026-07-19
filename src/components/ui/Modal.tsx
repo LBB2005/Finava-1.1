@@ -13,7 +13,7 @@ export default function Modal({
   onClose,
   label,
   children,
-  className = "bg-white rounded-2xl shadow-xl w-full max-w-md p-6 mx-4",
+  className = "bg-[var(--color-surface)] border border-[var(--color-border-strong)] rounded-[var(--radius-xl)] shadow-[var(--shadow-pop)] w-full max-w-md p-6 mx-4",
 }: {
   onClose: () => void;
   /** Accessible name announced by screen readers. */
@@ -54,7 +54,11 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center"
+      style={{
+        background: "color-mix(in oklab, var(--color-text) 28%, transparent)",
+        backdropFilter: "blur(2px)",
+      }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

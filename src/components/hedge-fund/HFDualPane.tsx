@@ -86,7 +86,7 @@ function lvlColor(lvl: BotLogEntry["lvl"]) {
 }
 
 // ── Sparkline ───────────────────────────────────────────────────────────────
-function Spark({ data, w = 300, h = 50, color = "#aeeac9", fill = true }: {
+function Spark({ data, w = 300, h = 50, color = "var(--color-bull)", fill = true }: {
   data: number[]; w?: number; h?: number; color?: string; fill?: boolean;
 }) {
   if (!data || data.length < 2) return null;
@@ -119,7 +119,7 @@ function NavCard({ a }: { a: V10Account }) {
         <span style={{ color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-sans)", fontWeight: 400, fontSize: 12 }}>today</span>
       </div>
       <div style={{ marginTop: 14 }}>
-        <Spark data={a.history} color="#aeeac9" fill />
+        <Spark data={a.history} color="var(--color-bull)" fill />
       </div>
       <div className="kpis">
         <div>
@@ -593,7 +593,7 @@ export function HFDualPane({
               </span>
               <span style={{ color: "var(--v-mut)", fontSize: 11.5 }}>@ ${o.px == null ? "MKT" : o.px.toFixed(2)} {o.type}</span>
               <span style={{ flex: 1 }} />
-              <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em", padding: "2px 7px", borderRadius: 3, color: o.status === "Working" ? "var(--color-accent)" : "var(--color-warn)", background: o.status === "Working" ? "rgba(26,75,143,0.10)" : "rgba(180,83,9,0.10)" }}>
+              <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em", padding: "2px 7px", borderRadius: 3, color: o.status === "Working" ? "var(--color-accent)" : "var(--color-warn)", background: o.status === "Working" ? "color-mix(in srgb, var(--color-accent) 10%, transparent)" : "color-mix(in srgb, var(--color-warn) 10%, transparent)" }}>
                 {o.status.toUpperCase()}
               </span>
             </div>

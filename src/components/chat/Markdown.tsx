@@ -10,7 +10,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
-      className="text-[11px] font-medium px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors duration-150 text-slate-300 hover:text-white"
+      className="text-[11px] font-medium px-2 py-0.5 rounded bg-[color-mix(in_srgb,var(--color-text)_8%,transparent)] hover:bg-[color-mix(in_srgb,var(--color-text)_16%,transparent)] transition-colors duration-150 text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
     >
       {copied ? "Copied!" : "Copy"}
     </button>
@@ -28,7 +28,7 @@ export const components: Components = {
   tbody: ({ children }) => <tbody className="divide-y divide-[var(--color-border)]">{children}</tbody>,
   tr: ({ children }) => <tr className="hover:bg-[var(--color-surface)] transition-colors duration-100">{children}</tr>,
   th: ({ children }) => (
-    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-accent)] whitespace-nowrap border-b border-[var(--color-border)]">
+    <th className="eyebrow-label px-4 py-2.5 text-left text-[var(--color-accent)] whitespace-nowrap border-b border-[var(--color-border)]">
       {children}
     </th>
   ),
@@ -59,12 +59,12 @@ export const components: Components = {
     }
 
     return (
-      <div className="my-4 rounded-xl overflow-hidden border border-slate-700 shadow-md">
-        <div className="flex items-center justify-between bg-[#1e2d3d] px-4 py-2">
-          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">{lang || "code"}</span>
+      <div className="my-4 rounded-xl overflow-hidden border border-[var(--color-border-strong)] shadow-md">
+        <div className="flex items-center justify-between bg-[var(--color-surface-2)] px-4 py-2 border-b border-[var(--color-border)]">
+          <span className="text-[11px] font-medium text-[var(--color-muted)] uppercase tracking-wider">{lang || "code"}</span>
           <CopyButton text={code} />
         </div>
-        <pre className="bg-[#0f1e2e] text-slate-200 px-4 py-3.5 overflow-x-auto text-[0.82em] leading-relaxed font-mono">
+        <pre className="bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] px-4 py-3.5 overflow-x-auto text-[0.82em] leading-relaxed font-mono">
           <code {...props}>{children}</code>
         </pre>
       </div>

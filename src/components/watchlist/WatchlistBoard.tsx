@@ -123,7 +123,7 @@ export default function WatchlistBoard({
           {["Ticker", "Company", "Last", "Day", "Mkt Cap"].map((h, i) => (
             <th
               key={h}
-              className={`text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)] px-4 py-[10px] ${i >= 2 ? "text-right" : "text-left"}`}
+              className={`eyebrow-label text-[var(--color-muted)] px-4 py-[10px] ${i >= 2 ? "text-right" : "text-left"}`}
             >
               {h}
             </th>
@@ -154,11 +154,11 @@ export default function WatchlistBoard({
               <td className="px-4 py-3 text-[12.5px] text-[var(--color-text-secondary)] max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap">
                 {nameFor(t)}
               </td>
-              <td className="px-4 py-3 text-[12.5px] text-right text-[var(--color-text)] tabular-nums">
+              <td className="mono px-4 py-3 text-[12.5px] text-right text-[var(--color-text)] tabular-nums">
                 {isLoading && !row ? "…" : price(row?.price ?? null)}
               </td>
               <td
-                className="px-4 py-3 text-[12.5px] font-medium text-right tabular-nums"
+                className="mono px-4 py-3 text-[12.5px] font-medium text-right tabular-nums"
                 style={{ color: chg === null ? "var(--color-muted)" : up ? "var(--color-bull)" : "var(--color-bear)" }}
               >
                 {pct(chg)}

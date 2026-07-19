@@ -78,9 +78,9 @@ function AccountHero() {
             letterSpacing: "0.08em",
             padding: "2px 7px",
             borderRadius: 5,
-            background: "rgba(255,159,10,0.10)",
+            background: "color-mix(in srgb, var(--color-warn) 10%, transparent)",
             color: "var(--color-warn)",
-            border: "1px solid rgba(255,159,10,0.25)",
+            border: "1px solid color-mix(in srgb, var(--color-warn) 25%, transparent)",
             marginLeft: 4,
           }}
         >

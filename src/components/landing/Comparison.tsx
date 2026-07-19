@@ -56,9 +56,10 @@ function Glyph({ cell, highlight }: { cell: Cell; highlight: boolean }) {
     );
   }
   const map = {
-    yes: { ch: "✓", cls: "text-[var(--lp-bull)] bg-[rgba(52,211,153,0.12)]" },
-    no: { ch: "✕", cls: "text-[var(--lp-bear)] bg-[rgba(248,113,113,0.1)]" },
-    warn: { ch: "!", cls: "text-amber-400 bg-[rgba(251,191,36,0.12)]" },
+    yes: { ch: "✓", cls: "text-[var(--lp-bull)] bg-[color-mix(in_srgb,var(--lp-bull)_12%,transparent)]" },
+    no: { ch: "✕", cls: "text-[var(--lp-bear)] bg-[color-mix(in_srgb,var(--lp-bear)_10%,transparent)]" },
+    // No --lp-warn token exists; keep the amber hue as a single hex constant.
+    warn: { ch: "!", cls: "text-[#fbbf24] bg-[color-mix(in_srgb,#fbbf24_12%,transparent)]" },
   }[cell.v];
   return (
     <span className="inline-flex flex-col items-center gap-1">

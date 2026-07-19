@@ -180,9 +180,15 @@ export function HFBot({ bot: mockBot, strategies = [], onPause, onKill }: Props)
             letterSpacing: "0.04em",
             padding: "2px 8px",
             borderRadius: 6,
-            background: isLive ? "rgba(52,199,89,0.12)" : "rgba(255,159,10,0.10)",
+            background: isLive
+              ? "color-mix(in srgb, var(--color-bull) 12%, transparent)"
+              : "color-mix(in srgb, var(--color-warn) 10%, transparent)",
             color: isLive ? "var(--color-bull)" : "var(--color-warn)",
-            border: `1px solid ${isLive ? "rgba(52,199,89,0.25)" : "rgba(255,159,10,0.25)"}`,
+            border: `1px solid ${
+              isLive
+                ? "color-mix(in srgb, var(--color-bull) 25%, transparent)"
+                : "color-mix(in srgb, var(--color-warn) 25%, transparent)"
+            }`,
           }}
         >
           {isLive ? "LIVE" : "DEMO"}

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import * as admin from "firebase-admin";
 import { db } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/email/client";
@@ -41,18 +41,24 @@ export async function POST(request: Request) {
     );
 
     // Send the confirmation only on first signup — don't re-email duplicate
-    // submits. Failures here must not fail the request (sendEmail never throws).
+    // submits. Run it AFTER the response so the Resend round-trip neither blocks
+    // the reply nor makes first-signup responses measurably slower than repeat
+    // ones — that latency gap would otherwise leak whether an address is already
+    // on the waitlist. sendEmail never throws, so post-response failures can't
+    // affect the already-sent reply.
     if (isNew) {
-      const result = await sendEmail(email, waitlistConfirmationEmail());
-      await ref.set(
-        {
-          confirmationSent: result.sent,
-          confirmationSentAt: result.sent
-            ? admin.firestore.FieldValue.serverTimestamp()
-            : null,
-        },
-        { merge: true }
-      );
+      after(async () => {
+        const result = await sendEmail(email, waitlistConfirmationEmail());
+        await ref.set(
+          {
+            confirmationSent: result.sent,
+            confirmationSentAt: result.sent
+              ? admin.firestore.FieldValue.serverTimestamp()
+              : null,
+          },
+          { merge: true }
+        );
+      });
     }
 
     return NextResponse.json({ ok: true });

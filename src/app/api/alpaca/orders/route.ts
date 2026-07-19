@@ -55,7 +55,8 @@ export async function GET(): Promise<NextResponse> {
 
     if (!res.ok) {
       const text = await res.text();
-      return NextResponse.json({ error: `Alpaca ${res.status}: ${text}` }, { status: res.status });
+      console.error("[alpaca/orders GET] upstream", res.status, text);
+      return NextResponse.json({ error: "Failed to load orders" }, { status: res.status });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -75,7 +76,7 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json(orders);
   } catch (err) {
     console.error("[alpaca/orders GET]", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Failed to load orders" }, { status: 500 });
   }
 }
 
@@ -116,6 +117,6 @@ export async function DELETE(req: Request): Promise<NextResponse> {
     return NextResponse.json({ ok: res.ok, status: res.status });
   } catch (err) {
     console.error("[alpaca/orders DELETE]", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Failed to cancel order" }, { status: 500 });
   }
 }

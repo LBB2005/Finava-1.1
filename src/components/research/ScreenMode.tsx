@@ -5,6 +5,7 @@ import { applyScreen, type ScreenFilter } from "@/lib/screen";
 import { authFetch } from "@/lib/authFetch";
 import type { ScreenCommentary, SuggestedScreen } from "@/lib/researchAI";
 import LadderRow from "./LadderRow";
+import { LensEmptyState } from "./primitives";
 
 type Status = "idle" | "parsing" | "done" | "error";
 const DEFAULT_VISIBLE = 25;
@@ -121,8 +122,8 @@ export default function ScreenMode({ universe, loading }: { universe: Stock[]; l
               onChange={(e) => setQ(e.target.value)}
               placeholder={loading ? "Loading S&P 500…" : "e.g. cheap profitable tech with momentum and low debt"}
               disabled={loading}
-              className="mono"
-              style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, color: "var(--color-text)", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 4, outline: "none" }}
+              className="mono std-focus"
+              style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, color: "var(--color-text)", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 4 }}
             />
             <button
               type="submit"
@@ -163,15 +164,11 @@ export default function ScreenMode({ universe, loading }: { universe: Stock[]; l
           )}
 
           {results == null ? (
-            <div className="flex flex-col items-center justify-center" style={{ minHeight: 260, padding: 24, textAlign: "center", gap: 8 }}>
-              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <p className="serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)" }}>Describe what you&apos;re hunting for</p>
-              <p style={{ fontSize: 12, color: "var(--color-muted)", maxWidth: 340, lineHeight: 1.5 }}>
-                Type it in plain English — Finava turns it into a factor screen and runs it across the whole S&amp;P 500.
-              </p>
-            </div>
+            <LensEmptyState
+              title="Describe what you're hunting for"
+              detail="Type it in plain English — Finava turns it into a factor screen and runs it across the whole S&P 500."
+              minHeight={260}
+            />
           ) : results.length === 0 ? (
             <div className="flex flex-col items-center justify-center" style={{ minHeight: 200, padding: 24, textAlign: "center" }}>
               <p style={{ fontSize: 13, color: "var(--color-muted)" }}>No names match that screen. Try loosening the criteria.</p>

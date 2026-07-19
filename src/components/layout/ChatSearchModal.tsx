@@ -64,12 +64,12 @@ export default function ChatSearchModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[12vh]"
+      className="fixed inset-0 z-[var(--z-modal)] flex items-start justify-center px-4 pt-[12vh]"
       style={{ background: "color-mix(in oklab, var(--color-text) 28%, transparent)", backdropFilter: "blur(2px)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[560px] rounded-[14px] overflow-hidden flex flex-col"
+        className="w-full max-w-[560px] rounded-[var(--radius-xl)] overflow-hidden flex flex-col"
         style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)", boxShadow: "var(--shadow-pop)", maxHeight: "70vh" }}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
@@ -85,7 +85,7 @@ export default function ChatSearchModal({ onClose }: { onClose: () => void }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search chats…"
-            className="flex-1 bg-transparent text-[14px] text-[var(--color-text)] placeholder:text-[var(--color-muted)] outline-none"
+            className="std-focus flex-1 bg-transparent text-[14px] text-[var(--color-text)] placeholder:text-[var(--color-muted)]"
           />
           <kbd className="text-[10px] font-medium px-1.5 py-0.5 rounded text-[var(--color-muted)]" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
             Esc

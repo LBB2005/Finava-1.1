@@ -52,7 +52,7 @@ export default function BacktestResult({ result }: { result: BacktestResultType 
   const { config, series, sharpe, maxDrawdown, cagr, winRate, summary } = result;
   const finalPort = series[series.length - 1]?.portfolio ?? 0;
   const finalBench = series[series.length - 1]?.benchmark ?? 0;
-  const portColor = finalPort >= finalBench ? "#10b981" : "#ef4444";
+  const portColor = finalPort >= finalBench ? "var(--color-bull)" : "var(--color-bear)";
   const benchColor = "var(--color-accent)";
 
   const strategyLabel: Record<string, string> = {
@@ -116,8 +116,8 @@ export default function BacktestResult({ result }: { result: BacktestResultType 
                 <stop offset="95%" stopColor={portColor} stopOpacity={0.02} />
               </linearGradient>
               <linearGradient id="bt-bench" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#2563c4" stopOpacity={0.12} />
-                <stop offset="95%" stopColor="#2563c4" stopOpacity={0.02} />
+                <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.12} />
+                <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0.02} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
@@ -165,10 +165,10 @@ export default function BacktestResult({ result }: { result: BacktestResultType 
 
       {/* Stats row */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <Stat label="CAGR" value={`${cagr >= 0 ? "+" : ""}${cagr}%`} color={cagr >= 0 ? "#10b981" : "#ef4444"} />
-        <Stat label="Sharpe" value={String(sharpe)} color={sharpe >= 1 ? "#10b981" : sharpe >= 0 ? "var(--color-text)" : "#ef4444"} />
-        <Stat label="Max Drawdown" value={`${maxDrawdown}%`} color={maxDrawdown < -20 ? "#ef4444" : "var(--color-text)"} />
-        <Stat label="Win Rate" value={`${winRate}%`} color={winRate >= 50 ? "#10b981" : "#ef4444"} />
+        <Stat label="CAGR" value={`${cagr >= 0 ? "+" : ""}${cagr}%`} color={cagr >= 0 ? "var(--color-bull)" : "var(--color-bear)"} />
+        <Stat label="Sharpe" value={String(sharpe)} color={sharpe >= 1 ? "var(--color-bull)" : sharpe >= 0 ? "var(--color-text)" : "var(--color-bear)"} />
+        <Stat label="Max Drawdown" value={`${maxDrawdown}%`} color={maxDrawdown < -20 ? "var(--color-bear)" : "var(--color-text)"} />
+        <Stat label="Win Rate" value={`${winRate}%`} color={winRate >= 50 ? "var(--color-bull)" : "var(--color-bear)"} />
       </div>
 
       {/* Summary */}

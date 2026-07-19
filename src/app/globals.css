@@ -4,6 +4,11 @@
   /* Layout */
   --sidebar-width: 260px;
 
+  /* Page content max-widths — documents the existing per-page widths as tokens; pages migrate later. */
+  --page-maxw-narrow: 624px;
+  --page-maxw-content: 920px;
+  --page-maxw-wide: 1100px;
+
   /* Surfaces */
   --color-bg: #ffffff;
   --color-surface: #f8fafc;
@@ -78,6 +83,13 @@
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 18px;
+
+  /* Stacking — dropdowns above content, modals above dropdowns,
+     toasts above modals, tooltips on top. */
+  --z-dropdown: 60;
+  --z-modal: 80;
+  --z-toast: 100;
+  --z-tooltip: 200;
 
   /* Page chrome — header and content gutters lock together so the title's
      left edge and the content's left edge line up on every page. Scrollers
@@ -204,6 +216,15 @@
   --color-foreground: var(--color-text);
   --font-sans: var(--font-sans-ui);
   --font-mono: var(--font-geist-mono);
+  /* Type-scale utilities (text-micro, text-meta, …) off the :root ramp above.
+     --text-sm is deliberately NOT wired here: it collides with Tailwind's
+     default text-sm and would silently resize every existing text-sm usage —
+     use the raw var(--text-sm) for that step instead. */
+  --text-micro: var(--text-micro);
+  --text-meta: var(--text-meta);
+  --text-body: var(--text-body);
+  --text-title: var(--text-title);
+  --text-display: var(--text-display);
 }
 
 * { box-sizing: border-box; }
@@ -239,6 +260,10 @@ body {
 .chat-textarea:focus-visible {
   outline: none;
 }
+
+/* Standard input focus — shared accent border + soft glow for inputs and
+   focusable wrappers (apply className="std-focus"). */
+.std-focus:focus, .std-focus:focus-within { outline: none; border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-light); }
 
 /* Frost glass card — shared surface recipe for chat-page panels (crew panel,
    agent ribbon). Same material as the composer: translucent surface + blur,
@@ -475,7 +500,7 @@ body {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.fade-in { animation: fade-in 280ms ease-out both; }
+.fade-in { animation: fade-in 240ms ease-out both; }
 
 /* Thinking panel slide-in */
 @keyframes thinking-fadein {
@@ -1110,7 +1135,7 @@ body {
 
 /* SHARED */
 .v10 .eyebrow {
-  font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
   font-weight: 700; color: var(--v-mut);
 }
 .v10 .card {
@@ -1335,11 +1360,11 @@ body {
 }
 .v10 .filter-chip:hover { background: var(--v-subtle); color: var(--v-ink); }
 .v10 .filter-chip.on {
-  background: var(--v-invert-bg); border-color: var(--v-invert-bg);
-  color: var(--v-invert-fg); font-weight: 600;
+  background: var(--color-accent); border-color: var(--color-accent);
+  color: #fff; font-weight: 600;
 }
 .v10 .filter-chip .count { color: var(--v-mut); margin-left: 4px; font-family: var(--font-mono); font-size: 10.5px; }
-.v10 .filter-chip.on .count { color: var(--v-invert-fg); opacity: 0.65; }
+.v10 .filter-chip.on .count { color: #fff; opacity: 0.65; }
 
 .v10 .strat-full {
   display: grid;
@@ -1391,7 +1416,7 @@ body {
   outline: none;
   width: 100%;
 }
-.v10 .ticket input:focus, .v10 .ticket select:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(26,75,143,0.10); }
+.v10 .ticket input:focus, .v10 .ticket select:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-light); }
 .v10 .ticket .side-pick { display: flex; gap: 4px; }
 .v10 .ticket .side-pick button {
   flex: 1; padding: 8px 0;
@@ -1658,7 +1683,7 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 .research-root .term { font-variant-numeric: tabular-nums; }
 .research-root .eyebrow {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.16em; color: var(--color-muted);
+  letter-spacing: 0.1em; color: var(--color-muted);
 }
 
 /* Grade pill */

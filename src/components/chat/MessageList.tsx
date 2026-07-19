@@ -6,6 +6,7 @@ import TypingIndicator from "./TypingIndicator";
 import { LiveElapsed } from "./ResponseTiming";
 import AgentDetailModal from "@/components/agent/AgentDetailModal";
 import ModelBadge from "@/components/ui/ModelBadge";
+import Spinner from "@/components/ui/Spinner";
 import { AGENT_LABELS } from "@/types/chat";
 import type { ChatMessage, ChatMode, AgentStep, Template } from "@/types/chat";
 import { useChatStore } from "@/stores/chatStore";
@@ -44,15 +45,6 @@ function FinavaAvatar() {
     >
       L
     </div>
-  );
-}
-
-function Spinner() {
-  return (
-    <span
-      className="inline-block rounded-full border-2 border-[var(--color-accent)] border-t-transparent flex-shrink-0"
-      style={{ width: 12, height: 12, animation: "spin 0.9s linear infinite" }}
-    />
   );
 }
 
@@ -153,7 +145,7 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
                     className="flex items-center gap-3 px-[14px] py-[9px] transition-colors duration-300"
                     style={{
                       borderBottom: "1px solid color-mix(in oklab, var(--color-text) 7%, transparent)",
-                      borderTop: isSkeptic ? "1px solid color-mix(in oklab, #f59e0b 30%, transparent)" : undefined,
+                      borderTop: isSkeptic ? "1px solid color-mix(in oklab, var(--color-warn) 30%, transparent)" : undefined,
                       // Frost: the analyzing row lifts gently off the glass.
                       ...(step.status === "running"
                         ? {
@@ -171,9 +163,13 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
                       )}
-                      {step.status === "running" && <Spinner />}
+                      {step.status === "running" && (
+                        <span className="flex flex-shrink-0 text-[var(--color-accent)]">
+                          <Spinner size={12} />
+                        </span>
+                      )}
                       {step.status === "error" && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-bear)" strokeWidth="2.5" strokeLinecap="round">
                           <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                         </svg>
                       )}
@@ -213,19 +209,19 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
                     {(step.status === "complete" || step.status === "error") && step.result ? (
                       <button
                         onClick={() => setDetailStep(step)}
-                        className="text-[9.5px] font-semibold uppercase tracking-[0.1em] flex-shrink-0 px-[7px] py-[3px] rounded-[5px] transition-colors duration-100"
+                        className="eyebrow-label flex-shrink-0 px-[7px] py-[3px] rounded-[5px] transition-colors duration-100"
                         style={{ background: "var(--color-accent-light)", color: "var(--color-accent)", border: "none", cursor: "pointer", fontFamily: "inherit" }}
                       >
                         View
                       </button>
                     ) : (
                       <span
-                        className="text-[9.5px] font-semibold uppercase tracking-[0.16em] flex-shrink-0"
+                        className="eyebrow-label flex-shrink-0"
                         style={{
                           color:
                             step.status === "complete" ? "var(--color-bull)"
                             : step.status === "running" ? "var(--color-accent)"
-                            : step.status === "error" ? "#f87171"
+                            : step.status === "error" ? "var(--color-bear)"
                             : "var(--color-muted)",
                         }}
                       >
@@ -293,7 +289,7 @@ function MarketPulse() {
     >
       {/* Header row */}
       <div className="flex items-center justify-between mb-[10px]">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+        <span className="eyebrow-label text-[var(--color-muted)]">
           Market Pulse
         </span>
         <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-muted)]">
@@ -314,7 +310,7 @@ function MarketPulse() {
           return (
             <div key={item.ticker} className="min-w-0">
               <p
-                className="flex items-baseline gap-1 text-[10.5px] font-semibold uppercase tracking-[0.16em] mb-1 whitespace-nowrap"
+                className="eyebrow-label flex items-baseline gap-1 mb-1 whitespace-nowrap"
                 style={{ color: "var(--color-muted)" }}
               >
                 {item.label}
@@ -325,10 +321,7 @@ function MarketPulse() {
                 style={{ color: "var(--color-text)" }}
               >
                 {isLoading ? (
-                  <span
-                    className="inline-block h-[15px] w-16 rounded animate-pulse"
-                    style={{ background: "var(--color-border)" }}
-                  />
+                  <span className="skeleton inline-block h-[15px] w-16" />
                 ) : (
                   item.value
                 )}
@@ -342,10 +335,7 @@ function MarketPulse() {
                 </p>
               )}
               {isLoading && (
-                <span
-                  className="inline-block h-[11px] w-10 rounded mt-1 animate-pulse"
-                  style={{ background: "var(--color-border)" }}
-                />
+                <span className="skeleton inline-block h-[11px] w-10 mt-1" />
               )}
             </div>
           );
@@ -394,7 +384,7 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
         {Array.isArray(templates) && templates.length > 0 && (
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+              <span className="eyebrow-label text-[var(--color-muted)]">
                 Templates
               </span>
               <span className="text-[11px] text-[var(--color-muted)]">Shape how Finava responds</span>
@@ -426,7 +416,7 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
         {/* Suggestion tiles */}
         <div className="mb-3">
           <div className="flex items-center justify-between mb-2.5">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+            <span className="eyebrow-label text-[var(--color-muted)]">
               Starter prompts
             </span>
             <span className="text-[11px] text-[var(--color-muted)]">Tailored to your book · scroll for more</span>

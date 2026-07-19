@@ -93,7 +93,7 @@ function PickCard({ p, held, revealIndex = 0 }: { p: ScoutPick; held?: boolean; 
           </span>
           {held && (
             <span
-              className="text-[9px] font-bold px-1.5 py-0.5 rounded-[5px] uppercase tracking-[0.08em]"
+              className="eyebrow-label px-1.5 py-0.5 rounded-[5px]"
               style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
             >
               ✓ Held
@@ -158,7 +158,7 @@ function Shortlist({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
+        <span className="eyebrow-label" style={{ color: ACCENT }}>
           {tier === "quick" ? "Discover" : "Deep Discover"} · {picks.length} {picks.length === 1 ? "idea" : "ideas"}
         </span>
         <span className="text-[11px] truncate flex-1 min-w-0" style={{ color: "var(--color-muted)" }}>for “{query}”</span>
@@ -186,7 +186,7 @@ function Shortlist({
               <div key={g.t} className="flex flex-col gap-2">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[12.5px]" aria-hidden>{TIER_META[g.t].icon}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--color-text-secondary)" }}>
+                  <span className="eyebrow-label" style={{ color: "var(--color-text-secondary)" }}>
                     {TIER_META[g.t].label}
                   </span>
                   <span className="text-[10px] tabular-nums" style={{ color: "var(--color-muted)" }}>

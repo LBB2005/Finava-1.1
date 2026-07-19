@@ -339,10 +339,9 @@ function TrendSparkline({ ticker, gainLossPct }: { ticker: string; gainLossPct: 
 function Shimmer({ w, h = 12, style }: { w: number | string; h?: number; style?: React.CSSProperties }) {
   return (
     <span
-      className="animate-pulse"
+      className="skeleton"
       style={{
-        display: "inline-block", width: w, height: h, borderRadius: 4,
-        background: "var(--color-border)", ...style,
+        display: "inline-block", width: w, height: h, ...style,
       }}
     />
   );
@@ -353,12 +352,12 @@ function Shimmer({ w, h = 12, style }: { w: number | string; h?: number; style?:
 function PortfolioSkeleton() {
   return (
     <div style={{
-      maxWidth: 1100, margin: "0 auto", padding: "26px 32px 8px",
+      maxWidth: 1100, margin: "0 auto", padding: "26px var(--page-gutter) 8px",
       display: "flex", flexDirection: "column", gap: 22,
     }}>
-      <div className="animate-pulse" style={{
+      <div className="skeleton" style={{
         height: 220, border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-xl)", background: "var(--color-surface)",
+        borderRadius: "var(--radius-xl)",
       }} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 28, padding: "0 4px" }}>
         {[0, 1, 2, 3].map((i) => (
@@ -535,14 +534,14 @@ export default function PortfolioPage() {
                         if (e.key === "Enter") commitCash();
                         if (e.key === "Escape") setEditingCash(false);
                       }}
-                      className="w-24 bg-transparent border-b border-[var(--color-accent)] focus:outline-none text-right text-[16px] sm:text-[11px]"
+                      className="std-focus w-24 bg-transparent border-b border-[var(--color-accent)] text-right text-[16px] sm:text-[11px]"
                       placeholder="0.00"
                     />
                   ) : (
                     <span>{cashBalance > 0 ? `$${fmt(cashBalance, 0)} CASH` : "ADD CASH"}</span>
                   )}
                 </button>
-                <ConnectBrokerageButton className="tbtn" label="Connect brokerage" onLinked={refresh} />
+                <ConnectBrokerageButton className="tbtn on" label="Connect brokerage" onLinked={refresh} />
               </>
             )}
             <button

@@ -35,7 +35,7 @@ export default function TickerSearch({ size = "sm", placeholder = "Search ticker
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={placeholder}
-        className={`bg-transparent rounded-[9px] focus:outline-none ${pad}`}
+        className={`std-focus bg-transparent rounded-[9px] ${pad}`}
         style={{ border: "1px solid var(--color-border)", color: "var(--color-text)", width: size === "md" ? 240 : 160 }}
         aria-label="Search ticker"
         spellCheck={false}

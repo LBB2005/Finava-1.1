@@ -95,9 +95,9 @@ export default function ConversationList() {
     return (
       <div className="flex flex-col gap-0.5 px-1">
         {[75, 88, 62, 80].map((w, i) => (
-          <div key={i} className="flex items-center gap-2 px-3 py-[7px] rounded-lg animate-pulse">
-            <span className="w-[10px] h-[10px] rounded-full bg-[var(--color-border-strong)] flex-shrink-0" />
-            <span className="h-2 rounded-full bg-[var(--color-border)]" style={{ width: `${w}%` }} />
+          <div key={i} className="flex items-center gap-2 px-3 py-[7px] rounded-lg">
+            <span className="skeleton w-[10px] h-[10px] flex-shrink-0" style={{ borderRadius: "9999px" }} />
+            <span className="skeleton h-2" style={{ width: `${w}%`, borderRadius: "9999px" }} />
           </div>
         ))}
       </div>

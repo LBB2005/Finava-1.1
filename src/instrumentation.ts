@@ -26,3 +26,34 @@ export async function register(): Promise<void> {
     console.error(`[instrumentation] Environment validation failed (continuing in dev):\n${message}`);
   }
 }
+
+/**
+ * Global server error capture (Next calls this for every server-side error —
+ * Server Components, Route Handlers, Server Actions).
+ *
+ * Vendor-neutral: this is the single seam where a hosted error tracker plugs in
+ * — e.g. `Sentry.captureRequestError(err, request, context)` once @sentry/nextjs
+ * is added and SENTRY_DSN is set. For now we emit a structured line so production
+ * failures are visible and greppable instead of vanishing. Kept import-free so it
+ * works on both the Node.js and Edge runtimes.
+ */
+export function onRequestError(
+  err: unknown,
+  request: { path?: string; method?: string; headers?: Record<string, string | string[]> },
+  context: { routeType?: string; routePath?: string }
+): void {
+  const e = err as { message?: string; digest?: string };
+  console.error(
+    JSON.stringify({
+      level: "error",
+      tag: "onRequestError",
+      msg: e?.message ?? "server error",
+      digest: e?.digest,
+      method: request?.method,
+      path: request?.path,
+      routeType: context?.routeType,
+      routePath: context?.routePath,
+      t: new Date().toISOString(),
+    })
+  );
+}

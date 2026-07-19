@@ -9,6 +9,7 @@ import {
   type SignalFeedItem,
   type SignalEvent,
 } from "@/lib/researchAI";
+import { LensEmptyState } from "./primitives";
 
 type Status = "idle" | "loading" | "done" | "error";
 
@@ -81,10 +82,10 @@ export default function SignalsMode({ universe, loading }: { universe: Stock[]; 
             <button className="tbtn" onClick={() => run(events)}>Retry</button>
           </div>
         ) : feed.length === 0 ? (
-          <div className="flex flex-col items-center justify-center" style={{ minHeight: 200, textAlign: "center", gap: 6 }}>
-            <p className="serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)" }}>{loading ? "Loading the universe…" : "A quiet tape"}</p>
-            <p style={{ fontSize: 12, color: "var(--color-muted)" }}>{loading ? "Signals appear once the S&P 500 data loads." : "No standout cross-sectional moves right now."}</p>
-          </div>
+          <LensEmptyState
+            title={loading ? "Loading the universe…" : "A quiet tape"}
+            detail={loading ? "Signals appear once the S&P 500 data loads." : "No standout cross-sectional moves right now."}
+          />
         ) : (
           <div style={{ display: "flex", flexDirection: "column" }}>
             {feed.map((item, i) => {

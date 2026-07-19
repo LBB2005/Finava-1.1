@@ -87,7 +87,7 @@ export default function AddHoldingModal({ onClose, onAdd }: Props) {
             value={form.sector ?? ""}
             onChange={(e) => setForm({ ...form, sector: e.target.value })}
           />
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-[var(--color-bear)]">{error}</p>}
           <div className="flex gap-3 justify-end pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel

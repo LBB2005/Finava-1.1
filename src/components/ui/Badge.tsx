@@ -6,10 +6,10 @@ interface BadgeProps {
 
 const variantClasses = {
   default: "bg-[var(--color-accent-light)] text-[var(--color-accent)]",
-  success: "bg-green-50 text-green-700",
-  warning: "bg-amber-50 text-amber-700",
-  danger: "bg-red-50 text-red-600",
-  info: "bg-sky-50 text-sky-700",
+  success: "bg-[color-mix(in_srgb,var(--color-bull)_10%,transparent)] text-[var(--color-bull)]",
+  warning: "bg-[color-mix(in_srgb,var(--color-warn)_10%,transparent)] text-[var(--color-warn)]",
+  danger: "bg-[color-mix(in_srgb,var(--color-bear)_10%,transparent)] text-[var(--color-bear)]",
+  info: "bg-[var(--color-accent-light)] text-[var(--color-accent)]",
 };
 
 export default function Badge({ children, variant = "default", className = "" }: BadgeProps) {

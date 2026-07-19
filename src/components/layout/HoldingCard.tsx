@@ -103,7 +103,7 @@ export default function HoldingCard({ holding, quote, portfolioPct, onRemove, co
           {!readOnly && (
             <button
               onClick={(e) => { e.stopPropagation(); onRemove(holding.id); }}
-              className="opacity-0 group-hover:opacity-100 text-[var(--color-muted)] hover:text-red-500 transition-opacity duration-150 p-0.5"
+              className="opacity-0 group-hover:opacity-100 text-[var(--color-muted)] hover:text-[var(--color-bear)] transition-opacity duration-150 p-0.5"
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                 <path d="M18 6L6 18M6 6l12 12" />
@@ -133,10 +133,10 @@ export default function HoldingCard({ holding, quote, portfolioPct, onRemove, co
           onClick={(e) => e.stopPropagation()}
         >
           <Stat label="Price" value={price > 0 ? `$${fmt(price)}` : "—"} />
-          <Stat label="Day" value={quote ? `${isDayUp ? "+" : ""}${fmt(dayChange, 2)}%` : "—"} color={isDayUp ? "text-emerald-600" : "text-red-500"} />
+          <Stat label="Day" value={quote ? `${isDayUp ? "+" : ""}${fmt(dayChange, 2)}%` : "—"} color={isDayUp ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]"} />
           <Stat label="Avg cost" value={`$${fmt(holding.avgCost)}`} />
           <Stat label="Cost basis" value={`$${fmt(costBasis, 0)}`} />
-          <Stat label="Gain / Loss" value={price > 0 ? `${gainLoss >= 0 ? "+" : ""}$${fmt(Math.abs(gainLoss), 0)}` : "—"} color={isUp ? "text-emerald-600" : "text-red-500"} />
+          <Stat label="Gain / Loss" value={price > 0 ? `${gainLoss >= 0 ? "+" : ""}$${fmt(Math.abs(gainLoss), 0)}` : "—"} color={isUp ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]"} />
           <Stat label="Mkt value" value={`$${fmt(marketValue, 0)}`} />
           {holding.sector && <Stat label="Sector" value={holding.sector} span />}
         </div>

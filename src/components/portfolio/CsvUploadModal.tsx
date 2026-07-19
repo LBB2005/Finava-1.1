@@ -83,7 +83,7 @@ export default function CsvUploadModal({ onClose, onUpload }: Props) {
           </div>
         )}
 
-        {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
+        {error && <p className="text-sm text-[var(--color-bear)] mt-3">{error}</p>}
 
         <div className="flex justify-end gap-3 mt-5">
           <Button variant="ghost" onClick={onClose}>
