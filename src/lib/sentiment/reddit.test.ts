@@ -53,7 +53,8 @@ describe("scoreRedditSentiment", () => {
   it("fetches, filters, scores, aggregates, and reports WSB separately", async () => {
     process.env.REDDIT_ENABLED = "1";
     const nowSec = Math.floor(Date.now() / 1000);
-    vi.mocked(fetch).mockImplementation(async (url: string) => {
+    vi.mocked(fetch).mockImplementation(async (rawUrl: string | URL | Request) => {
+      const url = String(rawUrl);
       if (url.includes("/r/wallstreetbets/")) {
         return redditResponse([
           redditPost("wallstreetbets", "AAPL calls look strong", 10, nowSec - 60),
@@ -102,7 +103,8 @@ describe("scoreRedditSentiment", () => {
   it("uses the generic ticker-sub fallback when the ticker subreddit is empty", async () => {
     process.env.REDDIT_ENABLED = "1";
     const nowSec = Math.floor(Date.now() / 1000);
-    vi.mocked(fetch).mockImplementation(async (url: string) => {
+    vi.mocked(fetch).mockImplementation(async (rawUrl: string | URL | Request) => {
+      const url = String(rawUrl);
       if (url.includes("/r/AAPL/")) return redditResponse([]);
       if (url.includes("/r/StocksAndTrading/")) {
         return redditResponse([redditPost("StocksAndTrading", "AAPL discussion", 5, nowSec - 60)]);
@@ -125,7 +127,8 @@ describe("scoreRedditSentiment", () => {
   it("paginates subreddit fetches and returns null when scoring yields no usable posts", async () => {
     process.env.REDDIT_ENABLED = "1";
     const nowSec = Math.floor(Date.now() / 1000);
-    vi.mocked(fetch).mockImplementation(async (url: string) => {
+    vi.mocked(fetch).mockImplementation(async (rawUrl: string | URL | Request) => {
+      const url = String(rawUrl);
       if (url.includes("/r/stocks/") && !url.includes("after=next")) {
         return redditResponse([redditPost("stocks", "AAPL first page", 4, nowSec - 60)], "next");
       }
@@ -142,7 +145,8 @@ describe("scoreRedditSentiment", () => {
 
   it("failure-isolates blocked or throwing subreddits", async () => {
     process.env.REDDIT_ENABLED = "1";
-    vi.mocked(fetch).mockImplementation(async (url: string) => {
+    vi.mocked(fetch).mockImplementation(async (rawUrl: string | URL | Request) => {
+      const url = String(rawUrl);
       if (url.includes("/r/wallstreetbets/")) throw new Error("blocked");
       if (url.includes("/r/stocks/")) return new Response("forbidden", { status: 403 });
       return redditResponse([]);

@@ -151,24 +151,37 @@ ${draft.slice(0, 3000)}${draft.length > 3000 ? "\n[truncated]" : ""}
 ${agentSummaryLines || "No sub-agent data collected."}
 
 ## Your Task
-Write a concise second-opinion critique (3–5 bullet points, max 150 words). Focus on:
-- Any claims that lack data support or are over-stated
-- **Fabricated / unsourced figures**: any number that does not appear in the sub-agent outputs above, or that you cannot trace to a named source. Flag each one.
-- **Silent gaps**: a field the report should cover but left blank instead of writing "Unavailable" when the data was missing. Flag these — a missing field must be marked, not dropped.
-- **Data masking**: did the report make confident price-based calls (trim/hold, position sizing, cost-basis comparisons) despite a sub-agent reporting no live price data? Call this out explicitly.
-- Contradictions between sub-agents (e.g. bullish sentiment vs negative technicals)
-- Key risks or bearish factors the main report downplayed
-- Data gaps that would change the conclusion
+First decide whether the report has any MATERIAL problems — fabricated or unsourced figures, confident price-based calls made despite missing live data, unreconciled contradictions between sub-agents, or a key field left silently blank instead of marked "Unavailable".
 
-Be direct and constructive. Start with "**Skeptic Review:**"`,
+- If there are NO material problems and the report is sound, respond with exactly \`VERDICT: OK\` on the first line and nothing else.
+- Otherwise respond with \`VERDICT: REVISE\` on the first line, then a concise second-opinion critique (3–5 bullet points, max 150 words) starting with "**Skeptic Review:**" and covering only the material issues:
+  - Any claims that lack data support or are over-stated
+  - **Fabricated / unsourced figures**: any number that does not appear in the sub-agent outputs above, or that you cannot trace to a named source. Flag each one.
+  - **Silent gaps**: a field the report should cover but left blank instead of writing "Unavailable" when the data was missing. Flag these — a missing field must be marked, not dropped.
+  - **Data masking**: did the report make confident price-based calls (trim/hold, position sizing, cost-basis comparisons) despite a sub-agent reporting no live price data? Call this out explicitly.
+  - Contradictions between sub-agents (e.g. bullish sentiment vs negative technicals)
+  - Key risks or bearish factors the main report downplayed
+  - Data gaps that would change the conclusion
+
+Be direct and constructive. Do not recommend a revision for merely cosmetic or stylistic nits.`,
     });
   } catch {
     critique = "";
   }
 
-  emit({ type: "skeptic_complete", critique });
+  // Only run the expensive full-report revision when the skeptic finds MATERIAL
+  // problems. It signs off with "VERDICT: OK" on sound reports; without this gate
+  // a second full synthesis (up to SYNTH_MAX_TOKENS) fired on essentially every
+  // crew query, ~2x-ing synthesis cost. Bias to revise unless the skeptic
+  // explicitly approves, so quality is preserved when the signal is ambiguous.
+  const signedOff = /VERDICT:\s*OK\b/i.test(critique);
+  const shouldRevise = critique.trim() !== "" && !signedOff;
+  // Strip the machine-readable verdict line from what the UI surfaces.
+  const displayCritique = critique.replace(/^[ \t]*VERDICT:[ \t]*(OK|REVISE)\b.*$/im, "").trim();
 
-  if (critique) {
+  emit({ type: "skeptic_complete", critique: shouldRevise ? displayCritique : "" });
+
+  if (shouldRevise) {
     emit({ type: "ceo_compiling" });
     try {
       messages.push({ role: "assistant", content: draftAssistantBlocks });

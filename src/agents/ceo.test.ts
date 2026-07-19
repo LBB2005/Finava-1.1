@@ -193,6 +193,48 @@ describe("runCeoAgent orchestration", () => {
     expect(streamSpy).toHaveBeenCalledTimes(2);
   });
 
+  it("skips the expensive revision when the skeptic signs off with VERDICT: OK", async () => {
+    // A sound report: the skeptic explicitly approves, so no second full synthesis.
+    skepticCritique = "VERDICT: OK";
+    finalMessages.push(
+      { stop_reason: "tool_use", content: [toolUse("t1", "run_risk_agent")], usage: {} },
+      { stop_reason: "end_turn", content: [text("SOUND report body")], usage: {} },
+    );
+    const { runCeoAgent } = await import("./ceo");
+    const events: AgentEvent[] = [];
+    await runCeoAgent("analyze AAPL", "", (e) => events.push(e));
+
+    const final = events.find((e) => e.type === "final_response") as { content: string };
+    expect(final.content).toContain("SOUND report body");
+    // No revision stream() — the sign-off short-circuits the second synthesis.
+    expect(streamSpy).toHaveBeenCalledTimes(2);
+    // The bare verdict token is never surfaced as a critique.
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: "skeptic_complete", critique: "" }),
+    );
+  });
+
+  it("revises but strips the machine VERDICT line from the surfaced critique", async () => {
+    skepticCritique = "VERDICT: REVISE\n**Skeptic Review:** the beta claim is unsourced.";
+    finalMessages.push(
+      { stop_reason: "tool_use", content: [toolUse("t1", "run_risk_agent")], usage: {} },
+      { stop_reason: "end_turn", content: [text("DRAFT report body")], usage: {} },
+      { stop_reason: "end_turn", content: [text("REVISED report body")], usage: {} },
+    );
+    const { runCeoAgent } = await import("./ceo");
+    const events: AgentEvent[] = [];
+    await runCeoAgent("analyze AAPL", "", (e) => events.push(e));
+
+    // Revision fires (3rd stream call) and ships the revised report.
+    expect(streamSpy).toHaveBeenCalledTimes(3);
+    const final = events.find((e) => e.type === "final_response") as { content: string };
+    expect(final.content).toContain("REVISED report body");
+    // The surfaced critique keeps the human review text but not the machine verdict.
+    const skepticEvent = events.find((e) => e.type === "skeptic_complete") as { critique: string };
+    expect(skepticEvent.critique).toContain("Skeptic Review");
+    expect(skepticEvent.critique).not.toContain("VERDICT");
+  });
+
   it("in discover mode calls only the scout and never announces a crew", async () => {
     finalMessages.push(
       { stop_reason: "tool_use", content: [toolUse("s1", "scout_universe")], usage: {} },

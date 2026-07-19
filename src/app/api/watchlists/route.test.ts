@@ -64,7 +64,7 @@ beforeEach(() => {
 
 describe("/api/watchlists", () => {
   it("lists the authenticated user's watchlists in created order", async () => {
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/watchlists"));
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual([

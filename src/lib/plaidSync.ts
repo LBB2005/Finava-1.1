@@ -9,6 +9,9 @@ export interface PlaidSyncSummary {
   imported: number; // positions written
   skipped: number; // holdings without a usable ticker (options, derivatives, unknown)
   cash: number | null; // total cash detected (null = none found, cash left untouched)
+  // True when the destructive rebuild was skipped because Plaid returned zero
+  // positions and no cash for linked items — we refuse to wipe a non-empty book.
+  skippedEmptyRebuild?: boolean;
 }
 
 interface AggregatedPosition {
@@ -138,6 +141,23 @@ export async function rebuildHoldings(userId: string): Promise<PlaidSyncSummary>
   const holdingsCol = db.collection("users").doc(userId).collection("holdings");
   const existing = await holdingsCol.get();
   const now = new Date().toISOString();
+
+  // Guardrail against silent data loss. If the rebuild produced zero positions
+  // AND no cash while the user still has a non-empty book, the far likelier
+  // cause is a transient/empty Plaid response (outage, Item in an error/pending
+  // state, or a not-yet-throwing failure) than a genuine full liquidation. The
+  // delete-all + write-none below would irreversibly destroy the user's holdings
+  // and cost-basis history, so we refuse the wipe and leave the current book
+  // intact. A real move-to-cash still returns cash (foundCash), and a real
+  // liquidation reflects on the next sync that returns data.
+  if (combined.size === 0 && !foundCash && existing.docs.length > 0) {
+    console.warn(
+      `[plaidSync] Skipping holdings rebuild for ${userId}: Plaid returned no ` +
+        `positions or cash for ${itemsSnap.docs.length} linked item(s); refusing ` +
+        `to wipe ${existing.docs.length} existing holding(s).`
+    );
+    return { imported: 0, skipped, cash: null, skippedEmptyRebuild: true };
+  }
 
   // Atomic replace: delete the old book, write the Plaid book. For a ticker
   // present in both, the set() wins (last write); tickers no longer held are

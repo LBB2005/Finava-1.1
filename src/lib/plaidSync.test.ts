@@ -221,14 +221,51 @@ describe("rebuildHoldings", () => {
     expect(deps.settingsUpdate).not.toHaveBeenCalled();
   });
 
-  it("skips plaid items without an access token", async () => {
+  it("skips plaid items without an access token and does not wipe the book", async () => {
     deps.itemDocs = [item(undefined)];
 
     const summary = await rebuildHoldings("user_123");
 
-    expect(summary).toEqual({ imported: 0, skipped: 0, cash: null });
+    expect(summary).toEqual({ imported: 0, skipped: 0, cash: null, skippedEmptyRebuild: true });
     expect(deps.investmentsHoldingsGet).not.toHaveBeenCalled();
     expect(deps.batchSet).not.toHaveBeenCalled();
+    expect(deps.batchDelete).not.toHaveBeenCalled();
+    expect(deps.batchCommit).not.toHaveBeenCalled();
+  });
+
+  it("refuses to wipe the existing book when a linked item returns no positions", async () => {
+    // Transient/empty Plaid response: a valid token, but holdings come back empty
+    // (and no cash). The existing 2-holding book must be preserved, not wiped.
+    deps.itemDocs = [item("access_one")];
+    deps.investmentsHoldingsGet.mockResolvedValue({ data: { holdings: [], securities: [] } });
+
+    const summary = await rebuildHoldings("user_123");
+
+    expect(summary).toEqual({ imported: 0, skipped: 0, cash: null, skippedEmptyRebuild: true });
+    expect(deps.batchDelete).not.toHaveBeenCalled();
+    expect(deps.batchCommit).not.toHaveBeenCalled();
+    expect(deps.settingsUpdate).not.toHaveBeenCalled();
+  });
+
+  it("still clears equity positions when the account moves fully to cash", async () => {
+    // combined is empty but Plaid reports cash → a live, valid response (moved to
+    // all cash), so the equity book SHOULD be replaced (emptied) and cash updated.
+    deps.itemDocs = [item("access_one")];
+    deps.investmentsHoldingsGet.mockResolvedValue({
+      data: {
+        holdings: [{ security_id: "c", quantity: 1, institution_value: 5000 }],
+        securities: [{ security_id: "c", type: "cash", name: "Cash" }],
+      },
+    });
+
+    const summary = await rebuildHoldings("user_123");
+
+    expect(summary).toEqual({ imported: 0, skipped: 0, cash: 5000 });
+    expect(deps.batchDelete).toHaveBeenCalledTimes(2); // old aapl + msft removed
     expect(deps.batchCommit).toHaveBeenCalledTimes(1);
+    expect(deps.settingsUpdate).toHaveBeenCalledWith({
+      cashBalance: 5000,
+      updatedAt: expect.any(String),
+    });
   });
 });
