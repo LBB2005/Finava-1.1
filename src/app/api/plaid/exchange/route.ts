@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/requireAuth";
 import { requireEntitlement } from "@/lib/entitlements";
 import { db } from "@/lib/firebase-admin";
 import { rebuildHoldings } from "@/lib/plaidSync";
+import { encryptSecret } from "@/lib/crypto";
 
 /**
  * Exchanges a Plaid Link public_token for a long-lived access_token, stores the
@@ -43,7 +44,8 @@ export async function POST(req: Request) {
       .doc(itemId)
       .set({
         itemId,
-        accessToken,
+        // Encrypted at rest (AES-256-GCM) — the raw token never touches Firestore.
+        accessToken: encryptSecret(accessToken),
         institutionName: institution?.name ?? null,
         institutionId: institution?.institution_id ?? null,
         createdAt: now,

@@ -3,6 +3,7 @@ import { adminAuth, db } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
 import { plaidClient, plaidConfigured } from "@/lib/plaid";
 import { stripe, stripeConfigured } from "@/lib/stripe";
+import { decryptSecret } from "@/lib/crypto";
 
 /**
  * Permanently delete the authenticated user's account and all associated data
@@ -35,7 +36,7 @@ export async function POST() {
           const { accessToken } = d.data() as { accessToken?: string };
           if (!accessToken) return;
           try {
-            await plaidClient.itemRemove({ access_token: accessToken });
+            await plaidClient.itemRemove({ access_token: decryptSecret(accessToken) });
           } catch (e) {
             console.warn("[user delete] plaid itemRemove failed (continuing)", e);
           }

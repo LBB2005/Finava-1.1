@@ -1,5 +1,6 @@
 import { db } from "@/lib/firebase-admin";
 import { plaidClient } from "@/lib/plaid";
+import { decryptSecret } from "@/lib/crypto";
 import type { Holding as PlaidHolding, Security } from "plaid";
 
 /** Security types we treat as positions with a ticker. */
@@ -129,7 +130,10 @@ export async function rebuildHoldings(userId: string): Promise<PlaidSyncSummary>
   for (const doc of itemsSnap.docs) {
     const { accessToken } = doc.data() as { accessToken?: string };
     if (!accessToken) continue;
-    const r = await fetchPositions(accessToken);
+    // Decrypt at rest. A decrypt failure propagates and aborts the rebuild BEFORE
+    // any delete (see the empty-book guard below), so the existing book is never
+    // wiped on a key/ciphertext problem.
+    const r = await fetchPositions(decryptSecret(accessToken));
     mergeInto(combined, r.positions);
     skipped += r.skipped;
     if (r.foundCash) {
