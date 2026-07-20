@@ -31,6 +31,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase-admin";
 import { resolvePlan } from "@/lib/entitlements";
 import { jsonLimit, nextPaidPlan, TRIAL_DEEP_RESEARCH_CAP } from "@/lib/plans";
+import { logger } from "@/lib/logger";
+
+const log = logger("usage");
 
 // ── Request-scoped run context ───────────────────────────────────────────────
 // The AsyncLocalStorage store lives in the dependency-light `runContext` module
@@ -234,8 +237,13 @@ export async function checkUsageLimit(
   userId: string
 ): Promise<NextResponse | null> {
   const ent = await resolvePlan(userId);
-  // Fail OPEN on a degraded read: a Firestore blip must not lock users out.
-  if (ent.degraded) return null;
+  // Degraded read (plan couldn't be resolved): tier is unknown, so fail OPEN to
+  // avoid locking out paying users on a Firestore blip. The per-run cost cap
+  // (ceo.ts) still bounds each run; logged so sustained degradation is visible.
+  if (ent.degraded) {
+    log.warn("entitlement degraded — allowing request (fail-open)", { userId });
+    return null;
+  }
   // Admin/dev access is uncapped — usage is still recorded, never blocked.
   if (ent.source === "admin" || ent.source === "dev") return null;
   const limits = ent.config;
@@ -248,9 +256,25 @@ export async function checkUsageLimit(
       number
     >;
   } catch (e) {
-    // Fail OPEN: a Firestore read error must not lock users out of the product.
-    console.error("[usage] limit check failed (allowing request):", e);
-    return null;
+    // Tier-based fail policy on a usage-read error: don't lock out paying users on
+    // a Firestore blip, but bound COGS for free/anon by failing CLOSED (503).
+    const paid = ent.source === "subscription" || ent.source === "trial";
+    if (paid) {
+      log.warn("usage read failed — allowing paid user (fail-open)", {
+        userId,
+        plan: ent.plan,
+        err: e instanceof Error ? e.message : String(e),
+      });
+      return null;
+    }
+    log.warn("usage read failed — soft-blocking free/anon (fail-closed)", { userId });
+    return NextResponse.json(
+      {
+        error: "usage_unavailable",
+        message: "Usage check is temporarily unavailable. Please retry shortly.",
+      },
+      { status: 503 }
+    );
   }
 
   const today = days[dayKey()] ?? 0;

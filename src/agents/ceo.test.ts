@@ -25,7 +25,18 @@ const generate = vi.fn(async (opts: { agent?: string }) => {
 });
 vi.mock("@/lib/llm", () => ({ generate: (o: unknown) => generate(o as { agent?: string }), AGENT_MODELS: {} }));
 vi.mock("@/lib/models", () => ({ badgeBrands: () => [] }));
-vi.mock("@/lib/usage", () => ({ recordUsage: vi.fn(async () => {}) }));
+const currentRunCreditsMock = vi.fn(() => 0);
+vi.mock("@/lib/usage", () => ({
+  recordUsage: vi.fn(async () => {}),
+  currentRunCredits: () => currentRunCreditsMock(),
+}));
+// Default: uncapped. Tests that exercise the cost kill-switch override the cap.
+const resolvePlanMock = vi.fn(async (_id?: string) => ({
+  source: "subscription",
+  degraded: false,
+  config: { deepResearchPerRunCap: Infinity },
+}));
+vi.mock("@/lib/entitlements", () => ({ resolvePlan: (id: string) => resolvePlanMock(id) }));
 
 const checkCache = vi.fn(async () => null as string | null);
 vi.mock("@/lib/agentMemory", () => ({
@@ -82,6 +93,8 @@ beforeEach(() => {
   runRiskAgent.mockClear();
   runNewsAgent.mockClear();
   runScoutAgent.mockClear();
+  currentRunCreditsMock.mockReset().mockReturnValue(0);
+  resolvePlanMock.mockClear();
 });
 
 describe("agentTimeoutMs", () => {
@@ -258,6 +271,29 @@ describe("runCeoAgent orchestration", () => {
     const skepticEvent = events.find((e) => e.type === "skeptic_complete") as { critique: string };
     expect(skepticEvent.critique).toContain("Skeptic Review");
     expect(skepticEvent.critique).not.toContain("VERDICT");
+  });
+
+  it("aborts the crew when the per-run cost cap is exceeded", async () => {
+    // Accumulated spend already over the cap → the loop breaks at its top before
+    // the next (expensive) synthesis turn.
+    currentRunCreditsMock.mockReturnValue(999);
+    resolvePlanMock.mockResolvedValue({
+      source: "subscription",
+      degraded: false,
+      config: { deepResearchPerRunCap: 300 },
+    });
+    finalMessages.push(
+      { stop_reason: "tool_use", content: [toolUse("t1", "run_risk_agent")], usage: {} },
+      { stop_reason: "end_turn", content: [text("body")], usage: {} },
+    );
+    const { runCeoAgent } = await import("./ceo");
+    const events: AgentEvent[] = [];
+    await runCeoAgent("analyze AAPL", "", (e) => events.push(e), { userId: "u1" });
+
+    // Broke before any synthesis stream() call, and told the user why.
+    expect(streamSpy).not.toHaveBeenCalled();
+    const final = events.find((e) => e.type === "final_response") as { content: string };
+    expect(final.content).toMatch(/usage limit/i);
   });
 
   it("in discover mode calls only the scout and never announces a crew", async () => {
