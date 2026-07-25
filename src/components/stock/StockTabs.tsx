@@ -464,17 +464,25 @@ export function AnalystsTab({ analysts, price }: { analysts: AnalystRatings | nu
       </div>
       <div style={{ borderLeft: "1px solid var(--color-border)", paddingLeft: 32 }} className="analyst-right">
         <Rule>Price target</Rule>
-        <Fact l="Mean target" v={analysts.targetMean != null ? `$${fmt(analysts.targetMean)}` : "—"} big />
-        <Fact l="Implied upside" v={upside != null ? `${signed(upside, 1)}%` : "—"} color={upside == null ? undefined : upside >= 0 ? "var(--color-bull)" : "var(--color-bear)"} big />
-        {hasTarget && (
-          <div style={{ padding: "16px 0 4px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: "var(--color-muted)" }}>Target range</span>
-              {price && price > 0 && <span className="mono" style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>now ${fmt(price)}</span>}
-            </div>
-            <RangeBar lo={analysts.targetLow!} hi={analysts.targetHigh!} cur={price && price > 0 ? price : analysts.targetLow!} mean={analysts.targetMean ?? undefined} />
-            <p className="mono" style={{ margin: "8px 0 0", fontSize: 10, color: "var(--color-muted)" }}>● price · | mean target</p>
-          </div>
+        {analysts.targetMean == null ? (
+          <p style={{ fontSize: 13, color: "var(--color-muted)", margin: "10px 0 0", lineHeight: 1.5 }}>
+            Unavailable — analyst price targets aren’t provided on the current data tier.
+          </p>
+        ) : (
+          <>
+            <Fact l="Mean target" v={`$${fmt(analysts.targetMean)}`} big />
+            <Fact l="Implied upside" v={upside != null ? `${signed(upside, 1)}%` : "—"} color={upside == null ? undefined : upside >= 0 ? "var(--color-bull)" : "var(--color-bear)"} big />
+            {hasTarget && (
+              <div style={{ padding: "16px 0 4px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, color: "var(--color-muted)" }}>Target range</span>
+                  {price && price > 0 && <span className="mono" style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>now ${fmt(price)}</span>}
+                </div>
+                <RangeBar lo={analysts.targetLow!} hi={analysts.targetHigh!} cur={price && price > 0 ? price : analysts.targetLow!} mean={analysts.targetMean ?? undefined} />
+                <p className="mono" style={{ margin: "8px 0 0", fontSize: 10, color: "var(--color-muted)" }}>● price · | mean target</p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -601,7 +601,7 @@ function FinavaAvatar() {
         letterSpacing: "0.04em",
       }}
     >
-      L
+      F
     </div>
   );
 }

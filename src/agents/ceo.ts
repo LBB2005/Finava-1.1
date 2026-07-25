@@ -22,6 +22,7 @@ import { runScoutAgent } from "./sub-agents/scout-agent";
 import { checkCache, saveCache, extractTickers, getTickerMemory, saveTickerMemory } from "@/lib/agentMemory";
 import { getUserPreference, buildStylePrompt, updateStyleFromConversation } from "@/lib/userPreference";
 import { getTemplateBlock } from "@/lib/templates.server";
+import { consumeWithIdleTimeout } from "@/lib/streamIdleTimeout";
 import type { AgentEvent, AgentName } from "@/types/chat";
 import type { MessageParam, ToolResultBlockParam } from "@anthropic-ai/sdk/resources/messages";
 
@@ -41,6 +42,11 @@ const DEEP_AGENTS = new Set([
 ]);
 const STANDARD_TIMEOUT_MS = 60_000;
 const DEEP_AGENT_TIMEOUT_MS = 120_000;
+// Idle backstop for the CEO's own synthesis/revision streams. Unlike the sub-agent
+// caps above (total wall-clock), this fires only on *silence* — no token for this
+// long — so a legitimately long 16–32K-token report streams to completion, while a
+// genuinely stuck call is aborted well before the platform's maxDuration.
+const SYNTH_IDLE_MS = 60_000;
 
 // Per-agent timeout overrides (ms) — used instead of the standard/deep defaults when set
 const AGENT_TIMEOUT_MS: Record<string, number> = {
@@ -126,10 +132,13 @@ export async function critiqueAndRevise(params: {
   maxTokens: number;
   initialTruncated?: boolean;
   emit: EventEmitter;
-}): Promise<{ finalResponse: string; truncated: boolean }> {
+}): Promise<{ finalResponse: string; truncated: boolean; streamed: boolean }> {
   const { draft, draftAssistantBlocks, agentOutputs, messages, systemPrompt, maxTokens, emit } = params;
   let finalResponse = draft;
   let truncated = params.initialTruncated ?? false;
+  // True once we've streamed the revision to the client as final_response deltas,
+  // so the caller knows not to re-emit the whole report on top of it.
+  let streamed = false;
 
   emit({ type: "skeptic_start" });
 
@@ -170,6 +179,9 @@ Be direct and constructive. Start with "**Skeptic Review:**"`,
 
   if (critique) {
     emit({ type: "ceo_compiling" });
+    // Accumulates the streamed revision text so a mid-stream failure can still
+    // adopt what the user already saw rather than double-emitting the draft.
+    let streamedText = "";
     try {
       messages.push({ role: "assistant", content: draftAssistantBlocks });
       messages.push({
@@ -188,18 +200,22 @@ Reviewer critique:
 ${critique}`,
       });
 
-      const revision = await anthropic.messages
-        .stream({
-          model: MODEL,
-          max_tokens: maxTokens,
-          system: [
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } } as any,
-          ],
-          // No tools on the revision pass — we want a written report, not more agent calls.
-          messages,
-        })
-        .finalMessage();
+      const revStream = anthropic.messages.stream({
+        model: MODEL,
+        max_tokens: maxTokens,
+        system: [
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } } as any,
+        ],
+        // No tools on the revision pass — we want a written report, not more agent calls.
+        messages,
+      });
+      // Stream the revised report to the client token-by-token (the client appends
+      // each final_response delta), and abort if it goes silent for SYNTH_IDLE_MS.
+      const revision = await consumeWithIdleTimeout(revStream, SYNTH_IDLE_MS, (delta) => {
+        streamedText += delta;
+        emit({ type: "final_response", content: delta });
+      });
 
       // Meter the revision pass (userId comes from the route's usage context).
       void recordUsage({
@@ -210,22 +226,33 @@ ${critique}`,
         cacheRead: revision.usage?.cache_read_input_tokens,
       });
 
-      const revisedText = revision.content
-        .filter((b) => b.type === "text")
-        .map((b) => (b as { type: string; text: string }).text)
-        .join("\n\n");
+      // Prefer the exact text the client saw (streamedText); fall back to the
+      // assembled message only if no deltas came through.
+      const revisedText =
+        streamedText.trim() ||
+        revision.content
+          .filter((b) => b.type === "text")
+          .map((b) => (b as { type: string; text: string }).text)
+          .join("\n\n");
 
       if (revisedText.trim()) {
         finalResponse = revisedText;
         truncated = revision.stop_reason === "max_tokens";
+        streamed = streamedText.trim().length > 0;
       }
     } catch (e) {
-      // Revision is best-effort — keep the draft if it fails.
+      // Revision is best-effort. If we already streamed part of it, that partial
+      // text is what's on screen — adopt it instead of re-emitting the draft on
+      // top. Otherwise keep the draft untouched.
       console.error("[revision pass error]", e);
+      if (streamedText.trim()) {
+        finalResponse = streamedText;
+        streamed = true;
+      }
     }
   }
 
-  return { finalResponse, truncated };
+  return { finalResponse, truncated, streamed };
 }
 
 export interface CeoOptions {
@@ -399,6 +426,11 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
   // asks for reports ~50% longer with extra sections). Stream the call so the
   // SDK's non-streaming request-timeout guard doesn't fire on the higher cap.
   const SYNTH_MAX_TOKENS = deepResearch ? 32_000 : 16_000;
+  // The draft is a throwaway skeleton the skeptic critiques — the user only ever
+  // reads the (full-length, streamed) revision. Capping the draft smaller cuts
+  // the biggest chunk of un-streamed latency so a whole run fits under the route's
+  // 300s maxDuration, without shortening the report the user actually sees.
+  const DRAFT_MAX_TOKENS = deepResearch ? 12_000 : 8_000;
   // Accumulate sub-agent outputs for the skeptic pass
   const agentOutputs = new Map<string, string>();
   let finalResponse = "";
@@ -414,21 +446,34 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
   while (iteration < MAX_ITERATIONS) {
     iteration++;
 
-    const response = await anthropic.messages
-      .stream({
-        model: MODEL,
-        max_tokens: SYNTH_MAX_TOKENS,
-        system: [
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          { type: "text", text: fullSystemPrompt, cache_control: { type: "ephemeral" } } as any,
-        ],
-        // In Discover mode the CEO may ONLY call the scout — never the crew. This
-        // hard-stops the model from "validating" picks with DCF/hype agents (which
-        // made quick slow and crew-driven). The client runs the crew for deep.
-        tools: discover ? [scoutTool] : allTools,
-        messages,
-      })
-      .finalMessage();
+    const draftStream = anthropic.messages.stream({
+      model: MODEL,
+      max_tokens: DRAFT_MAX_TOKENS,
+      system: [
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { type: "text", text: fullSystemPrompt, cache_control: { type: "ephemeral" } } as any,
+      ],
+      // In Discover mode the CEO may ONLY call the scout — never the crew. This
+      // hard-stops the model from "validating" picks with DCF/hype agents (which
+      // made quick slow and crew-driven). The client runs the crew for deep.
+      tools: discover ? [scoutTool] : allTools,
+      messages,
+    });
+    let response: Awaited<ReturnType<typeof draftStream.finalMessage>>;
+    try {
+      // Idle backstop only — this draft is superseded by the streamed revision
+      // pass, so we don't forward its tokens to the client here.
+      response = await consumeWithIdleTimeout(draftStream, SYNTH_IDLE_MS);
+    } catch (err) {
+      // A synthesis pass that goes silent must not hang the whole run to the
+      // platform's maxDuration. Stop iterating and surface a clear message; the
+      // sub-agent findings are already visible in the crew panel.
+      console.error("[ceo synthesis stalled]", err);
+      finalResponse =
+        finalResponse ||
+        "The final synthesis stalled before completing. The agent findings above are available — please retry, or narrow the question.";
+      break;
+    }
 
     // Meter this CEO turn's tokens (flushed with the other background writes).
     pendingWrites.push(
@@ -599,6 +644,7 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
     // The skeptic critiques the DRAFT, then the CEO revises to address it before
     // we finalize. The critique is still surfaced to the user for transparency,
     // but the report they read has already been corrected.
+    let streamed = false;
     const canRevise = draftAssistantBlocks !== null && agentOutputs.size > 0;
     if (canRevise) {
       const revised = await critiqueAndRevise({
@@ -613,12 +659,18 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
       });
       finalResponse = revised.finalResponse;
       truncated = revised.truncated;
+      streamed = revised.streamed;
     }
 
-    if (truncated) {
-      finalResponse += "\n\n_⚠️ This response reached the length limit and may be cut off._";
+    const TRUNC_NOTE = "\n\n_⚠️ This response reached the length limit and may be cut off._";
+    if (truncated) finalResponse += TRUNC_NOTE;
+    if (streamed) {
+      // The revision already streamed to the client as final_response deltas —
+      // only the truncation note (if any) still needs to land on screen.
+      if (truncated) emit({ type: "final_response", content: TRUNC_NOTE });
+    } else {
+      emit({ type: "final_response", content: finalResponse });
     }
-    emit({ type: "final_response", content: finalResponse });
 
     // Persist ticker memory + investing style from the FINAL (revised) report.
     if (mentionedTickers.length) {

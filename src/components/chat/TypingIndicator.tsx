@@ -29,7 +29,7 @@ export default function TypingIndicator({
         className="calm-orb-avatar w-[30px] h-[30px] rounded-[9px] flex items-center justify-center flex-shrink-0 text-white text-[13px] font-black"
         style={{ background: accent, fontFamily: "var(--font-serif)", letterSpacing: "0.04em" }}
       >
-        L
+        F
       </div>
 
       <div className="flex items-center gap-[11px] pt-1">

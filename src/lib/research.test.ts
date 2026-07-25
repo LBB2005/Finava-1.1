@@ -173,6 +173,38 @@ describe("research live overlay and presentation helpers", () => {
     expect(overlayLive(universe, null)).toBe(universe);
   });
 
+  it("flags a live row whose price is inconsistent with its market cap", () => {
+    // NFLX-shaped: a ~$67 price against a $289.5B cap with 430M shares (~10x off).
+    const overlaid = overlayLive(
+      universe,
+      new Map([
+        ["AAA", {
+          ticker: "AAA", price: 67.47, changePct: null,
+          marketCap: 289_500_000_000, pe: null, avgVol: null, rvol: null,
+          sharesOutstanding: 430_000_000,
+        }],
+      ])
+    );
+    const flagged = overlaid.find((s) => s.ticker === "AAA");
+    expect(flagged?.warnings?.some((w) => w.code === "price-marketcap-mismatch")).toBe(true);
+  });
+
+  it("leaves a price-consistent live row unflagged", () => {
+    const shares = 1_250_000_000_000 / 111; // price x shares == market cap exactly
+    const overlaid = overlayLive(
+      universe,
+      new Map([
+        ["AAA", {
+          ticker: "AAA", price: 111, changePct: null,
+          marketCap: 1_250_000_000_000, pe: 32.4, avgVol: null, rvol: null,
+          sharesOutstanding: shares,
+        }],
+      ])
+    );
+    const row = overlaid.find((s) => s.ticker === "AAA");
+    expect(row?.warnings ?? []).toEqual([]);
+  });
+
   it("classifies factor strength and colors", () => {
     expect(factorClass(80)).toBe("f-strong");
     expect(factorClass(50)).toBe("f-neutral");

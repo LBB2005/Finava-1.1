@@ -5,9 +5,34 @@ import type { AgentEvent } from "@/types/chat";
 // runCeoAgent calls anthropic.messages.stream(...).finalMessage() once per loop
 // turn. We feed a queue of scripted final messages.
 const finalMessages: unknown[] = [];
-const streamSpy = vi.fn(() => ({
-  finalMessage: () => Promise.resolve(finalMessages.shift()),
-}));
+// Stand-in for the SDK MessageStream. runCeoAgent now consumes the stream via
+// consumeWithIdleTimeout, which registers an `on("text")` handler and may call
+// `abort()`. On finalMessage() we replay the scripted message's text through the
+// handlers (so the streaming revision pass produces final_response deltas), then
+// resolve with that message.
+function makeStreamStub() {
+  const handlers: ((d: string) => void)[] = [];
+  const s = {
+    on(event: string, cb: (d: string) => void) {
+      if (event === "text") handlers.push(cb);
+      return s;
+    },
+    abort() {},
+    finalMessage() {
+      const msg = finalMessages.shift() as
+        | { content?: { type: string; text?: string }[] }
+        | undefined;
+      const t = (msg?.content ?? [])
+        .filter((b) => b.type === "text")
+        .map((b) => b.text ?? "")
+        .join("");
+      if (t) handlers.forEach((h) => h(t));
+      return Promise.resolve(msg);
+    },
+  };
+  return s;
+}
+const streamSpy = vi.fn(makeStreamStub);
 vi.mock("@/lib/anthropic", () => ({
   anthropic: { messages: { stream: streamSpy } },
   MODEL: "test-model",
@@ -74,9 +99,7 @@ beforeEach(() => {
   finalMessages.length = 0;
   skepticCritique = "";
   followupsRaw = "";
-  streamSpy.mockReset().mockImplementation(() => ({
-    finalMessage: () => Promise.resolve(finalMessages.shift()),
-  }));
+  streamSpy.mockReset().mockImplementation(makeStreamStub);
   generate.mockClear();
   checkCache.mockReset().mockResolvedValue(null);
   runRiskAgent.mockClear();
@@ -255,13 +278,18 @@ describe("runCeoAgent orchestration", () => {
   it("emits a graceful fallback when the loop exhausts MAX_ITERATIONS still asking for tools", async () => {
     // The model never stops requesting tools — the loop caps at MAX_ITERATIONS (10)
     // and finalResponse stays empty, so the user must still get a real message.
-    streamSpy.mockImplementation(() => ({
-      finalMessage: async () => ({
-        stop_reason: "tool_use",
-        content: [toolUse("t", "run_risk_agent")],
-        usage: {},
-      }),
-    }));
+    streamSpy.mockImplementation(() => {
+      const s = {
+        on: () => s,
+        abort: () => {},
+        finalMessage: async () => ({
+          stop_reason: "tool_use",
+          content: [toolUse("t", "run_risk_agent")],
+          usage: {},
+        }),
+      };
+      return s;
+    });
     const { runCeoAgent } = await import("./ceo");
     const events: AgentEvent[] = [];
     await runCeoAgent("analyze AAPL", "", (e) => events.push(e));
@@ -271,6 +299,33 @@ describe("runCeoAgent orchestration", () => {
       expect.objectContaining({
         type: "final_response",
         content: expect.stringContaining("ran out of analysis steps"),
+      }),
+    );
+    expect(events.map((e) => e.type).at(-1)).toBe("done");
+  });
+
+  it("emits a graceful fallback (not an infinite hang) when the synthesis stream aborts", async () => {
+    // Simulate the idle backstop firing: the synthesis stream never yields and its
+    // finalMessage rejects (as consumeWithIdleTimeout's abort() causes). The run
+    // must surface a clear message and still finish, never hang.
+    streamSpy.mockImplementation(() => {
+      const s = {
+        on: () => s,
+        abort: () => {},
+        finalMessage: async () => {
+          throw new Error("Request was aborted.");
+        },
+      };
+      return s;
+    });
+    const { runCeoAgent } = await import("./ceo");
+    const events: AgentEvent[] = [];
+    await runCeoAgent("analyze AAPL", "", (e) => events.push(e));
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "final_response",
+        content: expect.stringContaining("stalled"),
       }),
     );
     expect(events.map((e) => e.type).at(-1)).toBe("done");

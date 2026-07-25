@@ -25,6 +25,7 @@ import { authFetch, authFetcher } from "@/lib/authFetch";
 import UsageRing from "@/components/usage/UsageRing";
 import UsagePanel, { type UsageSummary } from "@/components/usage/UsagePanel";
 import Tooltip from "@/components/ui/Tooltip";
+import { useToast } from "@/hooks/useToast";
 
 interface BriefingSummary {
   id: string;
@@ -46,6 +47,7 @@ function BriefingBanner() {
   });
   const [generating, setGenerating] = useState(false);
   const [openBriefing, setOpenBriefing] = useState<BriefingSummary | null>(null);
+  const toast = useToast();
 
   const latest = briefings?.[0] ?? null;
   const hasUnread = latest && !latest.readAt;
@@ -54,7 +56,15 @@ function BriefingBanner() {
     setGenerating(true);
     try {
       const res = await authFetch("/api/briefing/generate", { method: "POST" });
-      if (res.ok) await mutate();
+      if (res.ok) {
+        await mutate();
+      } else {
+        // Surface the reason (e.g. "No holdings to brief") instead of failing silently.
+        const reason = await res.json().then((d) => d?.error as string | undefined).catch(() => undefined);
+        toast.error(reason || "Couldn't generate a briefing right now. Please try again.");
+      }
+    } catch {
+      toast.error("Couldn't generate a briefing right now. Please try again.");
     } finally {
       setGenerating(false);
     }

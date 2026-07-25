@@ -12,6 +12,7 @@
    ============================================================ */
 
 import type { SourceStatus } from "@/lib/fetchRetry";
+import { assessMarketCapConsistency, type QuoteWarning } from "@/lib/quoteSanity";
 
 export type FactorKey = "mom" | "growth" | "quality" | "analyst" | "value" | "health";
 
@@ -66,6 +67,13 @@ export interface Stock {
    * reading. Undefined on seed/overlay rows that never fetched fundamentals.
    */
   fundStatus?: SourceStatus;
+  /**
+   * Data-integrity flags for the live quote (e.g. price inconsistent with market
+   * cap, or a stale timestamp). Attached by `overlayLive`. Absent/empty when the
+   * quote looks trustworthy. The UI shows a caution marker rather than hiding the
+   * number, so a bad feed value is never silently displayed as fact.
+   */
+  warnings?: QuoteWarning[];
 }
 
 /** Live market-data overlay for one ticker, as returned by /api/leaderboard. */
@@ -77,6 +85,12 @@ export interface LiveRow {
   pe: number | null;
   avgVol: number | null; // absolute shares
   rvol: number | null;
+  /**
+   * Shares outstanding (absolute), used only to sanity-check the price against the
+   * reported market cap. Derived server-side; null when it can't be established, in
+   * which case the consistency check is skipped rather than guessed.
+   */
+  sharesOutstanding?: number | null;
 }
 
 export interface RankedStock extends Stock {
@@ -376,6 +390,11 @@ export function overlayLive(
   return universe.map((s) => {
     const l = live.get(s.ticker);
     if (!l) return s;
+    // Sanity-check the *live* price only (the seed price is a placeholder, never a
+    // feed value). A non-empty array makes the UI show a caution marker.
+    const warnings: QuoteWarning[] = [];
+    const mismatch = assessMarketCapConsistency(l.price, l.marketCap, l.sharesOutstanding);
+    if (mismatch) warnings.push(mismatch);
     return {
       ...s,
       price: l.price ?? s.price,
@@ -385,6 +404,7 @@ export function overlayLive(
       avgVol: l.avgVol,
       rvol: l.rvol,
       live: l.price != null,
+      warnings,
     };
   });
 }
