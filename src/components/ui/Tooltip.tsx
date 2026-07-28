@@ -65,8 +65,8 @@ export default function Tooltip({ label, placement = "top", delay = 250, childre
             background: "var(--color-bg)",
             color: "var(--color-text)",
             border: "1px solid var(--color-border)",
-            borderRadius: "var(--radius-sm, 6px)",
-            boxShadow: "0 8px 28px rgba(15, 23, 42, 0.08)",
+            borderRadius: "var(--radius-sm)",
+            boxShadow: "var(--shadow-pop)",
           }}
         >
           {label}

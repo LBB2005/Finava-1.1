@@ -91,7 +91,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50">
           <div
-            className="absolute inset-0 bg-black/40 fade-in"
+            className="absolute inset-0 bg-[var(--color-scrim)] fade-in"
             onClick={() => setMobileOpen(false)}
             aria-hidden
           />

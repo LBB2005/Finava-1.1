@@ -97,7 +97,7 @@ export default function SidebarStockSearch() {
           spellCheck={false}
           autoCapitalize="characters"
           autoComplete="off"
-          className="sidebar-search-input w-full bg-[var(--color-surface)] rounded-[9px] py-[9px] pl-[34px] pr-3 text-[13px] focus:outline-none transition-colors duration-150"
+          className="sidebar-search-input w-full bg-[var(--color-surface)] rounded-[var(--radius-sm)] py-[9px] pl-[34px] pr-3 text-[13px] focus:outline-none transition-colors duration-150"
           style={{
             border: "1px solid var(--color-accent-medium)",
             color: "var(--color-text)",
@@ -109,7 +109,7 @@ export default function SidebarStockSearch() {
         <ul
           id="sidebar-stock-search-list"
           role="listbox"
-          className="absolute left-[14px] right-[14px] z-50 mt-1 py-1 rounded-[10px] overflow-hidden ss-dropdown"
+          className="absolute left-[14px] right-[14px] z-50 mt-1 py-1 rounded-[var(--radius-lg)] overflow-hidden ss-dropdown"
           style={{
             background: "var(--color-bg)",
             border: "1px solid var(--color-border)",

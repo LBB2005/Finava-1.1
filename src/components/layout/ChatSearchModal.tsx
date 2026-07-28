@@ -65,11 +65,11 @@ export default function ChatSearchModal({ onClose }: { onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[12vh]"
-      style={{ background: "color-mix(in oklab, var(--color-text) 28%, transparent)", backdropFilter: "blur(2px)" }}
+      style={{ background: "var(--color-scrim)", backdropFilter: "blur(4px)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[560px] rounded-[14px] overflow-hidden flex flex-col"
+        className="w-full max-w-[560px] rounded-[var(--radius-xl)] overflow-hidden flex flex-col"
         style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)", boxShadow: "var(--shadow-pop)", maxHeight: "70vh" }}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}

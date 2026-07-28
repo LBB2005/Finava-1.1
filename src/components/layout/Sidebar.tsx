@@ -86,7 +86,7 @@ function BriefingBanner() {
         style={{
           border: `1px solid ${hasUnread ? "var(--color-accent-medium)" : "var(--color-border)"}`,
           background: hasUnread ? "var(--color-accent-light)" : "var(--color-surface)",
-          borderRadius: 8,
+          borderRadius: "var(--radius-md)",
         }}
       >
         <div className="flex items-center gap-2 px-3 py-[7px] flex-1 min-w-0">
@@ -165,7 +165,7 @@ function NavLink({
     <Link
       href={href}
       onClick={onNavigate}
-      className="nav-row group flex items-center gap-[11px] w-full text-left px-[11px] py-2 rounded-[9px] text-[13px] transition-colors duration-100 relative"
+      className="nav-row group flex items-center gap-[11px] w-full text-left px-[11px] py-2 rounded-[var(--radius-sm)] text-[13px] transition-colors duration-100 relative"
       style={
         active
           ? { background: "var(--color-accent-light)", color: "var(--color-accent)", fontWeight: 600 }
@@ -254,7 +254,7 @@ function PortfolioNavItem({
   return (
     <div className="nav-acc">
       <div
-        className="nav-row group flex items-start gap-[11px] w-full px-[11px] py-[9px] rounded-[9px] transition-colors duration-100 relative cursor-pointer"
+        className="nav-row group flex items-start gap-[11px] w-full px-[11px] py-[9px] rounded-[var(--radius-sm)] transition-colors duration-100 relative cursor-pointer"
         style={
           active
             ? { background: "var(--color-accent-light)" }
@@ -379,7 +379,7 @@ function WatchlistNavItem({
   return (
     <div className="nav-acc">
       <div
-        className="nav-row group flex items-center gap-[11px] w-full px-[11px] py-2 rounded-[9px] text-[13px] transition-colors duration-100 relative cursor-pointer"
+        className="nav-row group flex items-center gap-[11px] w-full px-[11px] py-2 rounded-[var(--radius-sm)] text-[13px] transition-colors duration-100 relative cursor-pointer"
         style={
           active
             ? { background: "var(--color-accent-light)", color: "var(--color-accent)", fontWeight: 600 }
@@ -544,7 +544,7 @@ function UserWidget() {
     <div ref={ref} className="relative flex-shrink-0">
       {open && (
         <div
-          className="absolute bottom-full left-0 right-0 mb-1 z-50 rounded-[10px] py-1 overflow-hidden"
+          className="absolute bottom-full left-0 right-0 mb-1 z-50 rounded-[var(--radius-lg)] py-1 overflow-hidden"
           style={{
             background: "var(--color-bg)",
             border: "1px solid var(--color-border)",
@@ -567,7 +567,7 @@ function UserWidget() {
 
       {usageOpen && usage && (
         <div
-          className="absolute bottom-full left-0 right-0 mb-1 z-50 rounded-[11px] p-3.5"
+          className="absolute bottom-full left-0 right-0 mb-1 z-50 rounded-[var(--radius-lg)] p-3.5"
           style={{
             background: "var(--color-bg)",
             border: "1px solid var(--color-border)",
@@ -628,7 +628,7 @@ function UserWidget() {
                 setOpen(false);
               }}
               aria-label={`AI usage, ${Math.round(usage?.weekly.pct ?? 0)} percent of weekly limit`}
-              className="flex items-center justify-center w-[26px] h-[26px] rounded-[7px] bg-transparent hover:bg-[var(--color-accent-light)] transition-colors duration-150"
+              className="flex items-center justify-center w-[26px] h-[26px] rounded-[var(--radius-sm)] bg-transparent hover:bg-[var(--color-accent-light)] transition-colors duration-150"
             >
               <UsageRing pct={usage?.weekly.pct ?? 0} tone={(usage?.weekly.pct ?? 0) >= 90 ? "over" : "accent"} />
             </button>
@@ -641,7 +641,7 @@ function UserWidget() {
                 setUsageOpen(false);
               }}
               aria-label="Account menu"
-              className="flex items-center justify-center w-[22px] h-[26px] rounded-[7px] bg-transparent hover:bg-[var(--color-accent-light)] transition-colors duration-150"
+              className="flex items-center justify-center w-[22px] h-[26px] rounded-[var(--radius-sm)] bg-transparent hover:bg-[var(--color-accent-light)] transition-colors duration-150"
             >
               <svg
                 width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
@@ -778,7 +778,7 @@ export default function Sidebar({
             <button
               onClick={() => setShowSearch(true)}
               aria-label="Search chats"
-              className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors duration-150"
+              className="w-[26px] h-[26px] flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors duration-150"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -791,7 +791,7 @@ export default function Sidebar({
               aria-label="New chat"
               aria-pressed={newChatActive}
               className={
-                "w-[26px] h-[26px] flex items-center justify-center rounded-[7px] transition-colors duration-150 " +
+                "w-[26px] h-[26px] flex items-center justify-center rounded-[var(--radius-sm)] transition-colors duration-150 " +
                 (newChatActive
                   ? "text-[var(--color-accent)] bg-[var(--color-accent-light)]"
                   : "text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)]")

@@ -166,7 +166,7 @@ export default function ConversationList() {
           </button>
           <button
             onClick={(e) => deleteConversation(e, conv.id)}
-            className="opacity-35 group-hover:opacity-70 hover:!opacity-100 p-0.5 rounded hover:text-red-400 transition-all duration-100 text-[var(--color-muted)]"
+            className="opacity-35 group-hover:opacity-70 hover:!opacity-100 p-0.5 rounded hover:!text-[var(--color-bear)] transition-all duration-100 text-[var(--color-muted)]"
             title="Delete chat"
             aria-label="Delete chat"
           >
