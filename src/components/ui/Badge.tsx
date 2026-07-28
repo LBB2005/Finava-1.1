@@ -4,18 +4,22 @@ interface BadgeProps {
   className?: string;
 }
 
+/* Token-backed — 12% semantic fill + semantic ink (design-system §8). */
 const variantClasses = {
   default: "bg-[var(--color-accent-light)] text-[var(--color-accent)]",
-  success: "bg-green-50 text-green-700",
-  warning: "bg-amber-50 text-amber-700",
-  danger: "bg-red-50 text-red-600",
-  info: "bg-sky-50 text-sky-700",
+  success:
+    "bg-[color-mix(in_oklab,var(--color-bull)_12%,transparent)] text-[var(--color-bull)]",
+  warning:
+    "bg-[color-mix(in_oklab,var(--color-warn)_12%,transparent)] text-[var(--color-warn)]",
+  danger:
+    "bg-[color-mix(in_oklab,var(--color-bear)_12%,transparent)] text-[var(--color-bear)]",
+  info: "bg-[var(--color-accent-light)] text-[var(--color-accent)]",
 };
 
 export default function Badge({ children, variant = "default", className = "" }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${variantClasses[variant]} ${className}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[length:var(--text-meta)] font-semibold ${variantClasses[variant]} ${className}`}
     >
       {children}
     </span>

@@ -26,6 +26,20 @@
   --color-accent-light: #eef3fc;
   --color-accent-medium: #bed3f0;
 
+  /* Ink on accent fills — never hardcode #fff on accent/semantic buttons */
+  --color-on-accent: #ffffff;
+
+  /* Modal / drawer scrim — the one overlay color */
+  --color-scrim: rgba(13, 22, 38, 0.45);
+
+  /* Categorical chart series (chart-1 = accent; 2-5 reuse the feature hues) */
+  --chart-1: #1a4b8f;
+  --chart-2: #0d9488;
+  --chart-3: #b45309;
+  --chart-4: #7c3aed;
+  --chart-5: #b42318;
+  --chart-6: #64748b;
+
   /* Bubbles */
   --color-user-bubble: #1a4b8f;
 
@@ -67,17 +81,24 @@
   --text-sm: 12.5px;
   --text-body: 14px;
   --text-title: 15px;
+  --text-lg: 17px;      /* KPI values, sub-hero figures */
+  --text-xl: 19px;      /* page titles */
   --text-display: 22px;
+  --text-stat: 28px;    /* stat-card numerals */
+  --text-hero: 46px;    /* page hero numerals (stock price, portfolio value) */
 
   /* Shadows */
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow-pop: 0 8px 28px rgba(15, 23, 42, 0.08);
 
-  /* Radii */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  /* Radii — Precision scale, one language app-wide:
+     xs = chips/badges · sm = buttons/inputs · md = cards/panels/tables ·
+     lg = popovers/floating panels · xl = modals/composer · 999px = pills */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
 
   /* Page chrome — header and content gutters lock together so the title's
      left edge and the content's left edge line up on every page. Scrollers
@@ -112,6 +133,16 @@
   --color-accent-hover: #79b8ff;
   --color-accent-light: #0d2045;
   --color-accent-medium: #1a4080;
+
+  --color-on-accent: #ffffff;
+  --color-scrim: rgba(0, 0, 0, 0.55);
+
+  --chart-1: #4d9cf8;
+  --chart-2: #2dd4bf;
+  --chart-3: #d29922;
+  --chart-4: #a78bfa;
+  --chart-5: #f85149;
+  --chart-6: #8b949e;
 
   --color-user-bubble: #1f6feb;
 
@@ -167,8 +198,8 @@
 [data-theme="dark"][data-accent="teal"]    { --color-accent:#2dd4bf; --color-accent-hover:#5eead4; --color-accent-light:#06302b; --color-accent-medium:#0f5f57; --color-user-bubble:#1ca99a; }
 
 /* Text size — scales the type ramp */
-[data-text-size="small"] { --text-micro:9.5px; --text-meta:11px;   --text-sm:12px;   --text-body:13px;   --text-title:14px; --text-display:20px; }
-[data-text-size="large"] { --text-micro:11px;  --text-meta:12.5px; --text-sm:13.5px; --text-body:15.5px; --text-title:17px; --text-display:25px; }
+[data-text-size="small"] { --text-micro:9.5px; --text-meta:11px;   --text-sm:12px;   --text-body:13px;   --text-title:14px; --text-lg:15.5px; --text-xl:17.5px; --text-display:20px; --text-stat:25px; --text-hero:41px; }
+[data-text-size="large"] { --text-micro:11px;  --text-meta:12.5px; --text-sm:13.5px; --text-body:15.5px; --text-title:17px; --text-lg:18.5px; --text-xl:21px;   --text-display:25px; --text-stat:31px; --text-hero:50px; }
 
 /* Interface density — tightens page chrome */
 [data-density="compact"] {
@@ -581,7 +612,7 @@ body {
   100% { background-position: 150% 0; }
 }
 .skeleton {
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background-color: var(--color-surface);
   background-image: linear-gradient(
     90deg,
@@ -632,17 +663,13 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── HF mode: square + darker — scoped to .hf-shell ────────── */
+/* ── HF mode — scoped to .hf-shell (radii now inherit the app scale) ── */
 .hf-shell {
   --color-bg: #f3f5f8;
   --color-surface: #e8ebf1;
   --color-surface-2: #dde1ea;
   --color-border: #ccd1dd;
   --color-border-strong: #bbc1cf;
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 5px;
-  --radius-xl: 6px;
   /* v10 editorial tokens — light */
   --v-page: #f4f5f8;
   --v-surface: #ffffff;
@@ -1648,10 +1675,7 @@ html:has(.landing-root) { scroll-behavior: smooth; }
    and helper classes never leak into the rest of the app.
    ════════════════════════════════════════════════════════════ */
 .research-root {
-  /* Sharper radii for the terminal feel */
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 5px;
+  /* Radii inherit the app-wide Precision scale (see :root). */
 }
 .research-root .serif { font-family: var(--font-serif); }
 .research-root .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
@@ -1708,7 +1732,6 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 .page-title { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: var(--color-text); }
 .page-subtitle { font-size: 10.5px; letter-spacing: 0.04em; color: var(--color-muted); white-space: nowrap; }
 .page-header-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
-.page-header .page-header-actions .tbtn { border-radius: 99px; }
 .page-header-secondrow {
   display: flex; align-items: center; flex-wrap: wrap; gap: 20px;
   padding: 0 calc(var(--page-gutter) + var(--scrollbar-gutter)) var(--page-header-pad-y);
@@ -1718,23 +1741,25 @@ html:has(.landing-root) { scroll-behavior: smooth; }
   background: linear-gradient(var(--color-bg), transparent); pointer-events: none;
 }
 
-/* Horizon toggle buttons — fixed 28px height so rows of mixed buttons sit even */
-.research-root .tbtn {
+/* Compact mono control — the house toggle/filter/segment button. Unscoped so it
+   works on every page (fixes portfolio empty-state buttons that sat outside
+   .research-root). Fixed 28px height so rows of mixed buttons sit even. */
+.tbtn {
   display: inline-flex; align-items: center; height: 28px;
   font-family: var(--font-mono); font-size: 11px; font-weight: 600;
   letter-spacing: 0.04em; padding: 0 11px; border: 1px solid var(--color-border);
   background: var(--color-bg); color: var(--color-text-secondary);
-  cursor: pointer; border-radius: 3px;
+  cursor: pointer; border-radius: var(--radius-xs);
 }
-.research-root .tbtn:hover { background: var(--color-surface-2); }
-.research-root .tbtn.on { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+.tbtn:hover { background: var(--color-surface-2); }
+.tbtn.on { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-accent); }
 
 /* Sector select */
-.research-root .tsel {
+.tsel {
   font-family: var(--font-mono); font-size: 11px; font-weight: 500;
   padding: 5px 9px; border: 1px solid var(--color-border);
   background: var(--color-bg); color: var(--color-text);
-  border-radius: 3px; cursor: pointer;
+  border-radius: var(--radius-xs); cursor: pointer;
 }
 
 /* Leaderboard table */
@@ -2038,3 +2063,81 @@ html:has(.landing-root) { scroll-behavior: smooth; }
    resting border is the focus cue (same opt-out as .chat-textarea). */
 .sidebar-search-input:focus,
 .sidebar-search-input:focus-visible { outline: none; }
+
+/* ════════════════════════════════════════════════════════════════════
+   UNIFIED COMPONENT CLASSES — the single component language.
+   See docs/design-system.md. Every page consumes these instead of
+   re-rolling card/button/badge/table recipes inline.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Card — resting cards are border-only; .card-feature adds the one
+   soft shadow reserved for heroes/primary summary cards. ── */
+.card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.card-feature { box-shadow: var(--shadow-card); }
+.card-head {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.card-title { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--color-text); }
+.card-meta { font-size: var(--text-micro); color: var(--color-muted); }
+
+/* ── Button family — sans voice for actions/CTAs (compact mono controls
+   stay on .tbtn). One radius, one type step, darken-one-step hover. ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg); color: var(--color-text);
+  border-radius: var(--radius-sm); padding: 5px 12px;
+  font-family: var(--font-sans); font-size: var(--text-sm); font-weight: 600;
+  cursor: pointer; transition: background 130ms, border-color 130ms, color 130ms;
+}
+.btn:hover { background: var(--color-surface-2); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
+.btn-primary:hover { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--color-text-secondary); }
+.btn-ghost:hover { background: var(--color-surface); color: var(--color-text); }
+.btn-danger { border-color: color-mix(in oklab, var(--color-bear) 35%, transparent); background: transparent; color: var(--color-bear); }
+.btn-danger:hover { background: color-mix(in oklab, var(--color-bear) 8%, transparent); }
+
+/* ── Status pill — 12% semantic fill + semantic ink. ── */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: var(--text-micro); font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
+}
+.pill-bull { color: var(--color-bull); background: color-mix(in oklab, var(--color-bull) 12%, transparent); }
+.pill-bear { color: var(--color-bear); background: color-mix(in oklab, var(--color-bear) 12%, transparent); }
+.pill-warn { color: var(--color-warn); background: color-mix(in oklab, var(--color-warn) 12%, transparent); }
+.pill-accent { color: var(--color-accent); background: var(--color-accent-light); }
+.pill-muted { color: var(--color-text-secondary); background: var(--color-surface-2); }
+
+/* ── Input — one focus recipe (accent border + 3px accent-light ring). ── */
+.input {
+  width: 100%; padding: 6px 10px;
+  font-family: var(--font-sans); font-size: var(--text-sm);
+  background: var(--color-bg); border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); color: var(--color-text); outline: none;
+}
+.input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-light); }
+
+/* ── Floating layer (popovers, menus, dropdowns) — one recipe. ── */
+.popover {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+}
+
+/* ── Empty state — centered muted copy, used by every list/panel. ── */
+.empty-note {
+  padding: 28px 18px; text-align: center;
+  font-size: var(--text-sm); color: var(--color-muted);
+}
