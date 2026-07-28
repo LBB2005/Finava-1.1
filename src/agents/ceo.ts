@@ -421,6 +421,13 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
 
   let iteration = 0;
   const MAX_ITERATIONS = deepResearch ? 15 : 10;
+  // Each tool-calling turn is a *sequential* ~60–120s round of sub-agents, so an
+  // unbounded number of rounds is what pushed long runs past the 300s function
+  // limit. Cap the crew rounds: after this many, we drop the tools from the CEO's
+  // call so it must synthesize from what it already has. MAX_ITERATIONS still
+  // bounds total turns; this bounds the expensive ones.
+  const MAX_TOOL_ROUNDS = deepResearch ? 3 : 2;
+  let toolRounds = 0;
   // Output-token ceiling for the synthesis pass. Sonnet 4.6 supports up to 64K
   // output tokens; 8192 was truncating long multi-agent reports (deep research
   // asks for reports ~50% longer with extra sections). Stream the call so the
@@ -456,7 +463,9 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
       // In Discover mode the CEO may ONLY call the scout — never the crew. This
       // hard-stops the model from "validating" picks with DCF/hype agents (which
       // made quick slow and crew-driven). The client runs the crew for deep.
-      tools: discover ? [scoutTool] : allTools,
+      // Once the crew-round cap is reached, omit tools entirely so the CEO must
+      // write the report from the agent outputs it already has.
+      ...(toolRounds < MAX_TOOL_ROUNDS ? { tools: discover ? [scoutTool] : allTools } : {}),
       messages,
     });
     let response: Awaited<ReturnType<typeof draftStream.finalMessage>>;
@@ -515,6 +524,7 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
     }
 
     messages.push({ role: "assistant", content: response.content });
+    toolRounds++; // this turn is spending a crew round
 
     // Extract all tool_use blocks and dispatch in parallel
     const toolUseBlocks = response.content.filter((b) => b.type === "tool_use");

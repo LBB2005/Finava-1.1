@@ -216,6 +216,29 @@ describe("runCeoAgent orchestration", () => {
     expect(streamSpy).toHaveBeenCalledTimes(2);
   });
 
+  it("caps crew rounds — after MAX_TOOL_ROUNDS tool turns it drops tools so the CEO must synthesize", async () => {
+    // Standard (non-deep) mode allows at most 2 tool rounds. Script two tool turns
+    // then a synthesis turn; the 3rd stream() call must be made WITHOUT tools so a
+    // run can't keep spawning sequential ~60–120s agent rounds past the 300s cap.
+    finalMessages.push(
+      { stop_reason: "tool_use", content: [toolUse("t1", "run_risk_agent")], usage: {} },
+      { stop_reason: "tool_use", content: [toolUse("t2", "run_dcf_agent")], usage: {} },
+      { stop_reason: "end_turn", content: [text("Final report body")], usage: {} },
+    );
+    const { runCeoAgent } = await import("./ceo");
+    const events: AgentEvent[] = [];
+    await runCeoAgent("analyze AAPL", "", (e) => events.push(e));
+
+    const calls = streamSpy.mock.calls as unknown as Array<Array<Record<string, unknown>>>;
+    expect("tools" in calls[0][0]).toBe(true); // round 1 offers the crew
+    expect("tools" in calls[1][0]).toBe(true); // round 2 offers the crew
+    expect("tools" in calls[2][0]).toBe(false); // capped → must write the report
+    // The run still ships a final report.
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: "final_response", content: expect.stringContaining("Final report body") }),
+    );
+  });
+
   it("in discover mode calls only the scout and never announces a crew", async () => {
     finalMessages.push(
       { stop_reason: "tool_use", content: [toolUse("s1", "scout_universe")], usage: {} },
