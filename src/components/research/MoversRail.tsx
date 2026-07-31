@@ -2,17 +2,9 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HORIZONS, fmtPct1, type HorizonKey, type Stock } from "@/lib/research";
+import { ShowMore } from "./primitives";
 
 type MoverRow = Stock & { move: number };
-
-function ShowMore({ expanded, onToggle, more }: { expanded: boolean; onToggle: () => void; more: number }) {
-  return (
-    <button className="b-showmore" onClick={onToggle}>
-      {expanded ? "Show less" : `Show ${more} more`}
-      <span className="b-showmore-ico">{expanded ? "▴" : "▾"}</span>
-    </button>
-  );
-}
 
 function RailList({
   title, rows, up, mx, count, tag, onOpen, collapsed = 5, expandTo = 10,
@@ -30,14 +22,18 @@ function RailList({
         <span className="mono b-railtitle" style={{ color }}>{up ? "▲" : "▼"} {title}</span>
         <span className="mono b-railcount">{count} · {tag}</span>
       </div>
-      {shown.map((s, i) => (
-        <div key={s.ticker} className="b-railrow" onClick={() => onOpen(s.ticker)}>
-          <span className="mono b-rail-rank">{String(i + 1).padStart(2, "0")}</span>
-          <span className="mono b-rail-tk">{s.ticker}</span>
-          <div className="b-rail-track"><div style={{ width: (Math.abs(s.move) / mx) * 100 + "%", height: "100%", borderRadius: 99, background: color }} /></div>
-          <span className="mono b-rail-val" style={{ color }}>{fmtPct1(s.move)}</span>
-        </div>
-      ))}
+      {rows.length === 0 ? (
+        <div className="empty-note">No {up ? "gainers" : "laggards"} on this horizon yet.</div>
+      ) : (
+        shown.map((s, i) => (
+          <div key={s.ticker} className="b-railrow" onClick={() => onOpen(s.ticker)}>
+            <span className="mono b-rail-rank">{String(i + 1).padStart(2, "0")}</span>
+            <span className="mono b-rail-tk">{s.ticker}</span>
+            <div className="b-rail-track"><div style={{ width: (Math.abs(s.move) / mx) * 100 + "%", height: "100%", borderRadius: 999, background: color }} /></div>
+            <span className="mono b-rail-val" style={{ color }}>{fmtPct1(s.move)}</span>
+          </div>
+        ))
+      )}
       {more > 0 && <ShowMore expanded={expanded} onToggle={() => setExpanded((e) => !e)} more={more} />}
     </div>
   );

@@ -4,7 +4,7 @@ import { composite, grade, type RankedStock, type Stock } from "@/lib/research";
 import { useThemes } from "@/hooks/useThemes";
 import type { Theme } from "@/lib/researchAI";
 import LadderRow from "./LadderRow";
-import { LensErrorState } from "./primitives";
+import { LensErrorState, LensSpinner, Chevron } from "./primitives";
 
 /** Average year-horizon Finava score of a theme's resolved constituents. */
 function themeStrength(stocks: Stock[]): number {
@@ -33,16 +33,23 @@ export default function ThemesMode({ universe }: { universe: Stock[] }) {
         title="Themes are unavailable right now."
         detail="The theme generator failed — give it another go."
         onRetry={retry}
-        minHeight={280}
       />
     );
   }
 
   if (isLoading || !themes) {
     return (
-      <div className="flex flex-col items-center justify-center" style={{ minHeight: 280, gap: 10 }}>
-        <div className="spin" style={{ width: 28, height: 28, border: "2.5px solid var(--color-border)", borderTopColor: "var(--color-accent)", borderRadius: "50%" }} />
-        <p style={{ fontSize: 12, color: "var(--color-muted)" }}>Generating themes across the S&amp;P 500…</p>
+      <div className="flex flex-col items-center justify-center" style={{ minHeight: 240, gap: 10 }}>
+        <LensSpinner />
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)" }}>Generating themes across the S&amp;P 500…</p>
+      </div>
+    );
+  }
+
+  if (resolved.length === 0) {
+    return (
+      <div className="empty-note flex flex-col items-center justify-center" style={{ minHeight: 240 }}>
+        No themes to show yet — they&apos;ll appear once the S&amp;P 500 universe finishes loading.
       </div>
     );
   }
@@ -58,23 +65,27 @@ export default function ThemesMode({ universe }: { universe: Stock[] }) {
         return (
           <div
             key={theme.key}
-            style={{ gridColumn: isOpen ? "1 / -1" : undefined, border: "1px solid var(--color-border)", borderRadius: 4, overflow: "hidden", background: "var(--color-bg)" }}
+            className="card"
+            style={{ gridColumn: isOpen ? "1 / -1" : undefined }}
           >
             <button
               onClick={() => setOpen(isOpen ? null : theme.key)}
               style={{ width: "100%", textAlign: "left", background: "transparent", border: "none", cursor: "pointer", padding: "13px 15px", display: "flex", flexDirection: "column", gap: 7 }}
             >
               <div className="flex items-center justify-between" style={{ gap: 8 }}>
-                <span className="serif" style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em", color: "var(--color-text)" }}>{theme.name}</span>
-                <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)", flexShrink: 0 }}>{stocks.length} names</span>
+                <span className="serif" style={{ fontSize: "var(--text-lg)", fontWeight: 800, letterSpacing: "-0.01em", color: "var(--color-text)" }}>{theme.name}</span>
+                <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", flexShrink: 0 }}>{stocks.length} names</span>
               </div>
-              <p style={{ fontSize: 12, lineHeight: 1.5, color: "var(--color-text-secondary)" }}>{theme.thesis}</p>
+              <p style={{ fontSize: "var(--text-sm)", lineHeight: 1.5, color: "var(--color-text-secondary)" }}>{theme.thesis}</p>
               <div className="flex items-center" style={{ gap: 9, marginTop: 2 }}>
                 <div className="fbar-track" style={{ flex: 1, height: 6 }}>
                   <div className="fbar-fill" style={{ width: strength + "%", height: "100%", background: "var(--color-accent)" }} />
                 </div>
-                <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text)" }}>{strength}</span>
-                <span className="mono" style={{ fontSize: 9.5, color: "var(--color-muted)", letterSpacing: "0.06em" }}>{isOpen ? "CLOSE ▲" : "OPEN ▼"}</span>
+                <span className="mono" style={{ fontSize: "var(--text-meta)", fontWeight: 700, color: "var(--color-text)" }}>{strength}</span>
+                <span className="mono flex items-center" style={{ gap: 4, fontSize: "var(--text-micro)", color: "var(--color-muted)", letterSpacing: "0.06em" }}>
+                  {isOpen ? "CLOSE" : "OPEN"}
+                  <Chevron up={isOpen} size={9} />
+                </span>
               </div>
             </button>
 

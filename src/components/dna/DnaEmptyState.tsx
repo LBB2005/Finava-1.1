@@ -42,10 +42,10 @@ function Centered({ title, body, cta }: { title: string; body: string; cta?: Rea
   return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      textAlign: "center", gap: 12, padding: "64px 24px", minHeight: 320,
+      textAlign: "center", gap: 12, padding: "64px 24px", minHeight: 240,
     }}>
-      <h2 className="serif" style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text)", margin: 0 }}>{title}</h2>
-      <p style={{ fontSize: 13.5, color: "var(--color-muted)", maxWidth: 440, lineHeight: 1.6, margin: 0 }}>{body}</p>
+      <h2 className="serif" style={{ fontSize: "var(--text-display)", fontWeight: 800, color: "var(--color-text)", margin: 0 }}>{title}</h2>
+      <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)", maxWidth: 440, lineHeight: 1.6, margin: 0 }}>{body}</p>
       {cta && <div style={{ marginTop: 6 }}>{cta}</div>}
     </div>
   );

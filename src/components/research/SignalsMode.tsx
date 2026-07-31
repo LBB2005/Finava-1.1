@@ -9,6 +9,7 @@ import {
   type SignalFeedItem,
   type SignalEvent,
 } from "@/lib/researchAI";
+import { LensPanel, LensSpinner } from "./primitives";
 
 type Status = "idle" | "loading" | "done" | "error";
 
@@ -54,12 +55,10 @@ export default function SignalsMode({ universe, loading }: { universe: Stock[]; 
   }, [events]);
 
   return (
-    <div style={{ border: "1px solid var(--color-border)", borderRadius: 4, overflow: "hidden", background: "var(--color-bg)" }}>
-      <div className="flex items-center justify-between" style={{ padding: "9px 14px", borderBottom: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
-        <div className="flex items-center" style={{ gap: 9 }}>
-          <span className="mono" style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-text)" }}>LIVE SIGNALS</span>
-          <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>what&apos;s moving across the S&amp;P 500</span>
-        </div>
+    <LensPanel
+      title="LIVE SIGNALS"
+      meta="what's moving across the S&P 500"
+      right={
         <button
           className="tbtn"
           disabled={status === "loading" || events.length === 0}
@@ -67,23 +66,23 @@ export default function SignalsMode({ universe, loading }: { universe: Stock[]; 
         >
           {status === "loading" ? "…" : "REFRESH"}
         </button>
-      </div>
-
+      }
+    >
       <div style={{ padding: 14 }}>
         {status === "loading" && feed.length === 0 ? (
           <div className="flex flex-col items-center justify-center" style={{ minHeight: 240, gap: 10 }}>
-            <div className="spin" style={{ width: 28, height: 28, border: "2.5px solid var(--color-border)", borderTopColor: "var(--color-accent)", borderRadius: "50%" }} />
-            <p style={{ fontSize: 12, color: "var(--color-muted)" }}>Scanning the tape for notable moves…</p>
+            <LensSpinner />
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)" }}>Scanning the tape for notable moves…</p>
           </div>
         ) : status === "error" ? (
-          <div className="flex flex-col items-center justify-center" style={{ minHeight: 200, gap: 8, textAlign: "center" }}>
-            <p style={{ fontSize: 13, color: "var(--color-bear)" }}>{err}</p>
+          <div className="flex flex-col items-center justify-center" style={{ minHeight: 240, gap: 8, textAlign: "center" }}>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-bear)" }}>{err}</p>
             <button className="tbtn" onClick={() => run(events)}>Retry</button>
           </div>
         ) : feed.length === 0 ? (
-          <div className="flex flex-col items-center justify-center" style={{ minHeight: 200, textAlign: "center", gap: 6 }}>
-            <p className="serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)" }}>{loading ? "Loading the universe…" : "A quiet tape"}</p>
-            <p style={{ fontSize: 12, color: "var(--color-muted)" }}>{loading ? "Signals appear once the S&P 500 data loads." : "No standout cross-sectional moves right now."}</p>
+          <div className="flex flex-col items-center justify-center" style={{ minHeight: 240, textAlign: "center", gap: 6 }}>
+            <p className="serif" style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--color-text)" }}>{loading ? "Loading the universe…" : "A quiet tape"}</p>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)" }}>{loading ? "Signals appear once the S&P 500 data loads." : "No standout cross-sectional moves right now."}</p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column" }}>
@@ -91,26 +90,26 @@ export default function SignalsMode({ universe, loading }: { universe: Stock[]; 
               const color = SENTIMENT_COLOR[item.sentiment];
               return (
                 <div key={`${item.ticker}-${i}`} className="flex" style={{ gap: 12, padding: "12px 4px", borderBottom: i < feed.length - 1 ? "1px solid var(--color-border)" : "none" }}>
-                  <div style={{ width: 3, alignSelf: "stretch", background: color, borderRadius: 2, flexShrink: 0 }} />
+                  <div style={{ width: 3, alignSelf: "stretch", background: color, borderRadius: "var(--radius-xs)", flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="flex items-center" style={{ gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
-                      <Link href={`/stock/${item.ticker}`} className="tklink mono" style={{ fontSize: 13, fontWeight: 800, color: "var(--color-text)" }}>{item.ticker}</Link>
-                      <span className="mono" style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: color, padding: "2px 6px", borderRadius: 3, background: `color-mix(in oklab, ${color} 12%, transparent)` }}>
+                      <Link href={`/stock/${item.ticker}`} className="tklink mono" style={{ fontSize: "var(--text-sm)", fontWeight: 800, color: "var(--color-text)" }}>{item.ticker}</Link>
+                      <span className="mono" style={{ fontSize: "var(--text-micro)", fontWeight: 700, letterSpacing: "0.08em", color: color, padding: "2px 6px", borderRadius: "var(--radius-xs)", background: `color-mix(in oklab, ${color} 12%, transparent)` }}>
                         {SIGNAL_CATEGORY_LABEL[item.category].toUpperCase()}
                       </span>
-                      <span className="serif" style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text)" }}>{item.headline}</span>
+                      <span className="serif" style={{ fontSize: "var(--text-body)", fontWeight: 700, color: "var(--color-text)" }}>{item.headline}</span>
                     </div>
-                    <p style={{ fontSize: 12, lineHeight: 1.5, color: "var(--color-text-secondary)" }}>{item.take}</p>
+                    <p style={{ fontSize: "var(--text-sm)", lineHeight: 1.5, color: "var(--color-text-secondary)" }}>{item.take}</p>
                   </div>
                 </div>
               );
             })}
-            <p style={{ fontSize: 10, color: "var(--color-muted)", lineHeight: 1.5, paddingTop: 12 }}>
+            <p style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", lineHeight: 1.5, paddingTop: 12 }}>
               Events are computed from live factor and market data; narration is AI-written. Research color, not advice.
             </p>
           </div>
         )}
       </div>
-    </div>
+    </LensPanel>
   );
 }

@@ -21,7 +21,7 @@ interface DnaResponse {
 export default function DnaPage() {
   const router = useRouter();
   const { setPendingMessage, reset } = useChatStore();
-  const { data, isLoading, mutate } = useSWR<DnaResponse>("/api/dna", authFetcher);
+  const { data, error, isLoading, mutate } = useSWR<DnaResponse>("/api/dna", authFetcher);
 
   const dna = data?.dna ?? null;
   const subtitle = dna
@@ -50,6 +50,11 @@ export default function DnaPage() {
         }}>
           {isLoading ? (
             <DnaSkeleton />
+          ) : error && !data ? (
+            <div className="empty-note flex flex-col items-center justify-center" style={{ minHeight: 240, gap: 10 }}>
+              <p style={{ margin: 0 }}>Couldn&apos;t load your Investor DNA — give it another go.</p>
+              <button className="btn" onClick={() => mutate()}>Retry</button>
+            </div>
           ) : !dna ? (
             <DnaEmptyState
               hasHoldings={!!data?.hasHoldings}
@@ -61,7 +66,7 @@ export default function DnaPage() {
             <>
               <IdentityCard dna={dna} />
               {dna.coverage.uncovered.length > 0 && (
-                <p style={{ fontSize: 12, color: "var(--color-muted)", margin: "-4px 2px 0" }}>
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)", margin: "-4px 2px 0" }}>
                   Reading {dna.coverage.analyzed} of {dna.coverage.total} holdings · not yet covered:{" "}
                   {dna.coverage.uncovered.slice(0, 8).join(", ")}
                   {dna.coverage.uncovered.length > 8 ? "…" : ""}
@@ -81,11 +86,11 @@ export default function DnaPage() {
 function DnaSkeleton() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <div className="animate-pulse" style={{ height: 180, borderRadius: "var(--radius-xl)", background: "var(--color-surface)", border: "1px solid var(--color-border)" }} />
-      <div className="animate-pulse" style={{ height: 230, borderRadius: "var(--radius-lg)", background: "var(--color-surface)", border: "1px solid var(--color-border)" }} />
+      <div className="skeleton" style={{ height: 180, borderRadius: "var(--radius-xl)" }} />
+      <div className="skeleton" style={{ height: 230, borderRadius: "var(--radius-lg)" }} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
         {[0, 1, 2].map((i) => (
-          <div key={i} className="animate-pulse" style={{ height: 92, borderRadius: "var(--radius-lg)", background: "var(--color-surface)", border: "1px solid var(--color-border)" }} />
+          <div key={i} className="skeleton" style={{ height: 92, borderRadius: "var(--radius-lg)" }} />
         ))}
       </div>
     </div>

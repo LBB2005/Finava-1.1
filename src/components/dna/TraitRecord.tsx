@@ -25,24 +25,24 @@ export default function TraitRecord({ traits }: { traits: TraitRecordType[] }) {
           return (
             <div key={t.factor} style={{ opacity: faded ? 0.62 : 1 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
-                <span style={{ fontSize: 13.5, color: "var(--color-text)" }}>
+                <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text)" }}>
                   {t.label}
-                  <span style={{ fontSize: 11, color: "var(--color-muted)", marginLeft: 8 }}>
+                  <span className="mono" style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", marginLeft: 8 }}>
                     {t.exposurePct}% of book{faded ? " · thin" : ""}
                   </span>
                 </span>
-                <span className="mono" style={{ fontSize: 12.5, color: "var(--color-text-secondary)" }}>
+                <span className="mono" style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
                   <b style={{ color, fontWeight: 700 }}>{signed(t.avgReturnPct)}</b> · {t.hits}/{t.total}
                 </span>
               </div>
-              <div style={{ height: 7, borderRadius: 99, background: "var(--color-surface)", overflow: "hidden" }}>
+              <div style={{ height: 7, borderRadius: 999, background: "var(--color-surface)", overflow: "hidden" }}>
                 <div style={{ width: `${width}%`, height: "100%", background: color }} />
               </div>
             </div>
           );
         })}
       </div>
-      <p style={{ fontSize: 11, color: "var(--color-muted)", marginTop: 14, lineHeight: 1.5 }}>
+      <p style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", marginTop: 14, lineHeight: 1.5 }}>
         Real returns on your own holdings, grouped by trait. Green = your edge · red = blind spot · faded = still learning.
       </p>
     </Card>

@@ -13,11 +13,8 @@ export default function Tendencies({ tendencies }: { tendencies: Tendency[] }) {
           padding: "16px 18px",
           background: "var(--color-surface)",
         }}>
-          <div style={{
-            fontSize: 10, fontWeight: 700, textTransform: "uppercase",
-            letterSpacing: "0.14em", color: "var(--color-muted)", marginBottom: 8,
-          }}>{t.label}</div>
-          <div style={{ fontSize: 14, color: "var(--color-text)", lineHeight: 1.45 }}>{t.detail}</div>
+          <div className="eyebrow-label" style={{ color: "var(--color-muted)", marginBottom: 8 }}>{t.label}</div>
+          <div className="mono" style={{ fontSize: "var(--text-body)", color: "var(--color-text)", lineHeight: 1.45 }}>{t.detail}</div>
         </div>
       ))}
     </div>

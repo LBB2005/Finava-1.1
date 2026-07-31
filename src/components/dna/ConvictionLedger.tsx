@@ -13,11 +13,6 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
   closed: { label: "Closed", color: "var(--color-muted)" },
 };
 
-const inputStyle: React.CSSProperties = {
-  fontSize: 13, padding: "8px 11px", borderRadius: 8,
-  border: "1px solid var(--color-border)", background: "var(--color-bg)", color: "var(--color-text)",
-};
-
 /** The Conviction Ledger — theses with their falsifiers and live status. */
 export default function ConvictionLedger() {
   const { data, mutate, isLoading } = useSWR<Conviction[]>("/api/convictions", authFetcher);
@@ -36,9 +31,9 @@ export default function ConvictionLedger() {
       {adding && <AddForm onDone={async () => { setAdding(false); await mutate(); }} />}
 
       {isLoading ? (
-        <p style={{ fontSize: 13, color: "var(--color-muted)" }}>Loading…</p>
+        <div className="skeleton" style={{ height: 56 }} />
       ) : convictions.length === 0 && !adding ? (
-        <p style={{ fontSize: 13, color: "var(--color-muted)", lineHeight: 1.6 }}>
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)", lineHeight: 1.6 }}>
           No convictions yet. Finava will start drafting these from your research — or add one now to
           anchor a thesis with the falsifier that would change your mind.
         </p>
@@ -75,14 +70,14 @@ function Row({ c, last, onChange }: { c: Conviction; last: boolean; onChange: ()
       display: "flex", gap: 12, alignItems: "flex-start",
       padding: "12px 0", borderBottom: last ? "none" : "1px solid var(--color-border)",
     }}>
-      <div style={{ width: 52, fontSize: 13, fontWeight: 700, color: "var(--color-accent)" }}>{c.ticker}</div>
+      <div className="mono" style={{ width: 52, fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--color-accent)" }}>{c.ticker}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, color: "var(--color-text)" }}>
+        <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text)" }}>
           <span style={{ textTransform: "capitalize", color: "var(--color-text-secondary)" }}>{c.direction}</span>
           {" · "}{c.thesisTrait}
         </div>
         {c.falsifier && (
-          <div style={{ fontSize: 11.5, color: "var(--color-muted)", marginTop: 3 }}>Wrong if {c.falsifier}</div>
+          <div style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", marginTop: 3 }}>Wrong if {c.falsifier}</div>
         )}
       </div>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 }}>
@@ -91,8 +86,8 @@ function Row({ c, last, onChange }: { c: Conviction; last: boolean; onChange: ()
           onChange={(e) => setStatus(e.target.value)}
           aria-label="Conviction status"
           style={{
-            fontSize: 11, color: meta.color, background: "transparent",
-            border: "1px solid var(--color-border)", borderRadius: 6, padding: "2px 6px",
+            fontSize: "var(--text-meta)", color: meta.color, background: "transparent",
+            border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", padding: "2px 6px",
           }}
         >
           {Object.entries(STATUS_META).map(([k, v]) => (
@@ -100,7 +95,7 @@ function Row({ c, last, onChange }: { c: Conviction; last: boolean; onChange: ()
           ))}
         </select>
         {c.outcomePct != null && (
-          <span className="mono" style={{ fontSize: 12, color: c.outcomePct >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
+          <span className="mono" style={{ fontSize: "var(--text-sm)", color: c.outcomePct >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
             {c.outcomePct >= 0 ? "+" : ""}{Math.round(c.outcomePct)}%
           </span>
         )}
@@ -142,18 +137,18 @@ function AddForm({ onDone }: { onDone: () => void | Promise<void> }) {
   return (
     <div style={{
       display: "flex", flexDirection: "column", gap: 8, marginBottom: 16,
-      padding: 14, borderRadius: 10, background: "var(--color-bg)", border: "1px solid var(--color-border)",
+      padding: 14, borderRadius: "var(--radius-sm)", background: "var(--color-bg)", border: "1px solid var(--color-border)",
     }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <input value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase())} placeholder="Ticker" style={{ ...inputStyle, width: 96 }} />
-        <select value={direction} onChange={(e) => setDirection(e.target.value)} style={inputStyle}>
+        <input value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase())} placeholder="Ticker" className="input" style={{ width: 96 }} />
+        <select value={direction} onChange={(e) => setDirection(e.target.value)} className="input" style={{ width: "auto" }}>
           <option value="bull">Bull</option>
           <option value="bear">Bear</option>
           <option value="watching">Watching</option>
         </select>
-        <input value={thesisTrait} onChange={(e) => setThesisTrait(e.target.value)} placeholder="Your thesis (e.g. post-hype reset)" style={{ ...inputStyle, flex: 1, minWidth: 180 }} />
+        <input value={thesisTrait} onChange={(e) => setThesisTrait(e.target.value)} placeholder="Your thesis (e.g. post-hype reset)" className="input" style={{ flex: 1, minWidth: 180, width: "auto" }} />
       </div>
-      <input value={falsifier} onChange={(e) => setFalsifier(e.target.value)} placeholder="Wrong if… (the falsifier that changes your mind)" style={inputStyle} />
+      <input value={falsifier} onChange={(e) => setFalsifier(e.target.value)} placeholder="Wrong if… (the falsifier that changes your mind)" className="input" />
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button className="tbtn on" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save conviction"}</button>
       </div>

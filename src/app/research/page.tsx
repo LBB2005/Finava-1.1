@@ -38,7 +38,7 @@ const SECTION_RULE: Partial<Record<Mode, string>> = {
 function SectionRule({ label }: { label: string }) {
   return (
     <div className="flex items-center" style={{ gap: 8 }}>
-      <span className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "var(--color-muted)" }}>{label}</span>
+      <span className="mono eyebrow-label" style={{ color: "var(--color-muted)" }}>{label}</span>
       <div style={{ flex: 1, height: 1, background: "var(--color-border)" }} />
     </div>
   );

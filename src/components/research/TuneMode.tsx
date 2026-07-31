@@ -12,7 +12,7 @@ import {
 import { useFactorUniverse } from "@/hooks/useFactorUniverse";
 import WeightRadar from "./WeightRadar";
 import LadderRow from "./LadderRow";
-import { LensErrorState } from "./primitives";
+import { LensErrorState, LensPanel, LensSpinner, PrimaryCta, CtaArrow, Chevron } from "./primitives";
 
 const sameWeights = (a: FactorScores, b: FactorScores) => FACTORS.every((f) => a[f.key] === b[f.key]);
 const DEFAULT_VISIBLE = 25;
@@ -49,12 +49,11 @@ export default function TuneMode() {
   return (
     <div className="flex" style={{ gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
       {/* ── Control panel ───────────────────────────────────────── */}
-      <div style={{ flex: "1 1 340px", minWidth: 300, maxWidth: 440, border: "1px solid var(--color-border)", borderRadius: 4, overflow: "hidden", background: "var(--color-bg)" }}>
-        <div className="flex items-center justify-between" style={{ padding: "9px 14px", borderBottom: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
-          <span className="mono" style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-text)" }}>YOUR LENS</span>
-          <span className="mono" style={{ fontSize: 10, color: "var(--color-muted)", letterSpacing: "0.08em" }}>DRAG TO WEIGHT</span>
-        </div>
-
+      <LensPanel
+        title="YOUR LENS"
+        right={<span className="card-meta mono" style={{ letterSpacing: "0.08em" }}>DRAG TO WEIGHT</span>}
+        style={{ flex: "1 1 340px", minWidth: 300, maxWidth: 440 }}
+      >
         <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
           <div className="flex justify-center">
             <WeightRadar weights={weights} onChange={setWeights} size={250} />
@@ -77,7 +76,7 @@ export default function TuneMode() {
           {/* Weight readout (normalised %) */}
           <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingTop: 12, borderTop: "1px solid var(--color-border)" }}>
             {FACTORS.map((fc) => (
-              <div key={fc.key} className="flex items-center" style={{ gap: 10, fontSize: 11.5 }}>
+              <div key={fc.key} className="flex items-center" style={{ gap: 10, fontSize: "var(--text-meta)" }}>
                 <span className="mono" style={{ width: 34, color: "var(--color-muted)", fontWeight: 700, flexShrink: 0 }}>{fc.short}</span>
                 <span style={{ flex: "0 0 96px", color: "var(--color-text-secondary)" }}>{fc.full}</span>
                 <div className="fbar-track" style={{ flex: 1, height: 6 }}>
@@ -88,57 +87,55 @@ export default function TuneMode() {
             ))}
           </div>
 
-          <button
+          <PrimaryCta
             onClick={findMatches}
             disabled={!universe}
-            className="mono"
-            style={{
-              width: "100%", padding: "10px 0", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
-              color: "#fff", background: universe ? "var(--color-accent)" : "var(--color-muted)",
-              border: "1px solid " + (universe ? "var(--color-accent)" : "var(--color-muted)"),
-              borderRadius: 4, cursor: universe ? "pointer" : "default",
-            }}
+            style={{ width: "100%", padding: "10px 0" }}
           >
             {!universe
               ? (error ? "DATA UNAVAILABLE" : "LOADING S&P 500 …")
-              : applied == null ? "FIND MY MATCHES →" : dirty ? "UPDATE MATCHES →" : "REFRESH MATCHES →"}
-          </button>
+              : (
+                <>
+                  {applied == null ? "FIND MY MATCHES" : dirty ? "UPDATE MATCHES" : "REFRESH MATCHES"}
+                  <CtaArrow />
+                </>
+              )}
+          </PrimaryCta>
 
           {universe && (
-            <span className="mono" style={{ fontSize: 10, color: "var(--color-muted)", textAlign: "center", letterSpacing: "0.04em" }}>
+            <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", textAlign: "center", letterSpacing: "0.04em" }}>
               {`scanning ${total} S&P 500 names · real factor data`}
             </span>
           )}
         </div>
-      </div>
+      </LensPanel>
 
       {/* ── Results ─────────────────────────────────────────────── */}
-      <div style={{ flex: "1 1 480px", minWidth: 320, border: "1px solid var(--color-border)", borderRadius: 4, overflow: "hidden", background: "var(--color-bg)" }}>
-        <div className="flex items-center justify-between" style={{ padding: "9px 14px", borderBottom: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
-          <div className="flex items-center" style={{ gap: 9 }}>
-            <span className="mono" style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-text)" }}>YOUR MATCHES</span>
-            {results && (
-              <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>
-                {showAll ? `all ${results.length}` : `top ${Math.min(DEFAULT_VISIBLE, results.length)} of ${results.length}`} · weighted MY LENS
-              </span>
-            )}
-          </div>
-          {dirty && <span className="mono" style={{ fontSize: 10, color: "var(--color-warn)", letterSpacing: "0.04em" }}>● lens changed</span>}
-        </div>
-
+      <LensPanel
+        title="YOUR MATCHES"
+        meta={results
+          ? `${showAll ? `all ${results.length}` : `top ${Math.min(DEFAULT_VISIBLE, results.length)} of ${results.length}`} · weighted MY LENS`
+          : undefined}
+        right={dirty && (
+          <span className="mono flex items-center" style={{ gap: 5, fontSize: "var(--text-micro)", color: "var(--color-warn)", letterSpacing: "0.04em" }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: "currentColor", flexShrink: 0 }} />
+            lens changed
+          </span>
+        )}
+        style={{ flex: "1 1 480px", minWidth: 320 }}
+      >
         {error && !universe ? (
           <LensErrorState
             title="Couldn't load the scored S&P 500."
             detail="The factor data didn't come back — retry in a moment."
             onRetry={retry}
-            minHeight={320}
           />
         ) : results == null ? (
-          <div className="flex flex-col items-center justify-center" style={{ minHeight: 320, padding: 24, textAlign: "center", gap: 8 }}>
+          <div className="flex flex-col items-center justify-center" style={{ minHeight: 240, padding: 24, textAlign: "center", gap: 8 }}>
             {ranButWaiting || isLoading ? (
               <>
-                <div className="spin" style={{ width: 28, height: 28, border: "2.5px solid var(--color-border)", borderTopColor: "var(--color-accent)", borderRadius: "50%" }} />
-                <p style={{ fontSize: 12, color: "var(--color-muted)", maxWidth: 320, lineHeight: 1.5 }}>
+                <LensSpinner />
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)", maxWidth: 320, lineHeight: 1.5 }}>
                   Scoring the S&amp;P 500 on real fundamentals, price and analyst data…
                 </p>
               </>
@@ -147,8 +144,8 @@ export default function TuneMode() {
                 <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><path d="M8 11h6M11 8v6" />
                 </svg>
-                <p className="serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)" }}>Shape your lens, then find matches</p>
-                <p style={{ fontSize: 12, color: "var(--color-muted)", maxWidth: 320, lineHeight: 1.5 }}>
+                <p className="serif" style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--color-text)" }}>Shape your lens, then find matches</p>
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)", maxWidth: 320, lineHeight: 1.5 }}>
                   Drag the radar to weight the six factors however you invest — or pick a preset — then run it against the whole S&amp;P 500.
                 </p>
               </>
@@ -177,14 +174,15 @@ export default function TuneMode() {
 
             {results.length > DEFAULT_VISIBLE && (
               <div className="flex justify-center" style={{ padding: "10px 0", borderTop: "1px solid var(--color-border)" }}>
-                <button className="tbtn" onClick={() => setShowAll((v) => !v)}>
-                  {showAll ? "Show top 25" : `Show all ${results.length} →`}
+                <button className="tbtn" onClick={() => setShowAll((v) => !v)} style={{ gap: 5 }}>
+                  {showAll ? "Show top 25" : `Show all ${results.length}`}
+                  <Chevron up={showAll} size={9} />
                 </button>
               </div>
             )}
           </div>
         )}
-      </div>
+      </LensPanel>
     </div>
   );
 }

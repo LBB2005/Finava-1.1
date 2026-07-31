@@ -1,12 +1,9 @@
 import type { ReactNode } from "react";
 
-/** Uppercase muted micro-label, matching the app's `Eyebrow` convention. */
+/** Uppercase muted micro-label, matching the app's `.eyebrow-label` convention. */
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <span style={{
-      fontSize: 10, fontWeight: 700, textTransform: "uppercase",
-      letterSpacing: "0.16em", color: "var(--color-muted)",
-    }}>{children}</span>
+    <span className="eyebrow-label" style={{ color: "var(--color-muted)" }}>{children}</span>
   );
 }
 
@@ -20,7 +17,7 @@ export function Card({ title, action, children }: {
     <div style={{
       border: "1px solid var(--color-border)",
       borderRadius: "var(--radius-lg)",
-      padding: "20px 24px",
+      padding: "16px 18px",
       background: "var(--color-surface)",
     }}>
       {(title || action) && (
@@ -28,7 +25,7 @@ export function Card({ title, action, children }: {
           display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 12, marginBottom: 16,
         }}>
-          {title && <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text)", margin: 0 }}>{title}</h2>}
+          {title && <h2 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--color-text)", margin: 0 }}>{title}</h2>}
           {action}
         </div>
       )}

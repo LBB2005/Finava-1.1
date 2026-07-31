@@ -1,6 +1,7 @@
 "use client";
 import { useRef } from "react";
 import { FACTORS, factorColor, type FactorScores, type FactorKey } from "@/lib/research";
+import { radarGeometry, RADAR_LABEL_STYLE, RADAR_VALUE_STYLE } from "./primitives";
 
 /**
  * Interactive six-factor radar. Drag any vertex (or tap an axis) to set how
@@ -20,17 +21,9 @@ export default function WeightRadar({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragRef = useRef<number | null>(null);
 
-  const cx = size / 2;
-  const cy = size / 2;
-  const R = size * scale;
-  const ang = (i: number) => ((-90 + i * 60) * Math.PI) / 180;
-  const pt = (val: number, i: number): [number, number] => [
-    cx + R * (val / 100) * Math.cos(ang(i)),
-    cy + R * (val / 100) * Math.sin(ang(i)),
-  ];
+  const { cx, cy, R, ang, pt, ringPath } = radarGeometry(size, scale);
 
   const rings = [0.25, 0.5, 0.75, 1];
-  const ringPath = (k: number) => FACTORS.map((_, i) => { const [x, y] = pt(100 * k, i); return `${x},${y}`; }).join(" ");
   const valPts = FACTORS.map((fc, i) => pt(weights[fc.key], i));
   const valStr = valPts.map(([x, y]) => `${x},${y}`).join(" ");
 
@@ -102,10 +95,10 @@ export default function WeightRadar({
         const [x, y] = pt(128, i);
         return (
           <g key={fc.key} style={{ pointerEvents: "none" }}>
-            <text x={x} y={y - 3} textAnchor="middle" style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", fill: "var(--color-muted)", fontFamily: "var(--font-mono)" }}>
+            <text x={x} y={y - 3} textAnchor="middle" style={RADAR_LABEL_STYLE}>
               {fc.short}
             </text>
-            <text x={x} y={y + 9} textAnchor="middle" style={{ fontSize: 11, fontWeight: 700, fill: factorColor(weights[fc.key]), fontFamily: "var(--font-mono)" }}>
+            <text x={x} y={y + 9} textAnchor="middle" style={{ ...RADAR_VALUE_STYLE, fill: factorColor(weights[fc.key]) }}>
               {weights[fc.key]}
             </text>
           </g>
