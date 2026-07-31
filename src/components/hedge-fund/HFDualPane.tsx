@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Sparkline from "@/components/ui/Sparkline";
 import type { Regime, Strategy, WatchItem, Order, Fill, BotLogEntry } from "./types";
 
 // ── V10 "Dual Pane" layout ──────────────────────────────────────────────────
@@ -82,29 +83,7 @@ function lvlColor(lvl: BotLogEntry["lvl"]) {
   return lvl === "ORDER" ? "var(--color-accent)"
     : lvl === "SIGNAL" ? "var(--color-bull)"
     : lvl === "RISK" ? "var(--color-bear)"
-    : "var(--v-mut)";
-}
-
-// ── Sparkline ───────────────────────────────────────────────────────────────
-function Spark({ data, w = 300, h = 50, color = "#aeeac9", fill = true }: {
-  data: number[]; w?: number; h?: number; color?: string; fill?: boolean;
-}) {
-  if (!data || data.length < 2) return null;
-  const min = Math.min(...data), max = Math.max(...data);
-  const range = max - min || 1;
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
-    const y = h - ((v - min) / range) * (h - 4) - 2;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const line = pts.join(" ");
-  const area = `0,${h} ${line} ${w},${h}`;
-  return (
-    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
-      {fill && <polygon points={area} fill={color} opacity={0.1} />}
-      <polyline points={line} fill="none" stroke={color} strokeWidth={1.4} strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
+    : "var(--color-muted)";
 }
 
 // ── Persistent right-pane pieces ──────────────────────────────────────────────
@@ -116,10 +95,18 @@ function NavCard({ a }: { a: V10Account }) {
       <div className="pnl">
         <span>{fmtSigned(a.dayPnL, 2)}</span>
         <span className="pct">{fmtSigned(a.dayPnLPct, 2)}%</span>
-        <span style={{ color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-sans)", fontWeight: 400, fontSize: 12 }}>today</span>
+        <span style={{ color: "color-mix(in oklab, var(--color-on-accent) 70%, transparent)", fontFamily: "var(--font-sans)", fontWeight: 400, fontSize: "var(--text-sm)" }}>today</span>
       </div>
       <div style={{ marginTop: 14 }}>
-        <Spark data={a.history} color="#aeeac9" fill />
+        <Sparkline
+          data={a.history}
+          width={300}
+          height={40}
+          strokeWidth={1.4}
+          stroke="color-mix(in oklab, var(--color-bull) 45%, #fff)"
+          fill
+          className="spark"
+        />
       </div>
       <div className="kpis">
         <div>
@@ -233,9 +220,9 @@ export function HFDualPane({
                 >
                   {/* Active regime segment is full-strength; the rest dim back so the
                       bar visually agrees with the Bull/Bear pill on the right. */}
-                  <div style={{ width: `${i.bull}%`, height: "100%", background: "var(--color-bull)", opacity: i.bias === "Bull" ? 1 : 0.28, boxShadow: i.bias === "Bull" ? "inset 0 0 0 1.5px rgba(255,255,255,0.55)" : "none", transition: "opacity 200ms ease" }} />
-                  <div style={{ width: `${i.sideways}%`, height: "100%", background: "var(--color-warn)", opacity: i.bias === "Sideways" ? 1 : 0.28, boxShadow: i.bias === "Sideways" ? "inset 0 0 0 1.5px rgba(255,255,255,0.55)" : "none", transition: "opacity 200ms ease" }} />
-                  <div style={{ width: `${i.bear}%`, height: "100%", background: "var(--color-bear)", opacity: i.bias === "Bear" ? 1 : 0.28, boxShadow: i.bias === "Bear" ? "inset 0 0 0 1.5px rgba(255,255,255,0.55)" : "none", transition: "opacity 200ms ease" }} />
+                  <div style={{ width: `${i.bull}%`, height: "100%", background: "var(--color-bull)", opacity: i.bias === "Bull" ? 1 : 0.28, boxShadow: i.bias === "Bull" ? "inset 0 0 0 1.5px color-mix(in oklab, var(--color-on-accent) 55%, transparent)" : "none", transition: "opacity 200ms ease" }} />
+                  <div style={{ width: `${i.sideways}%`, height: "100%", background: "var(--color-warn)", opacity: i.bias === "Sideways" ? 1 : 0.28, boxShadow: i.bias === "Sideways" ? "inset 0 0 0 1.5px color-mix(in oklab, var(--color-on-accent) 55%, transparent)" : "none", transition: "opacity 200ms ease" }} />
+                  <div style={{ width: `${i.bear}%`, height: "100%", background: "var(--color-bear)", opacity: i.bias === "Bear" ? 1 : 0.28, boxShadow: i.bias === "Bear" ? "inset 0 0 0 1.5px color-mix(in oklab, var(--color-on-accent) 55%, transparent)" : "none", transition: "opacity 200ms ease" }} />
                 </div>
                 <div style={{ textAlign: "right" }}><RegimePill bias={i.bias} /></div>
               </div>
@@ -250,9 +237,9 @@ export function HFDualPane({
             <div className="tk">{i.ticker}</div>
             <div className="nm">{i.name}</div>
             <div className="px">
-              {i.px > 0 ? `$${i.px.toFixed(2)}` : <span style={{ color: "var(--v-mut2)" }}>—</span>}
+              {i.px > 0 ? `$${i.px.toFixed(2)}` : <span style={{ color: "var(--color-text-secondary)" }}>—</span>}
             </div>
-            <div className="day" style={{ color: i.px <= 0 ? "var(--v-mut2)" : i.dayPct >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
+            <div className="day" style={{ color: i.px <= 0 ? "var(--color-text-secondary)" : i.dayPct >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
               {i.px > 0 ? `${fmtSigned(i.dayPct, 2)}%` : "—"}
             </div>
             <div className="row">
@@ -279,7 +266,7 @@ export function HFDualPane({
     <>
       <div>
         <div className="eyebrow">Strategies · Markov-gated</div>
-        <h1 className="headline" style={{ fontSize: 32, maxWidth: "26ch" }}>
+        <h1 className="headline" style={{ maxWidth: "26ch" }}>
           {armedCount} armed; <em className="bull">${fmt(bot.cashAllocated)}</em> allocated of <em>${fmt(a.nav)}</em> NAV.
         </h1>
       </div>
@@ -296,7 +283,7 @@ export function HFDualPane({
           </button>
         ))}
         <span style={{ flex: 1 }} />
-        <button className="filter-chip" style={{ background: "var(--color-accent)", color: "#fff", borderColor: "var(--color-accent)", fontWeight: 600 }}>+ New strategy</button>
+        <button className="filter-chip" style={{ background: "var(--color-accent)", color: "var(--color-on-accent)", borderColor: "var(--color-accent)", fontWeight: 600 }}>+ New strategy</button>
       </div>
 
       <div className="card">
@@ -310,7 +297,7 @@ export function HFDualPane({
                   <div className="desc">{s.desc}</div>
                   <div className="tk-list">
                     {s.tickers.map((t) => (
-                      <span key={t} className="tk" style={{ fontSize: 9.5 }}>{t}</span>
+                      <span key={t} className="tk" style={{ fontSize: "var(--text-micro)" }}>{t}</span>
                     ))}
                   </div>
                 </div>
@@ -353,10 +340,10 @@ export function HFDualPane({
     <>
       <div>
         <div className="eyebrow">Manual trade · Alpaca paper</div>
-        <h1 className="headline" style={{ fontSize: 32, maxWidth: "26ch" }}>
+        <h1 className="headline" style={{ maxWidth: "26ch" }}>
           ${fmt(a.buyingPower)} buying power · <em className="bull">{armedCount} bots armed</em>
         </h1>
-        <p className="dek" style={{ fontSize: 13 }}>
+        <p className="dek" style={{ fontSize: "var(--text-sm)" }}>
           Manual orders bypass strategy logic but still honor bot guardrails — concentration caps, regime gates, max daily DD.
         </p>
       </div>
@@ -395,7 +382,7 @@ export function HFDualPane({
           </div>
           <div className="ticket-foot">
             <div className="est">Est. value <strong>${fmt(estValue, 2)}</strong></div>
-            <div className="est" style={{ color: "var(--v-mut)" }}>· Concentration check pending</div>
+            <div className="est" style={{ color: "var(--color-muted)" }}>· Concentration check pending</div>
             <button className={`submit ${side === "SELL" ? "sell" : ""}`}>
               {side} {qty} {ticker} @ ${limit}
             </button>
@@ -423,12 +410,12 @@ export function HFDualPane({
                 <tr key={w.ticker}>
                   <td>
                     <span className="tk">{w.ticker}</span>{" "}
-                    <span style={{ color: "var(--v-mut)", fontSize: 11 }}>{w.name}</span>
+                    <span style={{ color: "var(--color-muted)", fontSize: "var(--text-meta)" }}>{w.name}</span>
                   </td>
                   <td className="r">${w.px.toFixed(2)}</td>
                   <td className="r" style={{ color: w.dayPct >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>{fmtSigned(w.dayPct, 2)}%</td>
-                  <td className="r" style={{ color: "var(--v-mut)" }}>{w.bid.toFixed(2)}</td>
-                  <td className="r" style={{ color: "var(--v-mut)" }}>{w.ask.toFixed(2)}</td>
+                  <td className="r" style={{ color: "var(--color-muted)" }}>{w.bid.toFixed(2)}</td>
+                  <td className="r" style={{ color: "var(--color-muted)" }}>{w.ask.toFixed(2)}</td>
                   <td><RegimePill bias={w.signal} /></td>
                   <td className="r">
                     <button className="trade-btn" onClick={() => { setTicker(w.ticker); setLimit(w.px.toFixed(2)); }}>
@@ -461,7 +448,7 @@ export function HFDualPane({
     <>
       <div>
         <div className="eyebrow">Activity · today</div>
-        <h1 className="headline" style={{ fontSize: 32, maxWidth: "26ch" }}>
+        <h1 className="headline" style={{ maxWidth: "26ch" }}>
           {log.length} events · <em className="bull">{logCounts.order} orders</em> · {logCounts.signal} signals
         </h1>
       </div>
@@ -556,18 +543,18 @@ export function HFDualPane({
           <div className="v">{composite.equityPct}%</div>
         </div>
       </div>
-      <div className="card-body" style={{ borderTop: "1px solid var(--v-line)" }}>
+      <div className="card-body" style={{ borderTop: "1px solid var(--color-border)" }}>
         <div className="eyebrow" style={{ marginBottom: 8 }}>Last signal</div>
-        <div style={{ fontSize: 12.5, color: "var(--v-ink2)", lineHeight: 1.5 }}>
+        <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", lineHeight: 1.5 }}>
           {log.find((e) => e.lvl === "SIGNAL") ? (
             <>
-              <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-bull)", fontWeight: 700, fontSize: 11 }}>
+              <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-bull)", fontWeight: 700, fontSize: "var(--text-meta)" }}>
                 SIGNAL {log.find((e) => e.lvl === "SIGNAL")!.ts}
               </span><br />
               {log.find((e) => e.lvl === "SIGNAL")!.msg}
             </>
           ) : (
-            <span style={{ color: "var(--v-mut)" }}>No signals yet today.</span>
+            <span style={{ color: "var(--color-muted)" }}>No signals yet today.</span>
           )}
         </div>
       </div>
@@ -583,21 +570,21 @@ export function HFDualPane({
       </div>
       <div style={{ overflow: "auto", flex: 1 }}>
         {openOrders.map((o) => (
-          <div key={o.id} style={{ padding: "12px 18px", borderBottom: "1px solid var(--v-line)" }}>
+          <div key={o.id} style={{ padding: "12px 18px", borderBottom: "1px solid var(--color-border)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: o.side === "BUY" ? "var(--color-bull)" : "var(--color-bear)" }}>
+              <span style={{ fontSize: "var(--text-micro)", fontWeight: 700, letterSpacing: "0.1em", color: o.side === "BUY" ? "var(--color-bull)" : "var(--color-bear)" }}>
                 {o.side}
               </span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700 }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)", fontWeight: 700 }}>
                 {o.qty} {o.ticker}
               </span>
-              <span style={{ color: "var(--v-mut)", fontSize: 11.5 }}>@ ${o.px == null ? "MKT" : o.px.toFixed(2)} {o.type}</span>
+              <span style={{ color: "var(--color-muted)", fontSize: "var(--text-meta)" }}>@ ${o.px == null ? "MKT" : o.px.toFixed(2)} {o.type}</span>
               <span style={{ flex: 1 }} />
-              <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em", padding: "2px 7px", borderRadius: 3, color: o.status === "Working" ? "var(--color-accent)" : "var(--color-warn)", background: o.status === "Working" ? "rgba(26,75,143,0.10)" : "rgba(180,83,9,0.10)" }}>
+              <span style={{ fontSize: "var(--text-micro)", fontWeight: 700, letterSpacing: "0.1em", padding: "2px 7px", borderRadius: "var(--radius-xs)", color: o.status === "Working" ? "var(--color-accent)" : "var(--color-warn)", background: o.status === "Working" ? "color-mix(in oklab, var(--color-accent) 10%, transparent)" : "color-mix(in oklab, var(--color-warn) 10%, transparent)" }}>
                 {o.status.toUpperCase()}
               </span>
             </div>
-            <div style={{ fontSize: 11, color: "var(--v-mut)", marginTop: 4, fontFamily: "var(--font-mono)" }}>
+            <div style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", marginTop: 4, fontFamily: "var(--font-mono)" }}>
               {o.id} · {o.tif}{o.filled > 0 ? ` · ${o.filled}/${o.qty} filled` : ""}
             </div>
           </div>
@@ -615,7 +602,7 @@ export function HFDualPane({
           ["ORDER", "Orders", logCounts.order, "var(--color-accent)"],
           ["SIGNAL", "Signals", logCounts.signal, "var(--color-bull)"],
           ["RISK", "Risk", logCounts.risk, "var(--color-bear)"],
-          ["INFO", "Info", logCounts.info, "var(--v-mut)"],
+          ["INFO", "Info", logCounts.info, "var(--color-muted)"],
         ] as const).map(([k, l, c, color]) => (
           <div key={k} className="breakdown-row">
             <div className="swatch" style={{ background: color }} />
@@ -624,12 +611,12 @@ export function HFDualPane({
           </div>
         ))}
       </div>
-      <div className="card-body" style={{ borderTop: "1px solid var(--v-line)" }}>
+      <div className="card-body" style={{ borderTop: "1px solid var(--color-border)" }}>
         <div className="eyebrow" style={{ marginBottom: 8 }}>Bot P&amp;L today</div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 20, fontWeight: 800, color: "var(--color-bull)" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-display)", fontWeight: 800, color: "var(--color-bull)" }}>
           {fmtSigned(bot.todayPnL, 2)}
         </div>
-        <div style={{ fontSize: 11.5, color: "var(--v-mut)", marginTop: 4 }}>
+        <div style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", marginTop: 4 }}>
           across {bot.todayTrades} trades · {fills.length} fills
         </div>
       </div>
