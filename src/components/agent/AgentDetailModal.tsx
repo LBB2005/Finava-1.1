@@ -30,8 +30,8 @@ export default function AgentDetailModal({ step, onClose }: Props) {
         position: "fixed",
         inset: 0,
         zIndex: 9999,
-        background: "rgba(13,22,38,0.45)",
-        backdropFilter: "blur(3px)",
+        background: "var(--color-scrim)",
+        backdropFilter: "blur(4px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -43,14 +43,14 @@ export default function AgentDetailModal({ step, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "var(--color-bg)",
-          borderRadius: 16,
+          borderRadius: "var(--radius-xl)",
           border: "1px solid var(--color-border-strong)",
           width: "100%",
           maxWidth: 760,
           maxHeight: "82vh",
           display: "flex",
           flexDirection: "column",
-          boxShadow: "0 24px 64px rgba(13,22,38,0.18)",
+          boxShadow: "var(--shadow-pop)",
         }}
       >
         {/* Header */}
@@ -67,26 +67,26 @@ export default function AgentDetailModal({ step, onClose }: Props) {
           <span
             style={{
               width: 26, height: 26,
-              borderRadius: 7,
+              borderRadius: "var(--radius-sm)",
               background: "var(--color-accent)",
-              color: "white",
+              color: "var(--color-on-accent)",
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
             }}
           >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 2L2 7l10 5 10-5-10-5z" />
               <path d="M2 17l10 5 10-5" />
               <path d="M2 12l10 5 10-5" />
             </svg>
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--color-text)" }}>
+            <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--color-text)" }}>
               {label}
             </div>
-            <div style={{ fontSize: "11px", color: "var(--color-muted)", marginTop: 1 }}>
+            <div style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", marginTop: 1 }}>
               Full agent output
             </div>
           </div>
@@ -94,7 +94,7 @@ export default function AgentDetailModal({ step, onClose }: Props) {
             onClick={onClose}
             style={{
               width: 30, height: 30,
-              borderRadius: 8,
+              borderRadius: "var(--radius-sm)",
               border: "1px solid var(--color-border)",
               background: "var(--color-surface)",
               color: "var(--color-muted)",
@@ -117,11 +117,11 @@ export default function AgentDetailModal({ step, onClose }: Props) {
           {step.result ? (
             <Markdown>{step.result}</Markdown>
           ) : step.error ? (
-            <p style={{ color: "var(--color-bear)", fontSize: 13, margin: 0 }}>
+            <p style={{ color: "var(--color-bear)", fontSize: "var(--text-sm)", margin: 0 }}>
               {step.error}
             </p>
           ) : (
-            <p style={{ color: "var(--color-muted)", fontSize: 13, margin: 0 }}>
+            <p style={{ color: "var(--color-muted)", fontSize: "var(--text-sm)", margin: 0 }}>
               No output available.
             </p>
           )}

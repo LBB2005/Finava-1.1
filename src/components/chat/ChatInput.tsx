@@ -41,7 +41,7 @@ const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: 
     description: "Picks the right tools for you",
     color: "var(--color-accent)",
     icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5L13 3z" />
       </svg>
     ),
@@ -52,7 +52,7 @@ const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: 
     description: `${AGENT_COUNT} specialist agents`,
     color: "var(--color-accent)",
     icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
       </svg>
     ),
@@ -63,7 +63,7 @@ const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: 
     description: "Scan all 500 S&P names for ideas",
     color: "var(--color-discover)",
     icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="9" /><polygon points="16 8 10.5 10.5 8 16 13.5 13.5 16 8" />
       </svg>
     ),
@@ -74,7 +74,7 @@ const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: 
     description: "All agents + extended web search",
     color: "var(--color-deep-research)",
     icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
         <line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" />
       </svg>
@@ -86,7 +86,7 @@ const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: 
     description: "Fast, conversational",
     color: "var(--color-text-secondary)",
     icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     ),
@@ -97,7 +97,7 @@ const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: 
     description: "NL → strategy → chart vs SPY",
     color: "var(--color-backtest)",
     icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
       </svg>
     ),
@@ -105,6 +105,46 @@ const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: 
 };
 
 const MODE_ORDER: ChatMode[] = ["auto", "agent", "discover", "deep_research", "backtest", "simple"];
+
+/** Tiny attachment-type glyphs (image / file-text / paperclip). */
+function AttachmentGlyph({ type }: { type: Attachment["type"] }) {
+  const common = {
+    width: 11,
+    height: 11,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    style: { flexShrink: 0 },
+    "aria-hidden": true,
+  };
+  if (type === "image") {
+    return (
+      <svg {...common}>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <polyline points="21 15 16 10 5 21" />
+      </svg>
+    );
+  }
+  if (type === "pdf") {
+    return (
+      <svg {...common}>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  );
+}
 
 export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFocus = true, floating = false }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -245,14 +285,14 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
   return (
     <div
       className={floating ? "px-6 pt-5 pb-0 pointer-events-none" : "flex-shrink-0 px-6 pb-6 pt-5"}
-      style={floating ? { background: "transparent" } : { background: "linear-gradient(to bottom, rgba(255,255,255,0) 0%, var(--color-bg) 28%)" }}
+      style={floating ? { background: "transparent" } : { background: "linear-gradient(to bottom, transparent 0%, var(--color-bg) 28%)" }}
     >
       <div className={floating ? "mx-auto max-w-[720px] pointer-events-auto" : "mx-auto max-w-[720px]"}>
         {/* Chips row */}
         {(attachments.length > 0 || tickers.length > 0 || watchlistRefs.length > 0 || activeTemplate) && (
           <div className="flex flex-wrap gap-1.5 mb-2 px-1">
             {activeTemplate && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md"
+              <span className="inline-flex items-center gap-1 text-[length:var(--text-meta)] font-semibold px-2 py-0.5 rounded-[var(--radius-xs)]"
                 style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
@@ -263,9 +303,9 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
               </span>
             )}
             {watchlistRefs.map((w) => (
-              <span key={w.id} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md"
+              <span key={w.id} className="inline-flex items-center gap-1 text-[length:var(--text-meta)] font-semibold px-2 py-0.5 rounded-[var(--radius-xs)]"
                 style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
                   <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
                 </svg>
@@ -275,16 +315,16 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
               </span>
             ))}
             {tickers.map((t) => (
-              <span key={t} className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md"
+              <span key={t} className="inline-flex items-center gap-1 text-[length:var(--text-meta)] font-bold px-2 py-0.5 rounded-[var(--radius-xs)]"
                 style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}>
                 {t}
                 <button onClick={() => setTickers((p) => p.filter((x) => x !== t))} className="hover:opacity-60">×</button>
               </span>
             ))}
             {attachments.map((a, i) => (
-              <span key={i} className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md"
+              <span key={i} className="inline-flex items-center gap-1.5 text-[length:var(--text-meta)] font-medium px-2 py-0.5 rounded-[var(--radius-xs)]"
                 style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text-secondary)" }}>
-                {a.type === "image" ? "🖼" : a.type === "pdf" ? "📄" : "📎"}
+                <AttachmentGlyph type={a.type} />
                 <span className="max-w-[120px] truncate">{a.name}</span>
                 <button onClick={() => setAttachments((p) => p.filter((_, j) => j !== i))} className="hover:opacity-60">×</button>
               </span>
@@ -304,7 +344,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
               // glow) via .chat-input-box:focus-within.
               background: "color-mix(in oklab, var(--color-surface) 82%, transparent)",
               border: "1px solid var(--color-border-strong)",
-              borderRadius: 16,
+              borderRadius: "var(--radius-xl)",
               padding: 9,
               backdropFilter: "blur(16px) saturate(1.25)",
               WebkitBackdropFilter: "blur(16px) saturate(1.25)",
@@ -321,7 +361,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                 onClick={() => { setPopoverOpen((v) => !v); setModeOpen(false); }}
                 disabled={disabled}
                 aria-label="Attach files, pin tickers, or use a template"
-                className="cmp-plus w-8 h-8 mb-[1px] rounded-[9px] flex items-center justify-center"
+                className="cmp-plus w-8 h-8 mb-[1px] rounded-[var(--radius-sm)] flex items-center justify-center"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <path d="M12 5v14M5 12h14" />
@@ -336,7 +376,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                 disabled={disabled}
                 title={cfg.label}
                 aria-label={`Mode: ${cfg.label}`}
-                className="cmp-mode-btn inline-flex items-center gap-1 h-8 px-2 mb-[1px] rounded-[9px] text-[12px] font-semibold"
+                className="cmp-mode-btn inline-flex items-center gap-1 h-8 px-2 mb-[1px] rounded-[var(--radius-sm)] text-[length:var(--text-sm)] font-semibold"
                 style={{ border: "1px solid transparent", background: "transparent", color: cfg.color }}
               >
                 {cfg.icon}
@@ -344,7 +384,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                   className="flex"
                   style={{ color: "var(--color-muted)", transform: modeOpen ? "rotate(180deg)" : "none", transition: "transform 160ms" }}
                 >
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
                 </span>
@@ -352,23 +392,23 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
 
               {modeOpen && (
                 <div
-                  className="absolute bottom-full left-0 mb-2 z-[60] rounded-[14px] p-1.5 fade-in"
-                  style={{ width: 248, background: "var(--color-bg)", border: "1px solid var(--color-border)", boxShadow: "0 8px 32px rgba(15,23,42,0.14)" }}
+                  className="popover absolute bottom-full left-0 mb-2 z-[60] p-1.5 fade-in"
+                  style={{ width: 248 }}
                 >
                   {MODE_ORDER.map((m) => {
                     const mc = MODE_CONFIG[m];
                     const active = mode === m;
                     return (
                       <button key={m} onClick={() => { onModeChange(m); setModeOpen(false); }}
-                        className="mode-option w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[9px] text-left transition-colors duration-100"
+                        className="mode-option w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-left transition-colors duration-100"
                         style={active ? { background: "var(--color-accent-light)" } : undefined}>
-                        <span className="w-[26px] h-[26px] rounded-[7px] flex items-center justify-center flex-shrink-0"
-                          style={{ background: active ? mc.color : "var(--color-surface)", color: active ? "white" : "var(--color-muted)" }}>
+                        <span className="w-[26px] h-[26px] rounded-[var(--radius-sm)] flex items-center justify-center flex-shrink-0"
+                          style={{ background: active ? mc.color : "var(--color-surface)", color: active ? "var(--color-on-accent)" : "var(--color-muted)" }}>
                           {mc.icon}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <div className="text-[12.5px] font-semibold" style={{ color: active ? mc.color : "var(--color-text)" }}>{mc.label}</div>
-                          <div className="text-[11px]" style={{ color: "var(--color-muted)" }}>{mc.description}</div>
+                          <div className="text-[length:var(--text-sm)] font-semibold" style={{ color: active ? mc.color : "var(--color-text)" }}>{mc.label}</div>
+                          <div className="text-[length:var(--text-meta)]" style={{ color: "var(--color-muted)" }}>{mc.description}</div>
                         </div>
                         {active && (
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ color: mc.color, flexShrink: 0 }}>
@@ -389,7 +429,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
               disabled={disabled}
               onInput={onInput}
               onKeyDown={handleKey}
-              className="chat-textarea flex-1 resize-none bg-transparent focus:outline-none leading-[1.55] text-[14px]"
+              className="chat-textarea flex-1 resize-none bg-transparent focus:outline-none leading-[1.55] text-[length:var(--text-body)]"
               style={{ color: "var(--color-text)", maxHeight: 180, padding: "7px 2px", fontFamily: "var(--font-sans)" }}
             />
 
@@ -406,13 +446,13 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                   : canSend
                     ? sendBgColor
                     : `color-mix(in oklab, ${sendBgColor} 42%, var(--color-surface))`,
-                color: disabled ? "var(--color-muted)" : "white",
+                color: disabled ? "var(--color-muted)" : "var(--color-on-accent)",
                 boxShadow: canSend ? `0 4px 12px -5px color-mix(in oklab, ${sendBgColor} 55%, transparent)` : "none",
                 animation: launching ? "send-launch 360ms ease-out" : "none",
               }}
             >
               {disabled ? (
-                <span className="inline-block rounded-full border-2 border-white border-t-transparent"
+                <span className="inline-block rounded-full border-2 border-[var(--color-on-accent)] border-t-transparent"
                   style={{ width: 13, height: 13, animation: "spin 0.9s linear infinite" }} />
               ) : (
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -426,16 +466,16 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
           {popoverOpen && (
             <div
               ref={popoverRef}
-              className="absolute bottom-full left-0 mb-2 z-50 rounded-[14px] overflow-hidden"
-              style={{ width: 310, background: "var(--color-bg)", border: "1px solid var(--color-border)", boxShadow: "0 8px 32px rgba(15,23,42,0.14)" }}
+              className="popover absolute bottom-full left-0 mb-2 z-50 overflow-hidden"
+              style={{ width: 310 }}
             >
               {/* ATTACH */}
               <div className="px-4 pt-3 pb-2.5" style={{ borderBottom: "1px solid var(--color-border)" }}>
                 <p className="eyebrow-label mb-2" style={{ color: "var(--color-muted)" }}>Attach</p>
                 <button onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-[8px] text-[12.5px] transition-colors duration-100"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)] text-[length:var(--text-sm)] transition-colors duration-100"
                   style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text-secondary)" }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                   </svg>
                   Add file, chart, or image
@@ -449,7 +489,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                 {tickers.length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-2">
                     {tickers.map((t) => (
-                      <span key={t} className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md"
+                      <span key={t} className="inline-flex items-center gap-1 text-[length:var(--text-meta)] font-bold px-2 py-0.5 rounded-[var(--radius-xs)]"
                         style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}>
                         {t} <button onClick={() => setTickers((p) => p.filter((x) => x !== t))} className="hover:opacity-60">×</button>
                       </span>
@@ -461,10 +501,10 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                     onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTicker(); } }}
                     placeholder="AAPL, NVDA…" maxLength={8}
-                    className="flex-1 text-[16px] sm:text-[12px] px-2.5 py-1.5 rounded-[7px] focus:outline-none"
+                    className="flex-1 text-[16px] sm:text-[length:var(--text-sm)] px-2.5 py-1.5 rounded-[var(--radius-sm)] focus:outline-none"
                     style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text)", fontFamily: "var(--font-sans)" }} />
-                  <button onClick={addTicker} className="px-2.5 py-1.5 rounded-[7px] text-[12px] font-semibold"
-                    style={{ background: "var(--color-accent)", color: "white" }}>Add</button>
+                  <button onClick={addTicker} className="px-2.5 py-1.5 rounded-[var(--radius-sm)] text-[length:var(--text-sm)] font-semibold"
+                    style={{ background: "var(--color-accent)", color: "var(--color-on-accent)" }}>Add</button>
                 </div>
               </div>
 
@@ -477,18 +517,18 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                       const selected = watchlistRefs.some((x) => x.id === w.id);
                       return (
                         <button key={w.id} onClick={() => toggleWatchlist(w)}
-                          className="template-btn w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[7px] text-left transition-colors duration-100"
+                          className="template-btn w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[var(--radius-sm)] text-left transition-colors duration-100"
                           style={selected ? { background: "var(--color-accent-light)" } : undefined}>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                             style={{ color: selected ? "var(--color-accent)" : "var(--color-muted)", flexShrink: 0 }}>
                             <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
                             <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
                           </svg>
-                          <span className="flex-1 min-w-0 truncate text-[12.5px]"
+                          <span className="flex-1 min-w-0 truncate text-[length:var(--text-sm)]"
                             style={{ color: selected ? "var(--color-accent)" : "var(--color-text-secondary)", fontWeight: selected ? 600 : 400 }}>
                             {w.name}
                           </span>
-                          <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>{w.tickers.length}</span>
+                          <span className="text-[length:var(--text-meta)]" style={{ color: "var(--color-muted)" }}>{w.tickers.length}</span>
                           {selected && (
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-accent)", flexShrink: 0 }}>
                               <polyline points="20 6 9 17 4 12" />
@@ -513,9 +553,9 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                       return (
                         <button key={tpl.id}
                           onClick={() => { setActiveTemplate(selected ? null : { id: tpl.id, title: tpl.title }); setPopoverOpen(false); }}
-                          className="template-btn w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[7px] text-left text-[12px] transition-colors duration-100"
+                          className="template-btn w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[var(--radius-sm)] text-left text-[length:var(--text-sm)] transition-colors duration-100"
                           style={selected ? { background: "var(--color-accent-light)", color: "var(--color-accent)" } : { color: "var(--color-text-secondary)" }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                             style={{ color: "var(--color-accent)", flexShrink: 0 }}>
                             <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
                             <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
@@ -538,7 +578,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
                 <p className="eyebrow-label mb-1.5" style={{ color: "var(--color-muted)" }}>Quick prompts</p>
                 {PROMPT_TEMPLATES.map((pt) => (
                   <button key={pt.label} onClick={() => applyTemplate(pt.template)}
-                    className="template-btn w-full text-left px-2.5 py-1.5 rounded-[7px] text-[12px] transition-colors duration-100"
+                    className="template-btn w-full text-left px-2.5 py-1.5 rounded-[var(--radius-sm)] text-[length:var(--text-sm)] transition-colors duration-100"
                     style={{ color: "var(--color-text-secondary)" }}>
                     {pt.label}
                   </button>
@@ -549,7 +589,7 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
         </div>
 
         <p
-          className="text-center text-[10.5px] text-[var(--color-muted)] tracking-[0.04em]"
+          className="text-center text-[length:var(--text-micro)] text-[var(--color-muted)] tracking-[0.04em]"
           style={{ marginTop: "var(--composer-footer-gap, 12px)" }}
         >
           Responses are AI-generated and may contain errors · Not financial advice · Always do your own research

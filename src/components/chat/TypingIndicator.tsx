@@ -26,8 +26,8 @@ export default function TypingIndicator({
     <div className="flex gap-[14px] fade-in">
       {/* Breathing avatar */}
       <div
-        className="calm-orb-avatar w-[30px] h-[30px] rounded-[9px] flex items-center justify-center flex-shrink-0 text-white text-[13px] font-black"
-        style={{ background: accent, fontFamily: "var(--font-serif)", letterSpacing: "0.04em" }}
+        className="calm-orb-avatar w-[30px] h-[30px] rounded-[var(--radius-md)] flex items-center justify-center flex-shrink-0 text-[length:var(--text-sm)] font-black"
+        style={{ background: accent, color: "var(--color-on-accent)", fontFamily: "var(--font-serif)", letterSpacing: "0.04em" }}
       >
         F
       </div>
@@ -38,14 +38,14 @@ export default function TypingIndicator({
           <span className="calm-orb-dot absolute inset-0 rounded-full" style={{ background: accent }} />
         </span>
         <span className="flex items-baseline gap-[6px]">
-          <span className="shimmer-text text-[14px] font-medium">{label}</span>
+          <span className="shimmer-text text-[length:var(--text-body)] font-medium">{label}</span>
           {scanning && (
             <span className="ticker-bars" style={{ color: accent }} aria-hidden>
               <i /><i /><i /><i />
             </span>
           )}
           {startedAt != null && (
-            <span className="text-[13px]" style={{ color: "var(--color-muted)" }}>
+            <span className="text-[length:var(--text-sm)]" style={{ color: "var(--color-muted)" }}>
               · <LiveElapsed startedAt={startedAt} />
             </span>
           )}

@@ -180,7 +180,7 @@ export default function ChatHeaderMenu() {
       {
         key: "share", label: shareBusy ? "Creating link…" : "Share", busy: shareBusy, onSelect: onShare,
         icon: (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
             <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
           </svg>
@@ -189,7 +189,7 @@ export default function ChatHeaderMenu() {
       {
         key: "export", label: "Export PDF", onSelect: onExport,
         icon: (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 3v12m0 0l-4-4m4 4l4-4" /><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
           </svg>
         ),
@@ -199,7 +199,7 @@ export default function ChatHeaderMenu() {
       {
         key: "digest", label: digestBusy ? "Digesting…" : "Digest", tone: "ai", busy: digestBusy, onSelect: onDigest,
         icon: (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3z" />
             <path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14z" />
           </svg>
@@ -208,7 +208,7 @@ export default function ChatHeaderMenu() {
       {
         key: "playbook", label: "Save as Template", tone: "ai", onSelect: onSavePlaybook,
         icon: (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
             <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
           </svg>
@@ -219,7 +219,7 @@ export default function ChatHeaderMenu() {
       {
         key: "rename", label: "Rename", onSelect: onRenameOpen,
         icon: (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M16.5 3.5l4 4L8 20l-5 1 1-5L16.5 3.5z" />
           </svg>
         ),
@@ -227,7 +227,7 @@ export default function ChatHeaderMenu() {
       {
         key: "archive", label: "Archive", tone: "danger", onSelect: onArchive,
         icon: (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="4" width="18" height="4" rx="1" /><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8" /><path d="M10 12h4" />
           </svg>
         ),
@@ -244,7 +244,7 @@ export default function ChatHeaderMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         title={enabled ? "Conversation options" : "Start a conversation to use these options"}
-        className="w-7 h-7 rounded-[7px] flex items-center justify-center transition-colors duration-100 disabled:opacity-35"
+        className="w-7 h-7 rounded-[var(--radius-sm)] flex items-center justify-center transition-colors duration-100 disabled:opacity-35"
         style={{
           background: open ? "var(--color-surface-2)" : "transparent",
           color: "var(--color-text-secondary)",
@@ -263,8 +263,8 @@ export default function ChatHeaderMenu() {
             width: 232,
             background: "var(--color-bg)",
             border: "1px solid var(--color-border)",
-            borderRadius: 12,
-            boxShadow: "0 8px 28px rgba(13,22,38,0.10), 0 2px 8px rgba(13,22,38,0.05)",
+            borderRadius: "var(--radius-lg)",
+            boxShadow: "var(--shadow-pop)",
             padding: 6,
           }}
         >
@@ -277,7 +277,7 @@ export default function ChatHeaderMenu() {
                   role="menuitem"
                   onClick={item.onSelect}
                   disabled={item.busy}
-                  className="w-full flex items-center gap-[11px] px-2.5 py-2 rounded-[8px] text-left text-[13.5px] transition-colors duration-100 hover:bg-[var(--color-sidebar-hover)]"
+                  className="w-full flex items-center gap-[11px] px-2.5 py-2 rounded-[var(--radius-sm)] text-left text-[length:var(--text-sm)] transition-colors duration-100 hover:bg-[var(--color-sidebar-hover)]"
                   style={{
                     color:
                       item.tone === "ai" ? "var(--color-accent)"
@@ -299,7 +299,7 @@ export default function ChatHeaderMenu() {
       {/* Rename modal */}
       {renaming && (
         <Modal onClose={() => setRenaming(false)} label="Rename conversation">
-          <h2 className="text-[15px] font-semibold mb-3" style={{ color: "var(--color-text)" }}>Rename chat</h2>
+          <h2 className="text-[length:var(--text-title)] font-semibold mb-3" style={{ color: "var(--color-text)" }}>Rename chat</h2>
           <input
             type="text"
             value={renameValue}
@@ -307,18 +307,13 @@ export default function ChatHeaderMenu() {
             onKeyDown={(e) => { if (e.key === "Enter") onRenameSubmit(); }}
             placeholder="Chat title"
             maxLength={80}
-            className="w-full text-[13px] px-3 py-2 rounded-[8px] focus:outline-none mb-4"
-            style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text)" }}
+            className="input mb-4"
           />
           <div className="flex justify-end gap-2">
-            <button onClick={() => setRenaming(false)}
-              className="px-3 py-1.5 rounded-[8px] text-[12.5px] font-medium"
-              style={{ color: "var(--color-text-secondary)" }}>
+            <button onClick={() => setRenaming(false)} className="btn btn-ghost">
               Cancel
             </button>
-            <button onClick={onRenameSubmit} disabled={!renameValue.trim()}
-              className="px-3.5 py-1.5 rounded-[8px] text-[12.5px] font-semibold disabled:opacity-40"
-              style={{ background: "var(--color-accent)", color: "white" }}>
+            <button onClick={onRenameSubmit} disabled={!renameValue.trim()} className="btn btn-primary">
               Rename
             </button>
           </div>
@@ -330,10 +325,10 @@ export default function ChatHeaderMenu() {
         <Modal
           onClose={() => setDigest(null)}
           label="Conversation digest"
-          className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 flex flex-col"
+          className="bg-[var(--color-bg)] rounded-[var(--radius-xl)] shadow-[var(--shadow-pop)] w-full max-w-lg mx-4 flex flex-col"
         >
           <div className="flex items-center justify-between px-6 pt-5 pb-3" style={{ borderBottom: "1px solid var(--color-border)" }}>
-            <h2 className="text-[15px] font-semibold" style={{ color: "var(--color-text)" }}>Digest</h2>
+            <h2 className="text-[length:var(--text-title)] font-semibold" style={{ color: "var(--color-text)" }}>Digest</h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -341,15 +336,14 @@ export default function ChatHeaderMenu() {
                   setDigestCopied(true);
                   setTimeout(() => setDigestCopied(false), 1800);
                 }}
-                className="px-2.5 py-1 rounded-[7px] text-[12px] font-medium"
-                style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text-secondary)" }}
+                className="btn"
               >
                 {digestCopied ? "Copied!" : "Copy"}
               </button>
               <button onClick={() => setDigest(null)} aria-label="Close"
-                className="w-6 h-6 rounded-[6px] flex items-center justify-center hover:bg-[var(--color-surface-2)]"
+                className="w-6 h-6 rounded-[var(--radius-sm)] flex items-center justify-center hover:bg-[var(--color-surface-2)]"
                 style={{ color: "var(--color-muted)" }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <path d="M18 6L6 18M6 6l12 12" />
                 </svg>
               </button>

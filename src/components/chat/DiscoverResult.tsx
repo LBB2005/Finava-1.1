@@ -7,13 +7,52 @@ import type { ConvictionTier, DiscoverLayout, DiscoverMessageContent, ScoutPick,
 
 const ACCENT = "var(--color-discover)";
 
-/** Conviction band → header label + glyph for the tiers layout. */
-const TIER_META: Record<ConvictionTier, { label: string; icon: string }> = {
-  high: { label: "High conviction", icon: "🥇" },
-  look: { label: "Worth a look", icon: "👀" },
-  wildcard: { label: "Wildcard", icon: "🎲" },
+/** Conviction band → header label for the tiers layout. */
+const TIER_META: Record<ConvictionTier, { label: string }> = {
+  high: { label: "High conviction" },
+  look: { label: "Worth a look" },
+  wildcard: { label: "Wildcard" },
 };
 const TIER_ORDER: ConvictionTier[] = ["high", "look", "wildcard"];
+
+/** Drawn tier glyphs (star / eye / shuffle) — no emoji as UI. */
+function TierGlyph({ tier }: { tier: ConvictionTier }) {
+  const common = {
+    width: 12,
+    height: 12,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+  if (tier === "high") {
+    return (
+      <svg {...common}>
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      </svg>
+    );
+  }
+  if (tier === "look") {
+    return (
+      <svg {...common}>
+        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <polyline points="16 3 21 3 21 8" />
+      <line x1="4" y1="20" x2="21" y2="3" />
+      <polyline points="21 16 21 21 16 21" />
+      <line x1="15" y1="15" x2="21" y2="21" />
+      <line x1="4" y1="4" x2="9" y2="9" />
+    </svg>
+  );
+}
 
 /** Conviction is optional on the wire — fall back to score bands so older
  *  messages (and any pick the LLM left untagged) still group sensibly. */
@@ -25,8 +64,8 @@ function convictionOf(p: ScoutPick): ConvictionTier {
 function FinavaAvatar() {
   return (
     <div
-      className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center flex-shrink-0 text-white text-[13px] font-black"
-      style={{ background: ACCENT, fontFamily: "var(--font-serif)", letterSpacing: "0.04em" }}
+      className="w-[30px] h-[30px] rounded-[var(--radius-md)] flex items-center justify-center flex-shrink-0 text-[length:var(--text-sm)] font-black"
+      style={{ background: ACCENT, color: "var(--color-on-accent)", fontFamily: "var(--font-serif)", letterSpacing: "0.04em" }}
     >
       L
     </div>
@@ -67,7 +106,7 @@ function PickCard({ p, held, revealIndex = 0 }: { p: ScoutPick; held?: boolean; 
   const cap = fmtCap(p.marketCap);
   return (
     <div
-      className="flex gap-3 px-3.5 py-3 rounded-[11px] fade-in"
+      className="flex gap-3 px-3.5 py-3 rounded-[var(--radius-md)] fade-in"
       style={{
         background: "var(--color-surface)",
         border: "1px solid var(--color-border)",
@@ -77,39 +116,42 @@ function PickCard({ p, held, revealIndex = 0 }: { p: ScoutPick; held?: boolean; 
       }}
     >
       <div
-        className="flex-shrink-0 w-7 h-7 rounded-[8px] flex items-center justify-center text-[12px] font-bold tabular-nums"
+        className="mono flex-shrink-0 w-7 h-7 rounded-[var(--radius-sm)] flex items-center justify-center text-[length:var(--text-sm)] font-bold"
         style={{ background: "var(--color-discover-light)", color: ACCENT }}
       >
         {p.fitRank}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[13.5px] font-bold" style={{ color: "var(--color-text)" }}>{p.ticker}</span>
+          <span className="mono text-[length:var(--text-sm)] font-bold" style={{ color: "var(--color-text)" }}>{p.ticker}</span>
           <span
-            className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-[5px]"
+            className="mono text-[length:var(--text-micro)] font-bold px-1.5 py-0.5 rounded-[var(--radius-xs)]"
             style={{ background: "var(--color-surface-2)", color: scoreColor(p.score) }}
           >
             {p.grade} · {p.score}
           </span>
           {held && (
             <span
-              className="text-[9px] font-bold px-1.5 py-0.5 rounded-[5px] uppercase tracking-[0.08em]"
+              className="inline-flex items-center gap-1 text-[length:var(--text-micro)] font-bold px-1.5 py-0.5 rounded-[var(--radius-xs)] uppercase tracking-[0.08em]"
               style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
             >
-              ✓ Held
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Held
             </span>
           )}
-          <span className="text-[11.5px] truncate" style={{ color: "var(--color-muted)" }}>
+          <span className="text-[length:var(--text-meta)] truncate" style={{ color: "var(--color-muted)" }}>
             {p.name} · {p.sector}
           </span>
         </div>
         {p.reason && (
-          <p className="text-[12px] mt-1 leading-[1.45]" style={{ color: "var(--color-text-secondary)" }}>
+          <p className="text-[length:var(--text-sm)] mt-1 leading-[1.45]" style={{ color: "var(--color-text-secondary)" }}>
             {p.reason}
           </p>
         )}
         {(cap || (p.pe != null && p.pe > 0)) && (
-          <p className="text-[10.5px] mt-1 tabular-nums" style={{ color: "var(--color-muted)" }}>
+          <p className="mono text-[length:var(--text-micro)] mt-1" style={{ color: "var(--color-muted)" }}>
             {cap}{cap && p.pe != null && p.pe > 0 ? " · " : ""}{p.pe != null && p.pe > 0 ? `P/E ${p.pe.toFixed(0)}` : ""}
           </p>
         )}
@@ -158,14 +200,14 @@ function Shortlist({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
+        <span className="eyebrow-label" style={{ color: ACCENT }}>
           {tier === "quick" ? "Discover" : "Deep Discover"} · {picks.length} {picks.length === 1 ? "idea" : "ideas"}
         </span>
-        <span className="text-[11px] truncate flex-1 min-w-0" style={{ color: "var(--color-muted)" }}>for “{query}”</span>
+        <span className="text-[length:var(--text-meta)] truncate flex-1 min-w-0" style={{ color: "var(--color-muted)" }}>for “{query}”</span>
         {/* Swap affordance — recast the same picks in the other layout. */}
         <button
           onClick={() => setLayout(otherLayout)}
-          className="text-[10.5px] font-medium px-2 py-1 rounded-[7px] transition-opacity hover:opacity-80 whitespace-nowrap"
+          className="text-[length:var(--text-micro)] font-medium px-2 py-1 rounded-[var(--radius-sm)] transition-opacity hover:opacity-80 whitespace-nowrap"
           style={{ background: "var(--color-surface-2)", color: "var(--color-text-secondary)" }}
         >
           {layout === "tiers" ? "Conviction tiers" : "Ranked"} · swap to {otherLayout === "tiers" ? "tiers" : "ranked"}
@@ -173,7 +215,7 @@ function Shortlist({
       </div>
 
       {framing && (
-        <div className="discover-narrative">
+        <div>
           <Markdown>{framing}</Markdown>
         </div>
       )}
@@ -185,11 +227,11 @@ function Shortlist({
             return (
               <div key={g.t} className="flex flex-col gap-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[12.5px]" aria-hidden>{TIER_META[g.t].icon}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--color-text-secondary)" }}>
+                  <span className="inline-flex" style={{ color: "var(--color-text-secondary)" }}><TierGlyph tier={g.t} /></span>
+                  <span className="text-[length:var(--text-micro)] font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--color-text-secondary)" }}>
                     {TIER_META[g.t].label}
                   </span>
-                  <span className="text-[10px] tabular-nums" style={{ color: "var(--color-muted)" }}>
+                  <span className="mono text-[length:var(--text-micro)]" style={{ color: "var(--color-muted)" }}>
                     {g.items.length}
                   </span>
                 </div>
@@ -205,11 +247,11 @@ function Shortlist({
       {tier === "quick" && onDeeper && (
         <button
           onClick={onDeeper}
-          className="self-start inline-flex items-center gap-1.5 mt-1 px-3.5 py-2 rounded-[10px] text-[12.5px] font-semibold transition-opacity hover:opacity-90"
-          style={{ background: ACCENT, color: "white" }}
+          className="self-start inline-flex items-center gap-1.5 mt-1 px-3.5 py-2 rounded-[var(--radius-sm)] text-[length:var(--text-sm)] font-semibold transition-opacity hover:opacity-90"
+          style={{ background: ACCENT, color: "var(--color-on-accent)" }}
         >
           Go deeper on these {picks.length}
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
           </svg>
         </button>
@@ -223,17 +265,17 @@ function WaveCard({ wave, totalWaves }: { wave: WaveEvidence; totalWaves: number
   const errored = (s: string) => s.startsWith("Error:");
   return (
     <div
-      className="rounded-[11px] px-4 py-3"
+      className="rounded-[var(--radius-md)] px-4 py-3"
       style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
     >
       <div className="flex items-center gap-2 mb-2">
         <span
-          className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-[5px]"
+          className="mono text-[length:var(--text-micro)] font-bold px-1.5 py-0.5 rounded-[var(--radius-xs)]"
           style={{ background: "var(--color-discover-light)", color: ACCENT }}
         >
           WAVE {wave.waveIndex + 1}/{totalWaves}
         </span>
-        <span className="text-[12px] font-semibold" style={{ color: "var(--color-text)" }}>
+        <span className="mono text-[length:var(--text-sm)] font-semibold" style={{ color: "var(--color-text)" }}>
           {wave.tickers.join(" · ")}
         </span>
       </div>
@@ -241,7 +283,7 @@ function WaveCard({ wave, totalWaves }: { wave: WaveEvidence; totalWaves: number
         {batchAgents.map((a) => (
           <span
             key={a}
-            className="text-[10px] px-1.5 py-0.5 rounded-[5px]"
+            className="text-[length:var(--text-micro)] px-1.5 py-0.5 rounded-[var(--radius-xs)]"
             style={{
               background: "var(--color-surface-2)",
               color: errored(wave.batch[a]) ? "var(--color-bear)" : "var(--color-text-secondary)",
@@ -252,7 +294,7 @@ function WaveCard({ wave, totalWaves }: { wave: WaveEvidence; totalWaves: number
         ))}
       </div>
       {wave.valuationTickers.length > 0 && (
-        <p className="text-[10.5px] mt-2" style={{ color: "var(--color-muted)" }}>
+        <p className="text-[length:var(--text-micro)] mt-2" style={{ color: "var(--color-muted)" }}>
           Deep valuation: {wave.valuationTickers.join(", ")}
         </p>
       )}
@@ -299,7 +341,7 @@ export default function DiscoverResult({
             <Markdown>{content.report}</Markdown>
             {message.followups && message.followups.length > 0 && onSuggestion && (
               <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: "9.5px", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--color-muted)", fontWeight: 600, marginBottom: 8 }}>
+                <div className="eyebrow-label" style={{ color: "var(--color-muted)", marginBottom: 8 }}>
                   Pick a direction
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
@@ -308,7 +350,7 @@ export default function DiscoverResult({
                       key={q}
                       onClick={() => onSuggestion(q)}
                       className="followup-chip"
-                      style={{ padding: "7px 13px", borderRadius: 99, fontSize: 12, fontWeight: 500, fontFamily: "inherit", cursor: "pointer", transition: "all 140ms" }}
+                      style={{ padding: "7px 13px", borderRadius: 999, fontSize: "var(--text-sm)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer", transition: "all 140ms" }}
                     >
                       {q}
                     </button>

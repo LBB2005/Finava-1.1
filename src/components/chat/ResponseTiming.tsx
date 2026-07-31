@@ -41,7 +41,7 @@ export function ResponseReceipt({ durationMs }: { durationMs?: number }) {
         display: "inline-flex",
         alignItems: "center",
         gap: 5,
-        fontSize: 11,
+        fontSize: "var(--text-meta)",
         color: "var(--color-muted)",
         fontVariantNumeric: "tabular-nums",
       }}

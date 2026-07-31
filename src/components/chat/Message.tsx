@@ -16,7 +16,7 @@ class MessageErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: "12px 16px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--color-surface)", color: "var(--color-muted)", fontSize: 13 }}>
+        <div style={{ padding: "12px 16px", borderRadius: "var(--radius-md)", border: "1px solid var(--color-border)", background: "var(--color-surface)", color: "var(--color-muted)", fontSize: "var(--text-sm)" }}>
           This message could not be rendered.
         </div>
       );
@@ -90,7 +90,7 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
     <div
       className="frost-card"
       style={{
-        borderRadius: 14,
+        borderRadius: "var(--radius-xl)",
         overflow: "hidden",
         transition: "border-color 200ms, background 200ms",
       }}
@@ -123,7 +123,7 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
             flexShrink: 0,
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2L2 7l10 5 10-5-10-5z" />
             <path d="M2 17l10 5 10-5" />
             <path d="M2 12l10 5 10-5" />
@@ -132,10 +132,10 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
 
         {/* Titles */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--color-text)" }}>
+          <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--color-text)" }}>
             Research crew
           </div>
-          <div style={{ fontSize: 11, color: "var(--color-muted)", marginTop: 1 }}>
+          <div style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", marginTop: 1 }}>
             {completed} of {total} agents complete
           </div>
         </div>
@@ -154,8 +154,8 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
                 background: "var(--color-bg)",
                 border: "1px solid var(--color-border)",
                 color: "var(--color-text-secondary)",
-                borderRadius: 99,
-                fontSize: "9.5px",
+                borderRadius: 999,
+                fontSize: "var(--text-micro)",
                 fontWeight: 700,
                 letterSpacing: "0.04em",
               }}
@@ -173,8 +173,8 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
                 padding: "0 5px",
                 background: "var(--color-accent-light)",
                 color: "var(--color-accent)",
-                borderRadius: 99,
-                fontSize: "9.5px",
+                borderRadius: 999,
+                fontSize: "var(--text-micro)",
                 fontWeight: 700,
               }}
             >
@@ -190,17 +190,17 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
             alignItems: "center",
             gap: 5,
             color: "var(--color-accent)",
-            fontSize: "11.5px",
+            fontSize: "var(--text-meta)",
             fontWeight: 600,
             padding: "4px 8px",
-            borderRadius: 6,
+            borderRadius: "var(--radius-sm)",
             background: "var(--color-accent-light)",
             flexShrink: 0,
           }}
         >
           {expanded ? "Hide thinking" : "View thinking"}
           <svg
-            width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"
+            width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
             style={{ transition: "transform 200ms", transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
           >
             <polyline points="6 9 12 15 18 9" />
@@ -242,19 +242,16 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
             }}
           >
             <span
+              className="eyebrow-label"
               style={{
-                fontSize: "9.5px",
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
                 color: "var(--color-accent)",
-                fontWeight: 700,
               }}
             >
               Thinking trace · {total} agents
             </span>
             <span
               style={{
-                fontSize: "10.5px",
+                fontSize: "var(--text-micro)",
                 color: "var(--color-muted)",
                 fontStyle: "italic",
                 fontFamily: "var(--font-serif)",
@@ -283,7 +280,7 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
                     gap: 12,
                     alignItems: "start",
                     padding: "9px 10px",
-                    borderRadius: 8,
+                    borderRadius: "var(--radius-md)",
                     transition: "background 120ms",
                   }}
                 >
@@ -291,7 +288,7 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
                   <div
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: "10.5px",
+                      fontSize: "var(--text-micro)",
                       color: "var(--color-muted)",
                       letterSpacing: "0.04em",
                       paddingTop: 1,
@@ -303,13 +300,13 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
                   {/* Body */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
-                      <span style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--color-text)" }}>
+                      <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--color-text)" }}>
                         {label}
                       </span>
                       {focus && (
                         <span
                           style={{
-                            fontSize: 11,
+                            fontSize: "var(--text-meta)",
                             color: "var(--color-muted)",
                             fontStyle: "italic",
                             fontFamily: "var(--font-serif)",
@@ -320,12 +317,12 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
                       )}
                     </div>
                     {step.result && (
-                      <div style={{ fontSize: "12.5px", lineHeight: 1.55, color: "var(--color-text-secondary)" }}>
+                      <div style={{ fontSize: "var(--text-sm)", lineHeight: 1.55, color: "var(--color-text-secondary)" }}>
                         {step.result.slice(0, 220)}{step.result.length > 220 ? "…" : ""}
                       </div>
                     )}
                     {step.error && (
-                      <div style={{ fontSize: "12.5px", lineHeight: 1.55, color: "var(--color-bear)" }}>
+                      <div style={{ fontSize: "var(--text-sm)", lineHeight: 1.55, color: "var(--color-bear)" }}>
                         {step.error}
                       </div>
                     )}
@@ -334,7 +331,7 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
                   {/* Status + view full */}
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
                     {step.status === "complete" && (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--color-bull)" strokeWidth="3" strokeLinecap="round">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--color-bull)" strokeWidth="2.5" strokeLinecap="round">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     )}
@@ -349,12 +346,12 @@ function AgentRibbon({ steps }: { steps: AgentStep[] }) {
                       <button
                         onClick={() => setDetailStep(step)}
                         style={{
-                          fontSize: 10,
+                          fontSize: "var(--text-micro)",
                           fontWeight: 600,
                           color: "var(--color-accent)",
                           background: "var(--color-accent-light)",
                           border: "none",
-                          borderRadius: 5,
+                          borderRadius: "var(--radius-sm)",
                           padding: "2px 6px",
                           cursor: "pointer",
                           fontFamily: "inherit",
@@ -397,12 +394,9 @@ function VerdictBlock({
     >
       {/* Eyebrow */}
       <div
+        className="eyebrow-label"
         style={{
-          fontSize: 10,
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
           color: "var(--color-accent)",
-          fontWeight: 700,
           marginBottom: 12,
         }}
       >
@@ -416,7 +410,7 @@ function VerdictBlock({
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
         <span
           style={{
-            fontSize: 11,
+            fontSize: "var(--text-meta)",
             color: "var(--color-muted)",
             fontVariantNumeric: "tabular-nums",
           }}
@@ -426,11 +420,11 @@ function VerdictBlock({
         {isAgentMode && (
           <span
             style={{
-              background: "var(--color-accent-light)",
-              color: "var(--color-accent)",
+              background: message.mode === "deep_research" ? "var(--color-deep-research-light)" : "var(--color-accent-light)",
+              color: message.mode === "deep_research" ? "var(--color-deep-research)" : "var(--color-accent)",
               padding: "2px 7px",
-              borderRadius: 99,
-              fontSize: 10,
+              borderRadius: 999,
+              fontSize: "var(--text-micro)",
               fontWeight: 700,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
@@ -482,8 +476,8 @@ function CitationPill({ ctx }: { ctx: ChatContext }) {
         gap: 5,
         marginTop: 7,
         padding: "3px 9px",
-        borderRadius: 99,
-        fontSize: 11,
+        borderRadius: 999,
+        fontSize: "var(--text-meta)",
         fontWeight: 500,
         color: "var(--color-muted)",
         background: "var(--color-surface)",
@@ -521,7 +515,7 @@ function PromptBubble({ message }: { message: ChatMessage }) {
           padding: "12px 18px",
           borderRadius: 18,
           borderBottomRightRadius: 6,
-          fontSize: 15,
+          fontSize: "var(--text-title)",
           lineHeight: 1.5,
           fontWeight: 500,
           letterSpacing: "-0.005em",
@@ -534,7 +528,7 @@ function PromptBubble({ message }: { message: ChatMessage }) {
       <CitationPill ctx={message.context ?? null} />
       <div
         style={{
-          fontSize: 11,
+          fontSize: "var(--text-meta)",
           color: "var(--color-muted)",
           marginTop: 6,
           fontVariantNumeric: "tabular-nums",
@@ -551,7 +545,7 @@ function SkepticCritique({ critique }: { critique: string }) {
   return (
     <div
       style={{
-        borderRadius: 12,
+        borderRadius: "var(--radius-md)",
         border: "1px solid var(--color-warn-border)",
         background: "var(--color-warn-bg)",
         padding: "14px 18px",
@@ -560,7 +554,7 @@ function SkepticCritique({ critique }: { critique: string }) {
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
         <svg
           width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="2.5" strokeLinecap="round"
+          strokeWidth="2" strokeLinecap="round"
           style={{ color: "var(--color-warn)", flexShrink: 0 }}
         >
           <circle cx="12" cy="12" r="10" />
@@ -569,7 +563,7 @@ function SkepticCritique({ critique }: { critique: string }) {
         </svg>
         <span
           style={{
-            fontSize: 11,
+            fontSize: "var(--text-micro)",
             fontWeight: 700,
             color: "var(--color-warn-heading)",
             textTransform: "uppercase",
@@ -591,10 +585,10 @@ function FinavaAvatar() {
   // Frost f4: bare accent mark — no solid plate behind the brand letter.
   return (
     <div
-      className="flex-shrink-0 flex items-center justify-center text-[15px] font-black"
+      className="flex-shrink-0 flex items-center justify-center text-[length:var(--text-title)] font-black"
       style={{
         width: 30, height: 30,
-        borderRadius: 9,
+        borderRadius: "var(--radius-md)",
         background: "transparent",
         color: "var(--color-accent)",
         fontFamily: "var(--font-serif)",
@@ -678,14 +672,14 @@ function MessageInner({
         <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
           <Markdown>{message.content}</Markdown>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
-            <span style={{ fontSize: 11, color: "var(--color-muted)", fontVariantNumeric: "tabular-nums" }}>
+            <span style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", fontVariantNumeric: "tabular-nums" }}>
               {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
             <ResponseReceipt durationMs={message.durationMs} />
           </div>
           {message.followups && message.followups.length > 0 && onSuggestion && (
             <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: "9.5px", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--color-muted)", fontWeight: 600, marginBottom: 8 }}>
+              <div className="eyebrow-label" style={{ color: "var(--color-muted)", marginBottom: 8 }}>
                 Follow up with
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
@@ -694,7 +688,7 @@ function MessageInner({
                     key={q}
                     onClick={() => onSuggestion(q)}
                     className="followup-chip"
-                    style={{ padding: "7px 13px", borderRadius: 99, fontSize: 12, fontWeight: 500, fontFamily: "inherit", cursor: "pointer", transition: "all 140ms" }}
+                    style={{ padding: "7px 13px", borderRadius: 999, fontSize: "var(--text-sm)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer", transition: "all 140ms" }}
                   >
                     {q}
                   </button>
@@ -716,12 +710,9 @@ function MessageInner({
       {message.followups && message.followups.length > 0 && onSuggestion && (
         <div style={{ paddingTop: 2 }}>
           <div
+            className="eyebrow-label"
             style={{
-              fontSize: "9.5px",
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
               color: "var(--color-muted)",
-              fontWeight: 600,
               marginBottom: 10,
             }}
           >
@@ -735,8 +726,8 @@ function MessageInner({
                 className="followup-chip"
                 style={{
                   padding: "8px 14px",
-                  borderRadius: 99,
-                  fontSize: 12,
+                  borderRadius: 999,
+                  fontSize: "var(--text-sm)",
                   fontWeight: 500,
                   fontFamily: "inherit",
                   cursor: "pointer",

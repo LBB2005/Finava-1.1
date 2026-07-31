@@ -10,7 +10,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
-      className="text-[11px] font-medium px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors duration-150 text-slate-300 hover:text-white"
+      className="text-[length:var(--text-meta)] font-medium px-2 py-0.5 rounded-[var(--radius-xs)] transition-colors duration-150 hover:bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
     >
       {copied ? "Copied!" : "Copy"}
     </button>
@@ -20,20 +20,20 @@ function CopyButton({ text }: { text: string }) {
 export const components: Components = {
   // Tables — scrollable container + clean styling
   table: ({ children }) => (
-    <div className="overflow-x-auto my-4 rounded-xl border border-[var(--color-border)] shadow-sm">
-      <table className="w-full text-sm border-collapse">{children}</table>
+    <div className="overflow-x-auto my-4 rounded-[var(--radius-md)] border border-[var(--color-border)]">
+      <table className="w-full text-[length:var(--text-sm)] border-collapse">{children}</table>
     </div>
   ),
   thead: ({ children }) => <thead className="bg-[var(--color-accent-light)]">{children}</thead>,
   tbody: ({ children }) => <tbody className="divide-y divide-[var(--color-border)]">{children}</tbody>,
   tr: ({ children }) => <tr className="hover:bg-[var(--color-surface)] transition-colors duration-100">{children}</tr>,
   th: ({ children }) => (
-    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-accent)] whitespace-nowrap border-b border-[var(--color-border)]">
+    <th className="px-4 py-2.5 text-left text-[length:var(--text-micro)] font-semibold uppercase tracking-wider text-[var(--color-accent)] whitespace-nowrap border-b border-[var(--color-border)]">
       {children}
     </th>
   ),
   td: ({ children }) => (
-    <td className="px-4 py-2.5 text-[13px] text-[var(--color-text)] align-top">
+    <td className="px-4 py-2.5 text-[length:var(--text-sm)] text-[var(--color-text)] align-top">
       {children}
     </td>
   ),
@@ -47,7 +47,7 @@ export const components: Components = {
 
     if (!isBlock) {
       return (
-        <code className="bg-[var(--color-accent-light)] text-[var(--color-accent)] px-1.5 py-0.5 rounded-md text-[0.82em] font-mono">
+        <code className="bg-[var(--color-accent-light)] text-[var(--color-accent)] px-1.5 py-0.5 rounded-[var(--radius-xs)] text-[0.82em] font-mono">
           {children}
         </code>
       );
@@ -59,12 +59,12 @@ export const components: Components = {
     }
 
     return (
-      <div className="my-4 rounded-xl overflow-hidden border border-slate-700 shadow-md">
-        <div className="flex items-center justify-between bg-[#1e2d3d] px-4 py-2">
-          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">{lang || "code"}</span>
+      <div className="my-4 rounded-[var(--radius-md)] overflow-hidden border border-[var(--color-border)] bg-[var(--color-surface-2)]">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--color-border)]">
+          <span className="text-[length:var(--text-meta)] font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">{lang || "code"}</span>
           <CopyButton text={code} />
         </div>
-        <pre className="bg-[#0f1e2e] text-slate-200 px-4 py-3.5 overflow-x-auto text-[0.82em] leading-relaxed font-mono">
+        <pre className="text-[var(--color-text)] px-4 py-3.5 overflow-x-auto text-[0.82em] leading-relaxed font-mono">
           <code {...props}>{children}</code>
         </pre>
       </div>
@@ -74,7 +74,7 @@ export const components: Components = {
   // Headings — serif editorial style per design spec
   h1: ({ children }) => (
     <h1
-      style={{ fontFamily: "var(--font-serif)", fontSize: "1.15rem", fontWeight: 700, letterSpacing: "-0.012em", lineHeight: 1.28 }}
+      style={{ fontFamily: "var(--font-serif)", fontSize: "var(--text-xl)", fontWeight: 700, letterSpacing: "-0.012em", lineHeight: 1.28 }}
       className="text-[var(--color-text)] mt-6 mb-2 pb-1.5 border-b border-[var(--color-border)]"
     >
       {children}
@@ -82,7 +82,7 @@ export const components: Components = {
   ),
   h2: ({ children }) => (
     <h2
-      style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 700, letterSpacing: "-0.012em", lineHeight: 1.28 }}
+      style={{ fontFamily: "var(--font-serif)", fontSize: "var(--text-lg)", fontWeight: 700, letterSpacing: "-0.012em", lineHeight: 1.28 }}
       className="text-[var(--color-text)] mt-5 mb-2"
     >
       {children}
@@ -90,7 +90,7 @@ export const components: Components = {
   ),
   h3: ({ children }) => (
     <h3
-      style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 700, letterSpacing: "-0.008em", lineHeight: 1.3 }}
+      style={{ fontFamily: "var(--font-serif)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "-0.008em", lineHeight: 1.3 }}
       className="text-[var(--color-text-secondary)] mt-4 mb-1.5"
     >
       {children}
@@ -111,7 +111,7 @@ export const components: Components = {
 
   // Blockquote — callout style
   blockquote: ({ children }) => (
-    <blockquote className="border-l-4 border-[var(--color-accent-medium)] bg-[var(--color-accent-light)] rounded-r-xl pl-4 pr-3 py-2.5 my-3 text-[var(--color-text-secondary)] text-[0.9rem]">
+    <blockquote className="border-l-4 border-[var(--color-accent-medium)] bg-[var(--color-accent-light)] rounded-r-[var(--radius-md)] pl-4 pr-3 py-2.5 my-3 text-[var(--color-text-secondary)] text-[0.9rem]">
       {children}
     </blockquote>
   ),

@@ -39,7 +39,7 @@ function FinavaAvatar() {
   // Frost f4: bare accent mark — no solid plate behind the brand letter.
   return (
     <div
-      className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center flex-shrink-0 text-[15px] font-black"
+      className="w-[30px] h-[30px] rounded-[var(--radius-md)] flex items-center justify-center flex-shrink-0 text-[length:var(--text-title)] font-black"
       style={{ background: "transparent", color: "var(--color-accent)", fontFamily: "var(--font-serif)", letterSpacing: "0.04em" }}
     >
       L
@@ -77,13 +77,13 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
       )}
 
       {/* Mobile compact bar */}
-      <div className="frost-card flex sm:hidden items-center gap-3 px-4 py-3 rounded-[14px] fade-in">
+      <div className="frost-card flex sm:hidden items-center gap-3 px-4 py-3 rounded-[var(--radius-xl)] fade-in">
         <span className="flex gap-1 flex-shrink-0">
           {[0, 1, 2].map((i) => (
             <span key={i} className="typing-dot inline-block w-[5px] h-[5px] rounded-full" style={{ background: "var(--color-accent)", animationDelay: `${i * 160}ms` }} />
           ))}
         </span>
-        <span className="flex-1 text-[12px] text-[var(--color-text-secondary)]">
+        <span className="flex-1 text-[length:var(--text-sm)] text-[var(--color-text-secondary)]">
           {running > 0 ? `${running} agent${running > 1 ? "s" : ""} analyzing…` : `${complete} of ${total} complete`}
         </span>
         <div className="rounded-full overflow-hidden flex-shrink-0" style={{ width: 60, height: 3, background: "var(--color-surface-2)" }}>
@@ -95,7 +95,7 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
       <div className="hidden sm:flex gap-[14px]">
       <FinavaAvatar />
       <div className="flex-1 min-w-0 pt-0">
-        <div className="frost-card rounded-[18px] overflow-hidden fade-in">
+        <div className="frost-card rounded-[var(--radius-xl)] overflow-hidden fade-in">
           {/* Header — translucent strip, bare accent crew mark (Frost f4) */}
           <div
             className="frost-strip frost-hairline flex items-center gap-3 px-[14px] py-[11px]"
@@ -105,15 +105,15 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
               className="w-[24px] h-[24px] flex items-center justify-center flex-shrink-0"
               style={{ color: "var(--color-accent)" }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2L2 7l10 5 10-5-10-5z" />
                 <path d="M2 17l10 5 10-5" />
                 <path d="M2 12l10 5 10-5" />
               </svg>
             </div>
             <div className="flex flex-col gap-[1px]">
-              <span className="text-[12.5px] font-semibold text-[var(--color-text)]">Research crew</span>
-              <span className="text-[11px] text-[var(--color-muted)]">
+              <span className="text-[length:var(--text-sm)] font-semibold text-[var(--color-text)]">Research crew</span>
+              <span className="text-[length:var(--text-meta)] text-[var(--color-muted)]">
                 {running > 0
                   ? `${running} analyzing · ${complete} complete`
                   : `${complete} of ${total} complete`}
@@ -121,8 +121,8 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
             </div>
             {/* Progress meter */}
             <div className="ml-auto flex items-center gap-[10px]">
-              <LiveElapsed startedAt={startedAt ?? null} className="text-[11px] text-[var(--color-muted)]" />
-              <span className="text-[11.5px] font-semibold text-[var(--color-text-secondary)] tabular-nums">
+              <LiveElapsed startedAt={startedAt ?? null} className="text-[length:var(--text-meta)] text-[var(--color-muted)]" />
+              <span className="text-[length:var(--text-meta)] font-semibold text-[var(--color-text-secondary)] tabular-nums">
                 {complete}/{total}
               </span>
               <div
@@ -133,7 +133,7 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
                   className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${(complete / total) * 100}%`,
-                    background: "linear-gradient(90deg, color-mix(in oklab, var(--color-accent) 70%, #6ea2dd), var(--color-accent))",
+                    background: "linear-gradient(90deg, color-mix(in oklab, var(--color-accent) 70%, var(--color-bg)), var(--color-accent))",
                   }}
                 />
               </div>
@@ -153,13 +153,13 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
                     className="flex items-center gap-3 px-[14px] py-[9px] transition-colors duration-300"
                     style={{
                       borderBottom: "1px solid color-mix(in oklab, var(--color-text) 7%, transparent)",
-                      borderTop: isSkeptic ? "1px solid color-mix(in oklab, #f59e0b 30%, transparent)" : undefined,
+                      borderTop: isSkeptic ? "1px solid color-mix(in oklab, var(--color-warn) 30%, transparent)" : undefined,
                       // Frost: the analyzing row lifts gently off the glass.
                       ...(step.status === "running"
                         ? {
                             background: "color-mix(in oklab, var(--color-bg) 60%, transparent)",
-                            borderRadius: 9,
-                            boxShadow: "0 2px 10px -8px rgba(15, 23, 42, 0.3)",
+                            borderRadius: "var(--radius-md)",
+                            boxShadow: "var(--shadow-card)",
                           }
                         : {}),
                     }}
@@ -167,13 +167,13 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
                     {/* Status icon */}
                     <div className="flex justify-center" style={{ width: 16 }}>
                       {step.status === "complete" && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-bull)" strokeWidth="3" strokeLinecap="round">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-bull)" strokeWidth="2.5" strokeLinecap="round">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
                       )}
                       {step.status === "running" && <Spinner />}
                       {step.status === "error" && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-bear)" strokeWidth="2.5" strokeLinecap="round">
                           <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                         </svg>
                       )}
@@ -188,13 +188,18 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
                     {/* Name + focus */}
                     <div className="flex-1 min-w-0 flex items-baseline gap-2">
                       <span
-                        className="text-[12.5px] font-semibold"
+                        className="text-[length:var(--text-sm)] font-semibold inline-flex items-center gap-1"
                         style={{ color: step.status === "pending" ? "var(--color-muted)" : "var(--color-text)" }}
                       >
-                        {isSkeptic ? "🔍 " : ""}{label}
+                        {isSkeptic && (
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>
+                            <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                          </svg>
+                        )}
+                        {label}
                       </span>
                       {focus && (
-                        <span className="text-[11px] text-[var(--color-muted)] truncate">{focus}</span>
+                        <span className="text-[length:var(--text-meta)] text-[var(--color-muted)] truncate">{focus}</span>
                       )}
                     </div>
 
@@ -213,19 +218,19 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
                     {(step.status === "complete" || step.status === "error") && step.result ? (
                       <button
                         onClick={() => setDetailStep(step)}
-                        className="text-[9.5px] font-semibold uppercase tracking-[0.1em] flex-shrink-0 px-[7px] py-[3px] rounded-[5px] transition-colors duration-100"
+                        className="text-[length:var(--text-micro)] font-semibold uppercase tracking-[0.1em] flex-shrink-0 px-[7px] py-[3px] rounded-[var(--radius-xs)] transition-colors duration-100"
                         style={{ background: "var(--color-accent-light)", color: "var(--color-accent)", border: "none", cursor: "pointer", fontFamily: "inherit" }}
                       >
                         View
                       </button>
                     ) : (
                       <span
-                        className="text-[9.5px] font-semibold uppercase tracking-[0.16em] flex-shrink-0"
+                        className="text-[length:var(--text-micro)] font-semibold uppercase tracking-[0.16em] flex-shrink-0"
                         style={{
                           color:
                             step.status === "complete" ? "var(--color-bull)"
                             : step.status === "running" ? "var(--color-accent)"
-                            : step.status === "error" ? "#f87171"
+                            : step.status === "error" ? "var(--color-bear)"
                             : "var(--color-muted)",
                         }}
                       >
@@ -249,7 +254,7 @@ function AgentActivityPanel({ steps, ceoThinking, startedAt }: { steps: AgentSte
               <span className="ticker-bars flex-shrink-0 text-[var(--color-accent)]" role="img" aria-label="Analyzing">
                 <i></i><i></i><i></i><i></i>
               </span>
-              <span className="text-[11.5px] italic text-[var(--color-text-secondary)] ml-1">
+              <span className="text-[length:var(--text-meta)] italic text-[var(--color-text-secondary)] ml-1">
                 {isCompiling ? "CEO is synthesizing findings…" : "Agents running in parallel…"}
               </span>
             </div>
@@ -293,10 +298,10 @@ function MarketPulse() {
     >
       {/* Header row */}
       <div className="flex items-center justify-between mb-[10px]">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+        <span className="eyebrow-label text-[var(--color-muted)]">
           Market Pulse
         </span>
-        <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-muted)]">
+        <span className="flex items-center gap-1.5 text-[length:var(--text-meta)] text-[var(--color-muted)]">
           <span
             className="status-dot inline-block w-[6px] h-[6px] rounded-full"
             style={{
@@ -314,38 +319,32 @@ function MarketPulse() {
           return (
             <div key={item.ticker} className="min-w-0">
               <p
-                className="flex items-baseline gap-1 text-[10.5px] font-semibold uppercase tracking-[0.16em] mb-1 whitespace-nowrap"
+                className="flex items-baseline gap-1 text-[length:var(--text-micro)] font-semibold uppercase tracking-[0.16em] mb-1 whitespace-nowrap"
                 style={{ color: "var(--color-muted)" }}
               >
                 {item.label}
-                <span className="text-[8.5px] tracking-[0.08em] opacity-70">{item.ticker}</span>
+                <span className="text-[length:var(--text-micro)] tracking-[0.08em] opacity-70">{item.ticker}</span>
               </p>
               <p
-                className="text-[15px] font-semibold leading-[1.1] tabular-nums"
+                className="text-[length:var(--text-title)] font-semibold leading-[1.1] tabular-nums"
                 style={{ color: "var(--color-text)" }}
               >
                 {isLoading ? (
-                  <span
-                    className="inline-block h-[15px] w-16 rounded animate-pulse"
-                    style={{ background: "var(--color-border)" }}
-                  />
+                  <span className="skeleton inline-block h-[15px] w-16" />
                 ) : (
                   item.value
                 )}
               </p>
               {!isLoading && item.chg !== 0 && (
                 <p
-                  className="text-[11.5px] font-semibold mt-[2px] tabular-nums"
+                  className="text-[length:var(--text-meta)] font-semibold mt-[2px] tabular-nums"
                   style={{ color: up ? "var(--color-bull)" : "var(--color-bear)" }}
                 >
                   {up ? "+" : ""}{item.chg.toFixed(2)}%
                 </p>
               )}
               {isLoading && (
-                <span
-                  className="inline-block h-[11px] w-10 rounded mt-1 animate-pulse"
-                  style={{ background: "var(--color-border)" }}
-                />
+                <span className="skeleton inline-block h-[11px] w-10 mt-1" />
               )}
             </div>
           );
@@ -368,22 +367,22 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
 
   return (
     <div className="flex-1 overflow-y-auto" style={{ scrollbarGutter: "stable both-edges" }}>
-      <div className="max-w-[720px] mx-auto px-4 pt-8 pb-[150px]">
+      <div className="max-w-[720px] mx-auto px-4 pt-8 pb-[var(--content-pad-bottom)]">
         {/* Greeting headline */}
         <div className="mb-6">
           <p
-            className="text-[13px] italic mb-1.5"
+            className="text-[length:var(--text-sm)] italic mb-1.5"
             style={{ fontFamily: "var(--font-serif)", color: "var(--color-muted)" }}
           >
             {greeting}
           </p>
           <h2
-            className="m-0 text-[32px] font-bold leading-[1.1] text-[var(--color-text)]"
+            className="m-0 text-[length:var(--text-stat)] font-bold leading-[1.1] text-[var(--color-text)]"
             style={{ fontFamily: "var(--font-serif)", letterSpacing: "-0.015em" }}
           >
             What would you like<br />to research today?
           </h2>
-          <p className="mt-2.5 text-[12.5px] text-[var(--color-muted)]">
+          <p className="mt-2.5 text-[length:var(--text-sm)] text-[var(--color-muted)]">
             Fresh conversation — start typing below, or pick a prompt to begin.
           </p>
         </div>
@@ -394,24 +393,24 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
         {Array.isArray(templates) && templates.length > 0 && (
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+              <span className="eyebrow-label text-[var(--color-muted)]">
                 Templates
               </span>
-              <span className="text-[11px] text-[var(--color-muted)]">Shape how Finava responds</span>
+              <span className="text-[length:var(--text-meta)] text-[var(--color-muted)]">Shape how Finava responds</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-[10px]">
               {templates.slice(0, 4).map((tpl) => (
                 <button
                   key={tpl.id}
                   onClick={() => setActiveTemplate({ id: tpl.id, title: tpl.title })}
-                  className="followup-chip text-left px-[16px] py-[14px] rounded-[12px] flex gap-[10px] items-start transition-all duration-120 group"
-                  style={{ fontSize: "13.5px", lineHeight: 1.4 }}
+                  className="followup-chip text-left px-[16px] py-[14px] rounded-[var(--radius-lg)] flex gap-[10px] items-start transition-all duration-120 group"
+                  style={{ fontSize: "var(--text-sm)", lineHeight: 1.4 }}
                 >
                   <span
                     className="flex-shrink-0 mt-[1px]"
                     style={{ color: "var(--color-accent)" }}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
                       <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
                     </svg>
@@ -426,10 +425,10 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
         {/* Suggestion tiles */}
         <div className="mb-3">
           <div className="flex items-center justify-between mb-2.5">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+            <span className="eyebrow-label text-[var(--color-muted)]">
               Starter prompts
             </span>
-            <span className="text-[11px] text-[var(--color-muted)]">Tailored to your book · scroll for more</span>
+            <span className="text-[length:var(--text-meta)] text-[var(--color-muted)]">Tailored to your book · scroll for more</span>
           </div>
           <div
             className="grid grid-cols-1 sm:grid-cols-2 gap-[10px] overflow-y-auto pr-1"
@@ -444,14 +443,14 @@ function EmptyState({ onSuggestion }: { onSuggestion?: (text: string) => void })
               <button
                 key={s.text}
                 onClick={() => onSuggestion?.(s.text)}
-                className="followup-chip text-left px-[16px] py-[14px] rounded-[12px] flex gap-[10px] items-start transition-all duration-120 group"
+                className="followup-chip text-left px-[16px] py-[14px] rounded-[var(--radius-lg)] flex gap-[10px] items-start transition-all duration-120 group"
                 style={{
-                  fontSize: "13.5px",
+                  fontSize: "var(--text-sm)",
                   lineHeight: 1.4,
                 }}
               >
                 <span
-                  className="flex-shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] px-[7px] py-[3px] rounded-[5px] mt-[1px]"
+                  className="flex-shrink-0 text-[length:var(--text-micro)] font-semibold uppercase tracking-[0.14em] px-[7px] py-[3px] rounded-[var(--radius-xs)] mt-[1px]"
                   style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
                 >
                   {s.tag}
@@ -524,7 +523,7 @@ export default function MessageList({
 
   return (
     <div className="flex-1 overflow-y-auto print-transcript" style={{ scrollbarGutter: "stable both-edges" }}>
-      <div className="mx-auto max-w-[720px] px-4 pt-8 pb-[150px] flex flex-col gap-7">
+      <div className="mx-auto max-w-[720px] px-4 pt-8 pb-[var(--content-pad-bottom)] flex flex-col gap-7">
         {messages.map((msg) => (
           <Message key={msg.id} message={msg} onSuggestion={onSuggestion} onDiscoverDeeper={onDiscoverDeeper} />
         ))}
@@ -539,9 +538,7 @@ export default function MessageList({
           <div className="flex gap-[14px]">
             <FinavaAvatar />
             <div className="flex-1 min-w-0 pt-1">
-              <div className="stream-body">
-                <StreamingMarkdown content={revealed} />
-              </div>
+              <StreamingMarkdown content={revealed} />
             </div>
           </div>
         )}

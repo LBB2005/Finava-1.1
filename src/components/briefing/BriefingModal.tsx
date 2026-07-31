@@ -30,7 +30,7 @@ export default function BriefingModal({ briefing, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(13,22,38,0.45)", backdropFilter: "blur(4px)" }}
+      style={{ background: "var(--color-scrim)", backdropFilter: "blur(4px)" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
@@ -51,10 +51,10 @@ export default function BriefingModal({ briefing, onClose }: Props) {
           style={{ borderBottom: "1px solid var(--color-border)", background: "var(--color-surface)" }}
         >
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-accent)] mb-0.5">
+            <p className="eyebrow-label text-[var(--color-accent)] mb-0.5">
               Weekly Briefing
             </p>
-            <p className="text-[14px] font-semibold text-[var(--color-text)]">{date}</p>
+            <p className="text-[length:var(--text-body)] font-semibold text-[var(--color-text)]">{date}</p>
           </div>
           <div className="flex items-center gap-3">
             {/* Ticker pills */}
@@ -62,21 +62,21 @@ export default function BriefingModal({ briefing, onClose }: Props) {
               {briefing.tickers.slice(0, 8).map((t) => (
                 <span
                   key={t}
-                  className="text-[10px] font-bold px-2 py-[2px] rounded-full"
+                  className="mono text-[length:var(--text-micro)] font-bold px-2 py-[2px] rounded-full"
                   style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
                 >
                   {t}
                 </span>
               ))}
               {briefing.tickers.length > 8 && (
-                <span className="text-[10px] text-[var(--color-muted)]">+{briefing.tickers.length - 8}</span>
+                <span className="text-[length:var(--text-micro)] text-[var(--color-muted)]">+{briefing.tickers.length - 8}</span>
               )}
             </div>
             <button
               onClick={onClose}
               className="w-8 h-8 flex items-center justify-center rounded-full text-[var(--color-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] transition-colors duration-150"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
