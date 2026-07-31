@@ -10,6 +10,7 @@ import type { Holding, Quote } from "@/types/portfolio";
 import ConnectBrokerageButton from "@/components/portfolio/ConnectBrokerageButton";
 import ChatContextButton from "@/components/chat/ChatContextButton";
 import PageHeader from "@/components/layout/PageHeader";
+import Sparkline from "@/components/ui/Sparkline";
 
 type Period = "1D" | "1W" | "1M" | "YTD" | "1Y" | "5Y" | "ALL";
 const PERIODS: Period[] = ["1D", "1W", "1M", "YTD", "1Y", "5Y", "ALL"];
@@ -83,8 +84,8 @@ function ScorePill({ score }: { score: number }) {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", justifyContent: "center",
-      minWidth: 30, padding: "3px 8px", borderRadius: 5,
-      fontSize: 11.5, fontWeight: 700, color, background: bg,
+      minWidth: 30, padding: "3px 8px", borderRadius: "var(--radius-xs)",
+      fontSize: "var(--text-meta)", fontWeight: 700, color, background: bg,
       fontVariantNumeric: "tabular-nums",
     }}>{score}</span>
   );
@@ -92,10 +93,9 @@ function ScorePill({ score }: { score: number }) {
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p style={{
-      fontSize: 10, fontWeight: 700, textTransform: "uppercase",
-      letterSpacing: "0.16em", color: "var(--color-muted)", margin: 0,
-    }}>{children as string}</p>
+    <p className="eyebrow-label" style={{ color: "var(--color-muted)", margin: 0 }}>
+      {children as string}
+    </p>
   );
 }
 
@@ -107,10 +107,10 @@ function KpiStat({ label, value, sub, accent }: {
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <Eyebrow>{label}</Eyebrow>
       <span className="serif" style={{
-        fontSize: 26, fontWeight: 800, letterSpacing: "-0.015em",
+        fontSize: "var(--text-stat)", fontWeight: 800, letterSpacing: "-0.015em",
         color: accent ?? "var(--color-text)", lineHeight: 1,
       }}>{value}</span>
-      {sub && <span style={{ fontSize: 11.5, color: "var(--color-muted)" }}>{sub}</span>}
+      {sub && <span style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>{sub}</span>}
     </div>
   );
 }
@@ -118,15 +118,15 @@ function KpiStat({ label, value, sub, accent }: {
 // Pill-style segmented range toggle
 function RangeToggle({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
   return (
-    <div style={{ display: "flex", gap: 2, background: "var(--color-surface)", borderRadius: 99, padding: 3 }}>
+    <div style={{ display: "flex", gap: 2, background: "var(--color-surface)", borderRadius: 999, padding: 3 }}>
       {PERIODS.map((p) => (
         <button
           key={p}
           onClick={() => onChange(p)}
           style={{
-            fontSize: 10.5, fontWeight: 600, letterSpacing: "0.02em",
-            padding: "4px 9px", borderRadius: 99, border: "none", cursor: "pointer",
-            color: value === p ? "#fff" : "var(--color-text-secondary)",
+            fontSize: "var(--text-micro)", fontWeight: 600, letterSpacing: "0.02em",
+            padding: "4px 9px", borderRadius: 999, border: "none", cursor: "pointer",
+            color: value === p ? "var(--color-on-accent)" : "var(--color-text-secondary)",
             background: value === p ? "var(--color-accent)" : "transparent",
             transition: "background 140ms, color 140ms",
           }}
@@ -226,7 +226,7 @@ function BenchmarkChart({
           <line
             key={i}
             x1="0" y1={6 + f * (H - 12)} x2={W} y2={6 + f * (H - 12)}
-            stroke="var(--color-border)" strokeWidth="1" vectorEffect="non-scaling-stroke"
+            stroke="var(--color-border)" strokeWidth="1" strokeDasharray="3 4" vectorEffect="non-scaling-stroke"
           />
         ))}
         {/* Area fill under portfolio line */}
@@ -237,7 +237,7 @@ function BenchmarkChart({
           fill="none"
           stroke="var(--color-muted)"
           strokeWidth="1.6"
-          strokeDasharray="4 4"
+          strokeDasharray="3 4"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
         />
@@ -268,21 +268,21 @@ function BenchmarkChart({
       {/* Axis labels */}
       <div className="mono" style={{
         display: "flex", justifyContent: "space-between",
-        fontSize: 10, color: "var(--color-muted)", letterSpacing: "0.04em", marginTop: 6,
+        fontSize: "var(--text-micro)", color: "var(--color-muted)", letterSpacing: "0.04em", marginTop: 6,
       }}>
         {labels.map((l, i) => <span key={l + i}>{l}</span>)}
       </div>
 
       {/* Legend */}
       <div style={{ display: "flex", gap: 18, alignItems: "center", marginTop: 8 }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "var(--color-text-secondary)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: "var(--text-meta)", color: "var(--color-text-secondary)" }}>
           <span style={{ width: 14, height: 2.5, borderRadius: 2, background: "var(--color-accent)" }} />
           You{" "}
           <b className="mono" style={{ fontWeight: 700, color: yourReturn >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
             {yourReturn >= 0 ? "+" : ""}{fmt(yourReturn, 1)}%
           </b>
         </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "var(--color-text-secondary)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: "var(--text-meta)", color: "var(--color-text-secondary)" }}>
           <span style={{ width: 14, height: 0, borderTop: "2.5px dashed var(--color-muted)" }} />
           S&P 500{" "}
           <b className="mono" style={{ fontWeight: 700, color: "var(--color-text-secondary)" }}>
@@ -291,9 +291,9 @@ function BenchmarkChart({
         </span>
         {Math.abs(yourReturn - spxRet) > 0.05 && (
           <div style={{
-            marginLeft: "auto", fontSize: 10.5, fontWeight: 700,
+            marginLeft: "auto", fontSize: "var(--text-micro)", fontWeight: 700,
             letterSpacing: "0.08em", textTransform: "uppercase",
-            padding: "2px 8px", borderRadius: 4,
+            padding: "2px 8px", borderRadius: "var(--radius-xs)",
             background: outperforming
               ? "color-mix(in oklab, var(--color-bull) 10%, transparent)"
               : "color-mix(in oklab, var(--color-bear) 10%, transparent)",
@@ -307,42 +307,25 @@ function BenchmarkChart({
   );
 }
 
-function TrendSparkline({ ticker, gainLossPct }: { ticker: string; gainLossPct: number }) {
-  const W = 68, H = 22;
-  const pts = useMemo(() => {
-    const n = 20;
-    const rng = seedRng(ticker + "trend");
-    return Array.from({ length: n }, (_, i) => {
-      const t = i / (n - 1);
-      const noise = (rng() - 0.5) * Math.max(Math.abs(gainLossPct), 2) * 0.45;
-      return i === n - 1 ? gainLossPct : gainLossPct * t + noise;
-    });
-  }, [ticker, gainLossPct]);
-
-  const min = Math.min(...pts), max = Math.max(...pts);
-  const span = max - min || 1;
-  const stroke = gainLossPct >= 0 ? "var(--color-bull)" : "var(--color-bear)";
-  const ptStr = pts.map((v, i) => {
-    const x = (i / (pts.length - 1)) * W;
-    const y = 2 + (1 - (v - min) / span) * (H - 4);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
-
-  return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
-      <polyline points={ptStr} fill="none" stroke={stroke} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
+// Seeded synthetic trend series for the holdings-table sparkline.
+function trendSeries(ticker: string, gainLossPct: number): number[] {
+  const n = 20;
+  const rng = seedRng(ticker + "trend");
+  return Array.from({ length: n }, (_, i) => {
+    const t = i / (n - 1);
+    const noise = (rng() - 0.5) * Math.max(Math.abs(gainLossPct), 2) * 0.45;
+    return i === n - 1 ? gainLossPct : gainLossPct * t + noise;
+  });
 }
 
 // Quiet shimmer block for in-cell and layout placeholders while data loads.
 function Shimmer({ w, h = 12, style }: { w: number | string; h?: number; style?: React.CSSProperties }) {
   return (
     <span
-      className="animate-pulse"
+      className="skeleton"
       style={{
-        display: "inline-block", width: w, height: h, borderRadius: 4,
-        background: "var(--color-border)", ...style,
+        display: "inline-block", width: w, height: h,
+        borderRadius: "var(--radius-xs)", ...style,
       }}
     />
   );
@@ -353,12 +336,12 @@ function Shimmer({ w, h = 12, style }: { w: number | string; h?: number; style?:
 function PortfolioSkeleton() {
   return (
     <div style={{
-      maxWidth: 1100, margin: "0 auto", padding: "26px 32px 8px",
+      maxWidth: 1100, margin: "0 auto", padding: "26px var(--page-gutter) 8px",
       display: "flex", flexDirection: "column", gap: 22,
     }}>
-      <div className="animate-pulse" style={{
+      <div className="skeleton" style={{
         height: 220, border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-xl)", background: "var(--color-surface)",
+        borderRadius: "var(--radius-xl)",
       }} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 28, padding: "0 4px" }}>
         {[0, 1, 2, 3].map((i) => (
@@ -535,7 +518,7 @@ export default function PortfolioPage() {
                         if (e.key === "Enter") commitCash();
                         if (e.key === "Escape") setEditingCash(false);
                       }}
-                      className="w-24 bg-transparent border-b border-[var(--color-accent)] focus:outline-none text-right text-[16px] sm:text-[11px]"
+                      className="w-24 bg-transparent border-b border-[var(--color-accent)] focus:outline-none text-right text-[length:var(--text-lg)] sm:text-[length:var(--text-meta)]"
                       placeholder="0.00"
                     />
                   ) : (
@@ -564,21 +547,21 @@ export default function PortfolioPage() {
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
             {plaidConnected ? (
               <>
-                <p className="text-sm" style={{ color: "var(--color-muted)" }}>
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)" }}>
                   Connected to {institutionName ?? "your brokerage"}, but no positions were found.
                   <br />Refresh to re-pull, or confirm the account holds investments.
                 </p>
-                <button onClick={handleSync} className="tbtn on" disabled={syncing}>
-                  {syncing ? "SYNCING…" : "REFRESH"}
+                <button onClick={handleSync} className="btn btn-primary" disabled={syncing}>
+                  {syncing ? "Syncing…" : "Refresh"}
                 </button>
               </>
             ) : (
               <>
-                <p className="text-sm" style={{ color: "var(--color-muted)" }}>
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)" }}>
                   No holdings yet — connect a brokerage to import them automatically,
                   <br />or add one manually from the sidebar.
                 </p>
-                <ConnectBrokerageButton className="tbtn on" onLinked={refresh} />
+                <ConnectBrokerageButton className="btn btn-primary" label="Connect brokerage" onLinked={refresh} />
               </>
             )}
           </div>
@@ -604,7 +587,7 @@ export default function PortfolioPage() {
               }}>
                 <Eyebrow>Total account value</Eyebrow>
                 <div className="serif" style={{
-                  fontSize: 54, fontWeight: 900,
+                  fontSize: "var(--text-hero)", fontWeight: 900,
                   letterSpacing: "-0.025em", color: "var(--color-text)", lineHeight: 0.95,
                 }}>
                   ${fmt0(totalAccountValue)}
@@ -613,17 +596,17 @@ export default function PortfolioPage() {
                   {hasQuotes ? (
                     <>
                       <span className="mono" style={{
-                        fontSize: 13, fontWeight: 700,
+                        fontSize: "var(--text-sm)", fontWeight: 700,
                         color: totalDayChange >= 0 ? "var(--color-bull)" : "var(--color-bear)",
                       }}>
                         {totalDayChange >= 0 ? "▲" : "▼"}{" "}
                         {totalDayChange >= 0 ? "+" : "−"}${fmt0(Math.abs(totalDayChange))}{"  "}
                         {totalDayChangePct >= 0 ? "+" : ""}{fmt(totalDayChangePct, 2)}%
                       </span>
-                      <span style={{ fontSize: 11.5, color: "var(--color-muted)" }}>today</span>
+                      <span style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>today</span>
                     </>
                   ) : (
-                    <span style={{ fontSize: 11.5, color: "var(--color-muted)" }}>
+                    <span style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>
                       {holdings.length} positions · {cashBalance > 0 ? `$${fmt0(cashBalance)} cash` : "no cash"}
                     </span>
                   )}
@@ -636,7 +619,7 @@ export default function PortfolioPage() {
                   <div>
                     <Eyebrow>All-time</Eyebrow>
                     <div className="mono" style={{
-                      fontSize: 15, fontWeight: 700, marginTop: 4,
+                      fontSize: "var(--text-title)", fontWeight: 700, marginTop: 4,
                       color: totalGain >= 0 ? "var(--color-bull)" : "var(--color-bear)",
                     }}>
                       {totalGain >= 0 ? "+" : "−"}${fmt0(Math.abs(totalGain))} · {totalGain >= 0 ? "+" : ""}{fmt(totalGainPct, 1)}%
@@ -644,7 +627,7 @@ export default function PortfolioPage() {
                   </div>
                   <div>
                     <Eyebrow>Invested</Eyebrow>
-                    <div className="mono" style={{ fontSize: 15, fontWeight: 700, marginTop: 4, color: "var(--color-text)" }}>
+                    <div className="mono" style={{ fontSize: "var(--text-title)", fontWeight: 700, marginTop: 4, color: "var(--color-text)" }}>
                       ${fmt0(totalCost)}
                     </div>
                   </div>
@@ -719,8 +702,8 @@ export default function PortfolioPage() {
                         onClick={() => setHoveredTicker((prev) => (prev === seg.ticker ? null : seg.ticker))}
                       />
                     ))}
-                    <text x="86" y="79" textAnchor="middle" fontSize="9.5" fill="var(--color-muted)" fontWeight="700" letterSpacing="0.16em">EQUITY</text>
-                    <text x="86" y="101" textAnchor="middle" fontSize="21" fontWeight="800" fill="var(--color-text)" fontFamily="var(--font-serif)">
+                    <text x="86" y="79" textAnchor="middle" style={{ fontSize: "var(--text-micro)" }} fill="var(--color-muted)" fontWeight="700" letterSpacing="0.16em">EQUITY</text>
+                    <text x="86" y="101" textAnchor="middle" style={{ fontSize: "var(--text-display)" }} fontWeight="800" fill="var(--color-text)" fontFamily="var(--font-serif)">
                       {equityValue >= 100_000 ? `$${fmt(equityValue / 1000, 0)}k` : equityValue >= 1_000 ? `$${fmt(equityValue / 1000, 1)}k` : `$${fmt0(equityValue)}`}
                     </text>
                   </svg>
@@ -739,8 +722,8 @@ export default function PortfolioPage() {
                         onClick={() => setHoveredTicker((prev) => (prev === r.holding.ticker ? null : r.holding.ticker))}
                       >
                         <span style={{ width: 8, height: 8, borderRadius: 2, background: segColor(i, rows.length), flexShrink: 0 }} />
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-accent)" }}>{r.holding.ticker}</span>
-                        <span className="mono" style={{ fontSize: 11, color: "var(--color-muted)", marginLeft: "auto" }}>
+                        <span style={{ fontSize: "var(--text-meta)", fontWeight: 700, color: "var(--color-accent)" }}>{r.holding.ticker}</span>
+                        <span className="mono" style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", marginLeft: "auto" }}>
                           {fmt(r.pct, 1)}%
                         </span>
                       </div>
@@ -762,7 +745,7 @@ export default function PortfolioPage() {
                   borderBottom: "1px solid var(--color-border)",
                 }}>
                   <Eyebrow>Holdings</Eyebrow>
-                  <span style={{ fontSize: 11, color: "var(--color-muted)" }}>Click a row to open its stock page</span>
+                  <span style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>Click a row to open its stock page</span>
                 </div>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
@@ -781,10 +764,10 @@ export default function PortfolioPage() {
                           className="mono"
                           style={{
                             textAlign: right ? "right" : "left",
-                            fontSize: 9.5, fontWeight: 700,
+                            fontSize: "var(--text-micro)", fontWeight: 700,
                             letterSpacing: "0.1em", textTransform: "uppercase",
                             color: "var(--color-muted)",
-                            padding: "9px 16px",
+                            padding: "8px 12px",
                             borderBottom: "1px solid var(--color-border)",
                           }}
                         >{label}</th>
@@ -805,33 +788,33 @@ export default function PortfolioPage() {
                           onClick={() => router.push(`/stock/${r.holding.ticker}`)}
                         >
                           {/* Ticker chip + company name */}
-                          <td style={{ padding: "10px 16px" }}>
+                          <td style={{ padding: "8px 12px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                               <span style={{
-                                fontSize: 11, fontWeight: 700, letterSpacing: "0.04em",
+                                fontSize: "var(--text-meta)", fontWeight: 700, letterSpacing: "0.04em",
                                 color: "var(--color-accent)", background: "var(--color-accent-light)",
-                                padding: "3px 7px", borderRadius: 5,
+                                padding: "3px 7px", borderRadius: "var(--radius-xs)",
                               }}>{r.holding.ticker}</span>
-                              <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+                              <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
                                 {r.holding.companyName ?? ""}
                               </span>
                             </div>
                           </td>
                           {/* Finava score pill */}
-                          <td style={{ padding: "10px 16px" }}>
+                          <td style={{ padding: "8px 12px" }}>
                             <ScorePill score={score} />
                           </td>
                           {/* Price */}
                           <td className="mono" style={{
-                            textAlign: "right", padding: "10px 16px",
-                            fontSize: 12.5, color: "var(--color-text)",
+                            textAlign: "right", padding: "8px 12px",
+                            fontSize: "var(--text-sm)", color: "var(--color-text)",
                           }}>
                             {r.quote?.price ? `$${fmt(r.quote.price)}` : quotesLoading ? <Shimmer w={48} /> : "—"}
                           </td>
                           {/* Day % */}
                           <td className="mono" style={{
-                            textAlign: "right", padding: "10px 16px",
-                            fontSize: 12.5, fontWeight: 600,
+                            textAlign: "right", padding: "8px 12px",
+                            fontSize: "var(--text-sm)", fontWeight: 600,
                             color: r.quote
                               ? isDayPos ? "var(--color-bull)" : "var(--color-bear)"
                               : "var(--color-muted)",
@@ -840,23 +823,28 @@ export default function PortfolioPage() {
                           </td>
                           {/* Market value */}
                           <td className="mono" style={{
-                            textAlign: "right", padding: "10px 16px",
-                            fontSize: 12.5, fontWeight: 600, color: "var(--color-text)",
+                            textAlign: "right", padding: "8px 12px",
+                            fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--color-text)",
                           }}>
                             ${fmt0(r.mv)}
                           </td>
                           {/* Return */}
                           <td className="mono" style={{
-                            textAlign: "right", padding: "10px 16px",
-                            fontSize: 12.5, fontWeight: 700,
+                            textAlign: "right", padding: "8px 12px",
+                            fontSize: "var(--text-sm)", fontWeight: 700,
                             color: isPos ? "var(--color-bull)" : "var(--color-bear)",
                           }}>
                             {isPos ? "+" : ""}{fmt(r.gainLossPct, 1)}%
                           </td>
                           {/* Sparkline */}
-                          <td style={{ textAlign: "right", padding: "10px 16px" }}>
+                          <td style={{ textAlign: "right", padding: "8px 12px" }}>
                             <div style={{ display: "inline-block" }}>
-                              <TrendSparkline ticker={r.holding.ticker} gainLossPct={r.gainLossPct} />
+                              <Sparkline
+                                data={trendSeries(r.holding.ticker, r.gainLossPct)}
+                                width={68}
+                                height={22}
+                                stroke={r.gainLossPct >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
+                              />
                             </div>
                           </td>
                         </tr>

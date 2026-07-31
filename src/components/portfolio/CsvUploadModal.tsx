@@ -40,15 +40,19 @@ export default function CsvUploadModal({ onClose, onUpload }: Props) {
   }
 
   return (
-    <Modal onClose={onClose} label="Import holdings from CSV">
-        <h2 className="text-lg font-semibold text-[var(--color-text)] mb-2">Import from CSV</h2>
-        <p className="text-sm text-[var(--color-muted)] mb-5">
+    <Modal
+      onClose={onClose}
+      label="Import holdings from CSV"
+      className="w-full max-w-md p-6 mx-4 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-[var(--radius-xl)] shadow-[var(--shadow-pop)]"
+    >
+        <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-text)] mb-2">Import from CSV</h2>
+        <p className="text-[length:var(--text-sm)] text-[var(--color-muted)] mb-5">
           Upload a broker export. We detect common column names (Symbol, Shares, Avg Cost, etc.).
         </p>
 
         {!result ? (
           <div
-            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+            className={`border-2 border-dashed rounded-[var(--radius-md)] p-8 text-center cursor-pointer transition-colors ${
               dragging
                 ? "border-[var(--color-accent)] bg-[var(--color-accent-light)]"
                 : "border-[var(--color-border)] hover:border-[var(--color-accent-medium)]"
@@ -65,25 +69,25 @@ export default function CsvUploadModal({ onClose, onUpload }: Props) {
               className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f); }}
             />
-            <p className="text-sm font-medium text-[var(--color-text)]">
+            <p className="text-[length:var(--text-sm)] font-medium text-[var(--color-text)]">
               {loading ? "Importing…" : "Drop CSV here or click to browse"}
             </p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">
+            <p className="text-[length:var(--text-meta)] text-[var(--color-muted)] mt-1">
               .csv, .tsv supported
             </p>
           </div>
         ) : (
-          <div className="rounded-xl bg-[var(--color-accent-light)] p-4 text-center">
+          <div className="rounded-[var(--radius-md)] bg-[var(--color-accent-light)] p-4 text-center">
             <p className="font-semibold text-[var(--color-accent)]">
               {result.imported} holdings imported
             </p>
             {result.failed > 0 && (
-              <p className="text-xs text-[var(--color-muted)] mt-1">{result.failed} rows skipped</p>
+              <p className="text-[length:var(--text-meta)] text-[var(--color-muted)] mt-1">{result.failed} rows skipped</p>
             )}
           </div>
         )}
 
-        {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
+        {error && <p className="text-[length:var(--text-sm)] text-[var(--color-bear)] mt-3">{error}</p>}
 
         <div className="flex justify-end gap-3 mt-5">
           <Button variant="ghost" onClick={onClose}>

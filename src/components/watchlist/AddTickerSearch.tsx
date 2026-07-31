@@ -90,7 +90,7 @@ export default function AddTickerSearch({ onAdd, existing = [] }: Props) {
           display: "flex", alignItems: "center", gap: 6,
           background: "var(--color-bg)",
           border: `1px solid ${open ? "var(--color-accent-medium)" : "var(--color-border)"}`,
-          borderRadius: 4, padding: "4px 4px 4px 10px",
+          borderRadius: "var(--radius-sm)", padding: "4px 4px 4px 10px",
           transition: "border-color 140ms",
         }}
       >
@@ -110,15 +110,15 @@ export default function AddTickerSearch({ onAdd, existing = [] }: Props) {
           aria-controls={listboxId}
           aria-autocomplete="list"
           aria-label="Search to add a ticker"
-          style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 12, letterSpacing: "0.04em", color: "var(--color-text)", minWidth: 0 }}
+          style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: "var(--text-sm)", letterSpacing: "0.04em", color: "var(--color-text)", minWidth: 0 }}
         />
         <button
           type="submit"
           aria-label="Add ticker"
           style={{
-            width: 26, height: 26, borderRadius: 3, border: "none",
+            width: 26, height: 26, borderRadius: "var(--radius-xs)", border: "none",
             background: val ? "var(--color-accent)" : "var(--color-surface-2)",
-            color: val ? "#fff" : "var(--color-muted)", cursor: "pointer",
+            color: val ? "var(--color-on-accent)" : "var(--color-muted)", cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
             flexShrink: 0,
           }}
@@ -133,8 +133,8 @@ export default function AddTickerSearch({ onAdd, existing = [] }: Props) {
         <div
           role="listbox"
           id={listboxId}
-          className="absolute left-0 right-0 mt-1.5 z-50 rounded-[14px] overflow-hidden fade-in"
-          style={{ top: "100%", background: "var(--color-bg)", border: "1px solid var(--color-border)", boxShadow: "0 8px 32px rgba(15,23,42,0.14)" }}
+          className="popover absolute left-0 right-0 mt-1.5 z-50 overflow-hidden fade-in"
+          style={{ top: "100%" }}
         >
           {results.map((s, i) => (
             <button
@@ -147,9 +147,9 @@ export default function AddTickerSearch({ onAdd, existing = [] }: Props) {
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left bg-transparent transition-colors duration-100"
               style={{ background: i === active ? "var(--color-accent-light)" : "transparent" }}
             >
-              <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text)", width: 52, flexShrink: 0 }}>{s.ticker}</span>
-              <span className="truncate" style={{ fontSize: 11.5, color: "var(--color-muted)", flex: 1, minWidth: 0 }}>{s.name}</span>
-              <span className="mono" style={{ fontSize: 10.5, fontWeight: 700, flexShrink: 0, color: s.chg >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
+              <span className="mono" style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--color-text)", width: 52, flexShrink: 0 }}>{s.ticker}</span>
+              <span className="truncate" style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", flex: 1, minWidth: 0 }}>{s.name}</span>
+              <span className="mono" style={{ fontSize: "var(--text-micro)", fontWeight: 700, flexShrink: 0, color: s.chg >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
                 {s.chg >= 0 ? "+" : ""}{s.chg.toFixed(2)}%
               </span>
             </button>

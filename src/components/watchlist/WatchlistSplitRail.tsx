@@ -14,6 +14,7 @@ import {
 import ChatContextButton from "@/components/chat/ChatContextButton";
 import PageHeader from "@/components/layout/PageHeader";
 import AddTickerSearch from "@/components/watchlist/AddTickerSearch";
+import Sparkline from "@/components/ui/Sparkline";
 import { useChatStore } from "@/stores/chatStore";
 import { buildWatchlistSnapshot } from "@/lib/pageContext";
 
@@ -97,34 +98,14 @@ function deriveSignals(changePct: number | null, f: FactorScores | null): Signal
 
 // ─── Primitives ──────────────────────────────────────────────────────────────
 
-function Sparkline({ values, w = 54, h = 18, up = true }: {
-  values: number[]; w?: number; h?: number; up?: boolean;
-}) {
-  const color = up ? "var(--color-bull)" : "var(--color-bear)";
-  const min = Math.min(...values), max = Math.max(...values);
-  const span = max - min || 1;
-  const pad = 2;
-  const stepX = w / (values.length - 1);
-  const pts = values.map((v, i) => [
-    i * stepX,
-    pad + (h - pad * 2) * (1 - (v - min) / span),
-  ]);
-  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block", overflow: "visible" }}>
-      <path d={line} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function ScoreBar({ score, w = 56 }: { score: number; w?: number }) {
   const c = scoreTierColor(score);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ width: w, height: 6, borderRadius: 99, background: "var(--color-surface-2)", overflow: "hidden" }}>
-        <div style={{ width: `${score}%`, height: "100%", borderRadius: 99, background: c }} />
+      <div style={{ width: w, height: 6, borderRadius: 999, background: "var(--color-surface-2)", overflow: "hidden" }}>
+        <div style={{ width: `${score}%`, height: "100%", borderRadius: 999, background: c }} />
       </div>
-      <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: "var(--color-text)", minWidth: 18 }}>
+      <span className="mono" style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--color-text)", minWidth: 18 }}>
         {score}
       </span>
     </div>
@@ -141,7 +122,7 @@ function FactorTiles({ f }: { f: FactorScores }) {
             key={fac.key}
             title={`${fac.short}: ${v}`}
             style={{
-              width: 15, height: 15, borderRadius: 3,
+              width: 15, height: 15, borderRadius: "var(--radius-xs)",
               background: factorFill(v),
               display: "flex", alignItems: "center", justifyContent: "center",
             }}
@@ -158,7 +139,7 @@ function FactorSkeleton() {
   return (
     <div style={{ display: "inline-flex", gap: 3 }}>
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} style={{ width: 15, height: 15, borderRadius: 3, background: "var(--color-surface-2)" }} />
+        <div key={i} className="skeleton" style={{ width: 15, height: 15, borderRadius: "var(--radius-xs)" }} />
       ))}
     </div>
   );
@@ -168,7 +149,7 @@ function GradePill({ g }: { g: string }) {
   return (
     <span
       className={"mono grade " + gradeClass(g)}
-      style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 6px", borderRadius: 5, letterSpacing: "0.01em", whiteSpace: "nowrap" }}
+      style={{ fontSize: "var(--text-micro)", fontWeight: 700, padding: "2px 6px", borderRadius: "var(--radius-xs)", letterSpacing: "0.01em", whiteSpace: "nowrap" }}
     >
       {g}
     </span>
@@ -182,12 +163,12 @@ function SignalChip({ sig }: { sig: Signal }) {
       className="mono"
       style={{
         display: "inline-flex", alignItems: "center", gap: 5,
-        fontSize: 10, fontWeight: 600,
+        fontSize: "var(--text-micro)", fontWeight: 600,
         color: tone.color, background: tone.bg,
-        padding: "2px 8px", borderRadius: 99, whiteSpace: "nowrap", letterSpacing: "0.01em",
+        padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap", letterSpacing: "0.01em",
       }}
     >
-      <span style={{ fontSize: 8.5 }}>{tone.glyph}</span>
+      <span style={{ fontSize: "0.85em" }}>{tone.glyph}</span>
       {sig.label}
     </span>
   );
@@ -208,7 +189,7 @@ function TableHead() {
             className="mono"
             style={{
               textAlign: RIGHT_COLS.has(h) ? "right" : "left",
-              fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+              fontSize: "var(--text-micro)", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
               color: "var(--color-muted)", padding: "8px 12px",
               background: "var(--color-surface)", borderBottom: "1px solid var(--color-border-strong)",
               whiteSpace: "nowrap",
@@ -255,59 +236,61 @@ function TableRow({ data, rank, onRemove, onClick }: {
       onClick={() => onClick(data.ticker)}
       style={{ borderBottom: "1px solid var(--color-border)" }}
     >
-      <td className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)", padding: "9px 12px" }}>
+      <td className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", padding: "8px 12px" }}>
         {String(rank).padStart(2, "0")}
       </td>
-      <td style={{ padding: "9px 12px" }}>
+      <td style={{ padding: "8px 12px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.02em", color: "var(--color-accent)" }}>
+          <span className="mono" style={{ fontSize: "var(--text-sm)", fontWeight: 700, letterSpacing: "0.02em", color: "var(--color-accent)" }}>
             {data.ticker}
           </span>
-          <span style={{ fontSize: 10.5, color: "var(--color-muted)", maxWidth: 104, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", maxWidth: 104, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {data.name}
           </span>
         </div>
       </td>
-      <td className="mono" style={{ textAlign: "right", fontSize: 12, color: "var(--color-text)", padding: "9px 12px" }}>
+      <td className="mono" style={{ textAlign: "right", fontSize: "var(--text-sm)", color: "var(--color-text)", padding: "8px 12px" }}>
         {fmtPrice}
       </td>
-      <td style={{ textAlign: "right", padding: "9px 12px" }}>
+      <td style={{ textAlign: "right", padding: "8px 12px" }}>
         <span
           className="mono"
           style={{
             color: data.changePct == null ? "var(--color-muted)" : up ? "var(--color-bull)" : "var(--color-bear)",
-            fontWeight: 700, fontSize: 12, whiteSpace: "nowrap",
+            fontWeight: 700, fontSize: "var(--text-sm)", whiteSpace: "nowrap",
           }}
         >
           {fmtChange}
         </span>
       </td>
-      <td style={{ padding: "9px 12px" }}>
+      <td style={{ padding: "8px 12px" }}>
         {data.f ? <FactorTiles f={data.f} /> : <FactorSkeleton />}
       </td>
-      <td style={{ padding: "9px 12px" }}>
+      <td style={{ padding: "8px 12px" }}>
         <ScoreBar score={data.score} w={56} />
       </td>
-      <td style={{ padding: "9px 12px" }}>
+      <td style={{ padding: "8px 12px" }}>
         <GradePill g={data.grade} />
       </td>
-      <td style={{ padding: "9px 12px" }}>
+      <td style={{ padding: "8px 12px" }}>
         {data.signals[0]
           ? <SignalChip sig={data.signals[0]} />
-          : <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>—</span>
+          : <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)" }}>—</span>
         }
       </td>
-      <td style={{ padding: "9px 12px", textAlign: "right" }}>
-        <Sparkline values={data.series} w={54} h={18} up={up} />
+      <td style={{ padding: "8px 12px", textAlign: "right" }}>
+        <Sparkline data={data.series} width={54} height={18} stroke={up ? "var(--color-bull)" : "var(--color-bear)"} />
       </td>
-      <td style={{ padding: "9px 10px", textAlign: "right" }}>
+      <td style={{ padding: "8px 10px", textAlign: "right" }}>
         <button
           aria-label={`Remove ${data.ticker}`}
           onClick={(e) => { e.stopPropagation(); onRemove(data.ticker); }}
-          className="wl-x mono"
-          style={{ width: 20, height: 20, border: "none", background: "transparent", color: "var(--color-muted)", cursor: "pointer", fontSize: 14 }}
+          className="wl-x"
+          style={{ width: 20, height: 20, border: "none", background: "transparent", color: "var(--color-muted)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
         >
-          ×
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
         </button>
       </td>
     </tr>
@@ -322,7 +305,7 @@ function RailSection({ title, count, children }: {
   return (
     <div className="b-railsec">
       <div className="b-railhead">
-        <span className="mono b-railtitle" style={{ textTransform: "uppercase", fontSize: 9.5, letterSpacing: "0.1em", color: "var(--color-muted)" }}>
+        <span className="mono b-railtitle" style={{ textTransform: "uppercase", fontSize: "var(--text-micro)", letterSpacing: "0.1em", color: "var(--color-muted)" }}>
           {title}
         </span>
         {count != null && <span className="mono b-railcount">{count}</span>}
@@ -343,10 +326,10 @@ function KpiTile({ label, value, accent, last }: {
       paddingRight: last ? 0 : 20,
       borderRight: last ? "none" : "1px solid var(--color-border)",
     }}>
-      <span className="mono" style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--color-muted)", whiteSpace: "nowrap" }}>
+      <span className="mono" style={{ fontSize: "var(--text-micro)", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--color-muted)", whiteSpace: "nowrap" }}>
         {label}
       </span>
-      <span className="mono" style={{ fontSize: 16, fontWeight: 700, color: accent ?? "var(--color-text)", lineHeight: 1, whiteSpace: "nowrap" }}>
+      <span className="mono" style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: accent ?? "var(--color-text)", lineHeight: 1, whiteSpace: "nowrap" }}>
         {value}
       </span>
     </div>
@@ -481,7 +464,7 @@ export default function WatchlistSplitRail() {
         actions={
           <>
             {active && !renaming && (
-              <button className="mono" onClick={startRename} style={{ fontSize: 10.5, color: "var(--color-muted)", border: "none", background: "transparent", cursor: "pointer", padding: "0 8px", height: 28, display: "inline-flex", alignItems: "center", borderRadius: 3, transition: "color 120ms" }}>
+              <button className="btn btn-ghost" onClick={startRename}>
                 Rename
               </button>
             )}
@@ -497,12 +480,15 @@ export default function WatchlistSplitRail() {
               />
             )}
             {active && !renaming && (
-              <button className="mono" onClick={handleDelete} style={{ fontSize: 10.5, color: "var(--color-muted)", border: "none", background: "transparent", cursor: "pointer", padding: "0 8px", height: 28, display: "inline-flex", alignItems: "center", borderRadius: 3, transition: "color 120ms" }}>
+              <button className="btn btn-danger" onClick={handleDelete}>
                 Delete
               </button>
             )}
-            <button className="tbtn" onClick={handleCreate}>
-              + New
+            <button className="tbtn" onClick={handleCreate} style={{ gap: 5 }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              New
             </button>
             <span className="mono b-asof">
               {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -541,21 +527,33 @@ export default function WatchlistSplitRail() {
       <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
 
         {isLoading ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-            <span className="mono" style={{ fontSize: 11.5, color: "var(--color-muted)" }}>Loading…</span>
+          // Skeleton rows shaped like the board table while lists load
+          <div style={{ padding: "var(--content-pad-top) var(--page-gutter)", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="skeleton" style={{ height: 38, borderRadius: "var(--radius-md)" }} />
+            {[92, 78, 86, 70, 82, 64].map((w, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <span className="skeleton" style={{ width: 52, height: 16, borderRadius: "var(--radius-xs)" }} />
+                <span className="skeleton" style={{ width: `${w}%`, height: 12, borderRadius: "var(--radius-xs)" }} />
+              </div>
+            ))}
           </div>
         ) : watchlists.length === 0 ? (
           // No lists state
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12, padding: "40px 24px", textAlign: "center" }}>
-            <p style={{ fontSize: 14, color: "var(--color-text)", fontFamily: "var(--font-serif)", fontWeight: 700 }}>No watchlists yet</p>
-            <p style={{ fontSize: 12.5, color: "var(--color-text-secondary)" }}>Create a list to start tracking stocks you care about.</p>
-            <button className="tbtn on" onClick={handleCreate}>＋ Create watchlist</button>
+            <p style={{ fontSize: "var(--text-body)", color: "var(--color-text)", fontFamily: "var(--font-serif)", fontWeight: 700 }}>No watchlists yet</p>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>Create a list to start tracking stocks you care about.</p>
+            <button className="btn btn-primary" onClick={handleCreate}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Create watchlist
+            </button>
           </div>
         ) : tickers.length === 0 ? (
           // Empty list state
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 10, padding: "40px 24px", textAlign: "center" }}>
-            <p style={{ fontSize: 14, color: "var(--color-text)", fontFamily: "var(--font-serif)", fontWeight: 700 }}>Nothing in {active?.name ?? "this list"} yet</p>
-            <p style={{ fontSize: 12.5, color: "var(--color-text-secondary)" }}>Add a ticker using the search bar above.</p>
+            <p style={{ fontSize: "var(--text-body)", color: "var(--color-text)", fontFamily: "var(--font-serif)", fontWeight: 700 }}>Nothing in {active?.name ?? "this list"} yet</p>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>Add a ticker using the search bar above.</p>
           </div>
         ) : (
           // Split rail layout
@@ -564,8 +562,11 @@ export default function WatchlistSplitRail() {
             <div className="b-board">
               <div className="b-boardhead">
                 <span className="b-boardtitle">{active?.name ?? "Watchlist"}</span>
-                <span className="mono b-live">● LIVE</span>
-                <span className="mono" style={{ fontSize: 10, color: "var(--color-muted)", marginLeft: "auto" }}>SORTED · FINAVA SCORE</span>
+                <span className="mono b-live" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 999, background: "currentColor", flexShrink: 0 }} />
+                  LIVE
+                </span>
+                <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", marginLeft: "auto" }}>SORTED · FINAVA SCORE</span>
               </div>
               <table className="b-table" style={{ width: "100%" }}>
                 <TableHead />
@@ -589,7 +590,7 @@ export default function WatchlistSplitRail() {
               <RailSection title="Signals" count={signalCount}>
                 {feed.length === 0 ? (
                   <div style={{ padding: "11px 13px" }}>
-                    <span className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)" }}>No active signals</span>
+                    <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)" }}>No active signals</span>
                   </div>
                 ) : (
                   feed.slice(0, 5).map((sig, i) => {
@@ -601,12 +602,12 @@ export default function WatchlistSplitRail() {
                         onClick={() => router.push(`/stock/${sig.ticker}`)}
                         style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "9px 13px", borderBottom: i < Math.min(feed.length, 5) - 1 ? "1px solid var(--color-border)" : "none" }}
                       >
-                        <span style={{ flexShrink: 0, marginTop: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 19, height: 19, borderRadius: 99, background: tone.bg, color: tone.color, fontSize: 10, fontWeight: 700 }}>
+                        <span style={{ flexShrink: 0, marginTop: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 19, height: 19, borderRadius: 999, background: tone.bg, color: tone.color, fontSize: "var(--text-micro)", fontWeight: 700 }}>
                           {tone.glyph}
                         </span>
                         <div style={{ minWidth: 0 }}>
-                          <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: "var(--color-accent)" }}>{sig.ticker}</span>
-                          <p style={{ margin: "2px 0 0", fontSize: 10.5, color: "var(--color-text-secondary)", lineHeight: 1.35 }}>{sig.label}</p>
+                          <span className="mono" style={{ fontSize: "var(--text-meta)", fontWeight: 700, color: "var(--color-accent)" }}>{sig.ticker}</span>
+                          <p style={{ margin: "2px 0 0", fontSize: "var(--text-micro)", color: "var(--color-text-secondary)", lineHeight: 1.35 }}>{sig.label}</p>
                         </div>
                       </div>
                     );
@@ -623,11 +624,11 @@ export default function WatchlistSplitRail() {
                     onClick={() => router.push(`/stock/${row.ticker}`)}
                     style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderBottom: "1px solid var(--color-border)" }}
                   >
-                    <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: "var(--color-accent)", width: 46 }}>{row.ticker}</span>
+                    <span className="mono" style={{ fontSize: "var(--text-meta)", fontWeight: 700, color: "var(--color-accent)", width: 46 }}>{row.ticker}</span>
                     <div style={{ flex: 1 }}>
-                      <Sparkline values={row.series} w={60} h={16} up={(row.changePct ?? 0) >= 0} />
+                      <Sparkline data={row.series} width={60} height={16} stroke={(row.changePct ?? 0) >= 0 ? "var(--color-bull)" : "var(--color-bear)"} />
                     </div>
-                    <span className="mono" style={{ color: (row.changePct ?? 0) >= 0 ? "var(--color-bull)" : "var(--color-bear)", fontWeight: 700, fontSize: 11.5, whiteSpace: "nowrap" }}>
+                    <span className="mono" style={{ color: (row.changePct ?? 0) >= 0 ? "var(--color-bull)" : "var(--color-bear)", fontWeight: 700, fontSize: "var(--text-meta)", whiteSpace: "nowrap" }}>
                       {row.changePct == null ? "—" : `${(row.changePct ?? 0) >= 0 ? "▲ +" : "▼ "}${Math.abs(row.changePct).toFixed(2)}%`}
                     </span>
                   </div>
@@ -643,11 +644,11 @@ export default function WatchlistSplitRail() {
                     onClick={() => router.push(`/stock/${row.ticker}`)}
                     style={{ display: "grid", gridTemplateColumns: "44px 1fr auto", alignItems: "center", gap: 9, padding: "8px 13px", borderBottom: "1px solid var(--color-border)" }}
                   >
-                    <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: "var(--color-accent)" }}>{row.ticker}</span>
-                    <div style={{ height: 6, borderRadius: 99, background: "var(--color-surface-2)", overflow: "hidden" }}>
-                      <div style={{ width: `${row.score}%`, height: "100%", borderRadius: 99, background: scoreTierColor(row.score) }} />
+                    <span className="mono" style={{ fontSize: "var(--text-meta)", fontWeight: 700, color: "var(--color-accent)" }}>{row.ticker}</span>
+                    <div style={{ height: 6, borderRadius: 999, background: "var(--color-surface-2)", overflow: "hidden" }}>
+                      <div style={{ width: `${row.score}%`, height: "100%", borderRadius: 999, background: scoreTierColor(row.score) }} />
                     </div>
-                    <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: "var(--color-text)" }}>{row.score}</span>
+                    <span className="mono" style={{ fontSize: "var(--text-meta)", fontWeight: 700, color: "var(--color-text)" }}>{row.score}</span>
                   </div>
                 ))}
               </RailSection>

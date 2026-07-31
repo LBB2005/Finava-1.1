@@ -38,7 +38,7 @@ export default function WatchlistBoard({
   if (tickers.length === 0) {
     if (compact) {
       return (
-        <p className="pl-[42px] pr-[14px] py-[7px] text-[11.5px]" style={{ color: "var(--color-muted)" }}>
+        <p className="pl-[42px] pr-[14px] py-[7px] text-[length:var(--text-meta)]" style={{ color: "var(--color-muted)" }}>
           No stocks yet.
         </p>
       );
@@ -48,10 +48,10 @@ export default function WatchlistBoard({
         className="flex flex-col items-center justify-center text-center"
         style={{ padding: "40px 20px", gap: 6 }}
       >
-        <p className="text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
+        <p className="text-[length:var(--text-sm)]" style={{ color: "var(--color-text-secondary)" }}>
           No stocks in this list yet.
         </p>
-        <p className="text-[11.5px]" style={{ color: "var(--color-muted)" }}>
+        <p className="text-[length:var(--text-meta)]" style={{ color: "var(--color-muted)" }}>
           Add a ticker above to start tracking it.
         </p>
       </div>
@@ -82,19 +82,19 @@ export default function WatchlistBoard({
               style={{ gridTemplateColumns: "auto 1fr auto" }}
             >
               <span
-                className="text-[10.5px] font-bold tracking-[0.04em] px-[6px] py-[3px] rounded-[5px]"
+                className="text-[length:var(--text-micro)] font-bold tracking-[0.04em] px-[6px] py-[3px] rounded-[var(--radius-xs)]"
                 style={{ color: "var(--color-accent)", background: "var(--color-accent-light)" }}
               >
                 {t}
               </span>
               <span
-                className="text-[11.5px] overflow-hidden text-ellipsis whitespace-nowrap"
+                className="text-[length:var(--text-meta)] overflow-hidden text-ellipsis whitespace-nowrap"
                 style={{ color: "var(--color-text-secondary)" }}
               >
                 {nameFor(t)}
               </span>
               <span
-                className="text-[11px] font-semibold tabular-nums"
+                className="mono text-[length:var(--text-meta)] font-semibold tabular-nums"
                 style={{ color: chg === null ? "var(--color-muted)" : up ? "var(--color-bull)" : "var(--color-bear)" }}
               >
                 {isLoading && !row ? "…" : pct(chg)}
@@ -105,7 +105,7 @@ export default function WatchlistBoard({
         {hidden > 0 && (
           <button
             onClick={() => setShowAll(true)}
-            className="pl-[42px] pr-[14px] py-[7px] text-left text-[11px]"
+            className="pl-[42px] pr-[14px] py-[7px] text-left text-[length:var(--text-meta)]"
             style={{ color: "var(--color-muted)" }}
           >
             Show {hidden} more…
@@ -123,7 +123,7 @@ export default function WatchlistBoard({
           {["Ticker", "Company", "Last", "Day", "Mkt Cap"].map((h, i) => (
             <th
               key={h}
-              className={`text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)] px-4 py-[10px] ${i >= 2 ? "text-right" : "text-left"}`}
+              className={`text-[length:var(--text-micro)] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)] px-4 py-[10px] ${i >= 2 ? "text-right" : "text-left"}`}
             >
               {h}
             </th>
@@ -145,25 +145,25 @@ export default function WatchlistBoard({
             >
               <td className="px-4 py-3">
                 <span
-                  className="text-[11px] font-bold px-[7px] py-[3px] rounded-[5px] tracking-[0.04em]"
+                  className="text-[length:var(--text-meta)] font-bold px-[7px] py-[3px] rounded-[var(--radius-xs)] tracking-[0.04em]"
                   style={{ color: "var(--color-accent)", background: "var(--color-accent-light)" }}
                 >
                   {t}
                 </span>
               </td>
-              <td className="px-4 py-3 text-[12.5px] text-[var(--color-text-secondary)] max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap">
+              <td className="px-4 py-3 text-[length:var(--text-sm)] text-[var(--color-text-secondary)] max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap">
                 {nameFor(t)}
               </td>
-              <td className="px-4 py-3 text-[12.5px] text-right text-[var(--color-text)] tabular-nums">
+              <td className="mono px-4 py-3 text-[length:var(--text-sm)] text-right text-[var(--color-text)] tabular-nums">
                 {isLoading && !row ? "…" : price(row?.price ?? null)}
               </td>
               <td
-                className="px-4 py-3 text-[12.5px] font-medium text-right tabular-nums"
+                className="mono px-4 py-3 text-[length:var(--text-sm)] font-medium text-right tabular-nums"
                 style={{ color: chg === null ? "var(--color-muted)" : up ? "var(--color-bull)" : "var(--color-bear)" }}
               >
                 {pct(chg)}
               </td>
-              <td className="px-4 py-3 text-[12.5px] text-right text-[var(--color-text)] tabular-nums">
+              <td className="mono px-4 py-3 text-[length:var(--text-sm)] text-right text-[var(--color-text)] tabular-nums">
                 {row?.marketCap == null ? "—" : `$${(row.marketCap / 1e9).toFixed(1)}B`}
               </td>
               {onRemove && (
@@ -190,7 +190,7 @@ export default function WatchlistBoard({
             <td colSpan={onRemove ? 6 : 5} className="px-4 py-3 text-center">
               <button
                 onClick={() => setShowAll(true)}
-                className="text-[11.5px]"
+                className="text-[length:var(--text-meta)]"
                 style={{ color: "var(--color-muted)" }}
               >
                 Show {hidden} more…

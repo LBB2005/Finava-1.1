@@ -43,7 +43,12 @@ export default function WatchlistSwitcher({
         </button>
       ))}
 
-      <button className="tbtn" onClick={() => onCreate("New watchlist")}>＋ New</button>
+      <button className="tbtn" onClick={() => onCreate("New watchlist")} style={{ gap: 5 }}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        New
+      </button>
 
       {active && (
         <span className="flex items-center" style={{ gap: 6, marginLeft: 8 }}>

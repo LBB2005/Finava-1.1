@@ -44,8 +44,12 @@ export default function AddHoldingModal({ onClose, onAdd }: Props) {
   }
 
   return (
-    <Modal onClose={onClose} label="Add holding">
-        <h2 className="text-lg font-semibold text-[var(--color-text)] mb-5">Add Holding</h2>
+    <Modal
+      onClose={onClose}
+      label="Add holding"
+      className="w-full max-w-md p-6 mx-4 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-[var(--radius-xl)] shadow-[var(--shadow-pop)]"
+    >
+        <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-text)] mb-5">Add Holding</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
             label="Ticker Symbol"
@@ -87,7 +91,7 @@ export default function AddHoldingModal({ onClose, onAdd }: Props) {
             value={form.sector ?? ""}
             onChange={(e) => setForm({ ...form, sector: e.target.value })}
           />
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-[length:var(--text-sm)] text-[var(--color-bear)]">{error}</p>}
           <div className="flex gap-3 justify-end pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel

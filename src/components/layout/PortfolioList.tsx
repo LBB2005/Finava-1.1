@@ -18,14 +18,21 @@ export default function PortfolioList({ compact = false }: Props) {
     return sum + (price > 0 ? price * h.shares : h.avgCost * h.shares);
   }, 0);
 
-  if (isLoading) return <div className="px-4 py-3 text-xs text-[var(--color-muted)]">Loading…</div>;
-
-  if (holdings.length === 0) {
+  if (isLoading) {
     return (
-      <div className="px-4 py-3 text-center">
-        <p className="text-xs text-[var(--color-muted)]">No holdings yet — use + to add</p>
+      <div className="px-4 py-3 flex flex-col gap-2">
+        {[85, 65].map((w, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="skeleton" style={{ width: 40, height: 16, borderRadius: "var(--radius-xs)" }} />
+            <span className="skeleton" style={{ width: `${w}%`, height: 10, borderRadius: "var(--radius-xs)" }} />
+          </div>
+        ))}
       </div>
     );
+  }
+
+  if (holdings.length === 0) {
+    return <p className="empty-note" style={{ padding: "12px 16px" }}>No holdings yet — use + to add</p>;
   }
 
   return (
