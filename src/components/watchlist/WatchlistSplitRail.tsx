@@ -69,14 +69,64 @@ function scoreFor(stock: Stock): number {
 }
 
 const SIGNAL_TONE = {
-  alert: { color: "var(--color-bear)", bg: "color-mix(in oklab, var(--color-bear) 11%, transparent)", glyph: "!" },
-  earn:  { color: "var(--color-accent)", bg: "var(--color-accent-light)", glyph: "◴" },
-  up:    { color: "var(--color-bull)", bg: "color-mix(in oklab, var(--color-bull) 11%, transparent)", glyph: "▲" },
-  cross: { color: "var(--color-warn)", bg: "var(--color-warn-bg)", glyph: "↕" },
-  high:  { color: "var(--color-bull)", bg: "color-mix(in oklab, var(--color-bull) 9%, transparent)", glyph: "★" },
+  alert: { color: "var(--color-bear)", bg: "color-mix(in oklab, var(--color-bear) 11%, transparent)" },
+  earn:  { color: "var(--color-accent)", bg: "var(--color-accent-light)" },
+  up:    { color: "var(--color-bull)", bg: "color-mix(in oklab, var(--color-bull) 11%, transparent)" },
+  cross: { color: "var(--color-warn)", bg: "var(--color-warn-bg)" },
+  high:  { color: "var(--color-bull)", bg: "color-mix(in oklab, var(--color-bull) 9%, transparent)" },
 } as const;
 
 type SignalKind = keyof typeof SIGNAL_TONE;
+
+/** Drawn glyph per signal kind — house icon voice (24-box, stroke 2, currentColor). */
+function SignalIcon({ k, size = 10 }: { k: SignalKind; size?: number }) {
+  const paths: Record<SignalKind, React.ReactNode> = {
+    alert: (
+      <>
+        <line x1="12" y1="4" x2="12" y2="14" />
+        <line x1="12" y1="19" x2="12.01" y2="19" />
+      </>
+    ),
+    earn: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <polyline points="12 7 12 12 15 14" />
+      </>
+    ),
+    up: (
+      <>
+        <line x1="12" y1="19" x2="12" y2="5" />
+        <polyline points="5 12 12 5 19 12" />
+      </>
+    ),
+    cross: (
+      <>
+        <line x1="12" y1="5" x2="12" y2="19" />
+        <polyline points="8 9 12 5 16 9" />
+        <polyline points="8 15 12 19 16 15" />
+      </>
+    ),
+    high: (
+      <polygon points="12 2 15 8.5 22 9.3 17 14 18.2 21 12 17.6 5.8 21 7 14 2 9.3 9 8.5 12 2" />
+    ),
+  };
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={{ flexShrink: 0 }}
+    >
+      {paths[k]}
+    </svg>
+  );
+}
 
 interface Signal {
   k: SignalKind;
@@ -168,7 +218,7 @@ function SignalChip({ sig }: { sig: Signal }) {
         padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap", letterSpacing: "0.01em",
       }}
     >
-      <span style={{ fontSize: "0.85em" }}>{tone.glyph}</span>
+      <SignalIcon k={sig.k} />
       {sig.label}
     </span>
   );
@@ -602,8 +652,8 @@ export default function WatchlistSplitRail() {
                         onClick={() => router.push(`/stock/${sig.ticker}`)}
                         style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "9px 13px", borderBottom: i < Math.min(feed.length, 5) - 1 ? "1px solid var(--color-border)" : "none" }}
                       >
-                        <span style={{ flexShrink: 0, marginTop: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 19, height: 19, borderRadius: 999, background: tone.bg, color: tone.color, fontSize: "var(--text-micro)", fontWeight: 700 }}>
-                          {tone.glyph}
+                        <span style={{ flexShrink: 0, marginTop: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 19, height: 19, borderRadius: 999, background: tone.bg, color: tone.color }}>
+                          <SignalIcon k={sig.k} size={11} />
                         </span>
                         <div style={{ minWidth: 0 }}>
                           <span className="mono" style={{ fontSize: "var(--text-meta)", fontWeight: 700, color: "var(--color-accent)" }}>{sig.ticker}</span>
