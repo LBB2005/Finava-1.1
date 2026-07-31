@@ -39,12 +39,16 @@ export default function InvestorLens({ ticker }: { ticker: string }) {
         width: 6, height: 6, borderRadius: 99, flexShrink: 0, background: toneColor,
         boxShadow: `0 0 0 3px color-mix(in oklab, ${toneColor} 22%, transparent)`,
       }} />
-      <span style={{ fontSize: 13, color: "var(--color-text)", lineHeight: 1.4 }}>{data.line}</span>
+      <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text)", lineHeight: 1.4 }}>{data.line}</span>
       <Link
         href={data.href ?? "/dna"}
-        style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600, color: "var(--color-accent)", whiteSpace: "nowrap" }}
+        style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-meta)", fontWeight: 600, color: "var(--color-accent)", whiteSpace: "nowrap" }}
       >
-        Your DNA →
+        Your DNA
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <line x1="5" y1="12" x2="19" y2="12" />
+          <polyline points="12 5 19 12 12 19" />
+        </svg>
       </Link>
     </div>
   );

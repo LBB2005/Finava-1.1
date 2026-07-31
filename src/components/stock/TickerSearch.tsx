@@ -21,7 +21,9 @@ export default function TickerSearch({ size = "sm", placeholder = "Search ticker
     router.push(`/stock/${sym}`);
   }
 
-  const pad = size === "md" ? "py-2.5 pl-9 pr-3 text-[13px]" : "py-[6px] pl-8 pr-2.5 text-[12px]";
+  const pad = size === "md"
+    ? "py-2.5 pl-9 pr-3 text-[length:var(--text-sm)]"
+    : "py-[6px] pl-8 pr-2.5 text-[length:var(--text-meta)]";
 
   return (
     <form onSubmit={submit} className="relative">
@@ -35,7 +37,7 @@ export default function TickerSearch({ size = "sm", placeholder = "Search ticker
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={placeholder}
-        className={`bg-transparent rounded-[9px] focus:outline-none ${pad}`}
+        className={`bg-transparent rounded-[var(--radius-sm)] focus:outline-none ${pad}`}
         style={{ border: "1px solid var(--color-border)", color: "var(--color-text)", width: size === "md" ? 240 : 160 }}
         aria-label="Search ticker"
         spellCheck={false}

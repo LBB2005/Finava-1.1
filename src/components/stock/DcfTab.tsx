@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { useQuotes } from "@/hooks/useQuotes";
 import { computeDcf, type DcfInputs } from "@/lib/dcf";
+import Rule from "@/components/ui/Rule";
 
 const dcfFetcher = (url: string) =>
   fetch(url).then(async (r) => {
@@ -29,23 +30,14 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
-function Rule({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 12px" }}>
-      <span className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--color-muted)" }}>{children}</span>
-      <div style={{ flex: 1, height: 1, background: "var(--color-border)" }} />
-    </div>
-  );
-}
-
 function Slider({ label, value, min, max, step, onChange, display }: {
   label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; display: string;
 }) {
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-        <span style={{ fontSize: 12.5, color: "var(--color-text-secondary)" }}>{label}</span>
-        <span className="mono serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-accent)" }}>{display}</span>
+        <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>{label}</span>
+        <span className="mono serif" style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--color-accent)" }}>{display}</span>
       </div>
       <input
         type="range"
@@ -64,8 +56,8 @@ function Slider({ label, value, min, max, step, onChange, display }: {
 function Fact({ l, v, color }: { l: string; v: string; color?: string }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "8px 0", borderBottom: "1px solid var(--color-border)", gap: 12 }}>
-      <span style={{ fontSize: 12, color: "var(--color-muted)" }}>{l}</span>
-      <span className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: color ?? "var(--color-text)" }}>{v}</span>
+      <span style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>{l}</span>
+      <span className="mono" style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: color ?? "var(--color-text)" }}>{v}</span>
     </div>
   );
 }
@@ -101,15 +93,15 @@ export function DcfTab({ ticker }: { ticker: string }) {
   if (isLoading) {
     return (
       <div className="fade-in" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
-        <div className="skeleton" style={{ height: 220, borderRadius: 12 }} />
-        <div className="skeleton" style={{ height: 220, borderRadius: 12 }} />
+        <div className="skeleton" style={{ height: 220 }} />
+        <div className="skeleton" style={{ height: 220 }} />
       </div>
     );
   }
   if (error || !inputs || !result) {
     return (
       <div className="fade-in">
-        <p style={{ fontSize: 12.5, color: "var(--color-muted)" }}>{error ?? "DCF is unavailable for this symbol."}</p>
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)" }}>{error ?? "DCF is unavailable for this symbol."}</p>
       </div>
     );
   }
@@ -124,7 +116,7 @@ export function DcfTab({ ticker }: { ticker: string }) {
         <Rule>Assumptions</Rule>
         <Slider label="Discount rate (WACC)" value={wacc} min={0.05} max={0.16} step={0.0025} onChange={setWacc} display={pct(wacc)} />
         <Slider label="FCF growth (5-yr)" value={growth} min={0} max={0.3} step={0.005} onChange={setGrowth} display={pct(growth)} />
-        <p className="mono" style={{ fontSize: 10.5, color: "var(--color-muted)", lineHeight: 1.6, marginTop: 4 }}>
+        <p className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", lineHeight: 1.6, marginTop: 4 }}>
           Suggested WACC {pct(inputs.suggestedWacc)} (from beta){inputs.historicalGrowth != null ? ` · historical growth ${pct(inputs.historicalGrowth)}` : ""}. Terminal growth fixed at 2.5%.
           {inputs.fcfIsProxy ? " FCF proxied by operating cash flow (capex unavailable)." : ""}
         </p>
@@ -134,16 +126,18 @@ export function DcfTab({ ticker }: { ticker: string }) {
       <div className="dcf-right" style={{ borderLeft: "1px solid var(--color-border)", paddingLeft: 36 }}>
         <Rule>Intrinsic value</Rule>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-          <span className="serif" style={{ fontSize: 40, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--color-text)", lineHeight: 1 }}>
+          {/* Section-level display numeral → --text-stat; --text-hero stays
+              reserved for the page hero price. */}
+          <span className="serif" style={{ fontSize: "var(--text-stat)", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--color-text)", lineHeight: 1 }}>
             {fmtMoney(result.fairValue)}
           </span>
           {upside != null && (
-            <span className="mono" style={{ fontSize: 14, fontWeight: 700, color: upColor }}>
+            <span className="mono" style={{ fontSize: "var(--text-body)", fontWeight: 700, color: upColor }}>
               {upside >= 0 ? "+" : ""}{upside.toFixed(1)}%
             </span>
           )}
         </div>
-        <p className="mono" style={{ margin: "6px 0 18px", fontSize: 11, color: "var(--color-muted)" }}>
+        <p className="mono" style={{ margin: "6px 0 18px", fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>
           per share · {price != null ? `vs $${price.toFixed(2)} now` : "no live price"}
           {upside != null ? ` · ${upside >= 0 ? "undervalued" : "overvalued"}` : ""}
         </p>
@@ -156,7 +150,7 @@ export function DcfTab({ ticker }: { ticker: string }) {
         <Fact l="Shares outstanding" v={inputs.sharesOutstanding != null ? `${(inputs.sharesOutstanding / 1e9).toFixed(2)}B` : "—"} />
         <Fact l="Base free cash flow" v={compact(inputs.baseFcf)} />
 
-        <p className="mono" style={{ margin: "16px 0 0", fontSize: 10.5, color: "var(--color-muted)" }}>
+        <p className="mono" style={{ margin: "16px 0 0", fontSize: "var(--text-micro)", color: "var(--color-muted)" }}>
           A transparent 5-year DCF on EDGAR filing data · drag the sliders to test assumptions · AI-assisted, may contain errors · research color, not investment advice.
         </p>
       </div>

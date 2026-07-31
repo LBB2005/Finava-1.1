@@ -85,7 +85,7 @@ export default function MoneyMapGraph({
               y2={n.y}
               stroke={color}
               strokeWidth={edgeWidth(n.relation.intensity)}
-              strokeDasharray={n.relation.confidence === "estimated" ? "5 4" : undefined}
+              strokeDasharray={n.relation.confidence === "estimated" ? "3 4" : undefined}
               strokeLinecap="round"
               vectorEffect="non-scaling-stroke"
               opacity={dim ? 0.18 : 0.55}
@@ -106,7 +106,7 @@ export default function MoneyMapGraph({
                 y={p.y}
                 textAnchor={p.anchor}
                 style={{
-                  fontSize: 11,
+                  fontSize: "var(--text-meta)",
                   fontWeight: 700,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
@@ -134,7 +134,7 @@ export default function MoneyMapGraph({
               x={layout.cx}
               y={layout.cy - 2}
               textAnchor="middle"
-              style={{ fontSize: 16, fontWeight: 800, fill: "#fff" }}
+              style={{ fontSize: "var(--text-lg)", fontWeight: 800, fill: "var(--color-on-accent)" }}
             >
               {self.ticker}
             </text>
@@ -143,7 +143,7 @@ export default function MoneyMapGraph({
                 x={layout.cx}
                 y={layout.cy + 14}
                 textAnchor="middle"
-                style={{ fontSize: 10.5, fill: "rgba(255,255,255,0.82)" }}
+                style={{ fontSize: "var(--text-micro)", fill: "color-mix(in oklab, var(--color-on-accent) 82%, transparent)" }}
               >
                 {compactUsd(self.marketCap)}
               </text>
@@ -187,7 +187,7 @@ export default function MoneyMapGraph({
                 y={n.y + 3.5}
                 textAnchor="middle"
                 style={{
-                  fontSize: 11,
+                  fontSize: "var(--text-meta)",
                   fontWeight: 600,
                   fill: "var(--color-text)",
                   pointerEvents: "none",
@@ -216,21 +216,21 @@ export default function MoneyMapGraph({
             padding: "8px 10px",
             background: "var(--color-bg)",
             border: "1px solid var(--color-border)",
-            borderRadius: 8,
-            boxShadow: "var(--shadow-card)",
+            borderRadius: "var(--radius-sm)",
+            boxShadow: "var(--shadow-pop)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--color-text)" }}>
+            <span style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--color-text)" }}>
               {hovered.relation.name}
             </span>
             {hovered.relation.ticker && hovered.relation.ticker !== hovered.relation.name && (
-              <span className="mono" style={{ fontSize: 9.5, color: "var(--color-muted)" }}>
+              <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)" }}>
                 {hovered.relation.ticker}
               </span>
             )}
           </div>
-          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", lineHeight: 1.4 }}>
+          <div style={{ fontSize: "var(--text-meta)", color: "var(--color-text-secondary)", lineHeight: 1.4 }}>
             {KIND_LABELS[hovered.relation.kind].replace(/s$/, "")}
             {hovered.relation.weightPct != null ? ` · ${hovered.relation.weightPct.toFixed(0)}%` : ""}
             {hovered.relation.note ? ` · ${hovered.relation.note}` : ""}
@@ -239,7 +239,7 @@ export default function MoneyMapGraph({
             className="mono"
             style={{
               marginTop: 4,
-              fontSize: 9,
+              fontSize: "var(--text-micro)",
               letterSpacing: "0.04em",
               textTransform: "uppercase",
               color:

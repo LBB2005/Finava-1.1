@@ -1564,11 +1564,11 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 .research-root .b-lenses-pill .b-lens:hover { color: var(--color-text); }
 .research-root .b-lenses-pill .b-lens.on { background: var(--color-bg); color: var(--color-accent); box-shadow: var(--shadow-card); }
 
-/* ── ticker chip (sticky tab bar, F2d) ───────────────────────────────────── */
-.research-root .ticker-chip {
-  font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+/* ── ticker chip (sticky tab bar, F2d) — unscoped so StockHero can share it ── */
+.ticker-chip {
+  font-family: var(--font-mono); font-size: var(--text-micro); font-weight: 700; letter-spacing: 0.04em;
   color: var(--color-accent); padding: 2px 9px; border-radius: 99px;
-  background: #fff; border: 1px solid var(--color-accent-medium); white-space: nowrap;
+  background: var(--color-bg); border: 1px solid var(--color-accent-medium); white-space: nowrap;
 }
 
 /* ── F2d editorial hero ──────────────────────────────────────────────────── */

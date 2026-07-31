@@ -40,8 +40,8 @@ function LogoBadge({ logo, ticker, size = 44 }: { logo: string | null; ticker: s
       style={{
         width: size,
         height: size,
-        borderRadius: 8,
-        background: "#fff",
+        borderRadius: "var(--radius-sm)",
+        background: "var(--color-surface)",
         border: "1px solid var(--color-border)",
         display: "flex",
         alignItems: "center",
@@ -57,7 +57,7 @@ function LogoBadge({ logo, ticker, size = 44 }: { logo: string | null; ticker: s
           alt=""
           width={Math.round(size * 0.74)}
           height={Math.round(size * 0.74)}
-          style={{ objectFit: "contain", borderRadius: 5 }}
+          style={{ objectFit: "contain", borderRadius: "var(--radius-xs)" }}
           onError={() => setErr(true)}
         />
       ) : (
@@ -105,18 +105,15 @@ export default function StockHero({ ticker, profile, fallbackQuote, initialCandl
           <LogoBadge logo={profile?.logo ?? null} ticker={ticker} />
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <h1 className="serif" style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: "-0.015em", whiteSpace: "nowrap", color: "var(--color-text)" }}>
+              <h1 className="serif" style={{ margin: 0, fontSize: "var(--text-display)", fontWeight: 800, letterSpacing: "-0.015em", whiteSpace: "nowrap", color: "var(--color-text)" }}>
                 {profile?.name ?? ticker}
               </h1>
-              <span
-                className="mono"
-                style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-accent)", padding: "2px 7px", borderRadius: 3, background: "#fff", border: "1px solid var(--color-accent-medium)", whiteSpace: "nowrap", flexShrink: 0 }}
-              >
+              <span className="ticker-chip" style={{ flexShrink: 0 }}>
                 {profile?.exchange ? `${profile.exchange}: ` : ""}{ticker}
               </span>
             </div>
             {profile?.industry && (
-              <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--color-text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <p style={{ margin: "2px 0 0", fontSize: "var(--text-meta)", color: "var(--color-text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {profile.industry}
               </p>
             )}
@@ -130,12 +127,12 @@ export default function StockHero({ ticker, profile, fallbackQuote, initialCandl
       {/* Big price + chart-type toggle */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, marginTop: 16, flexWrap: "wrap", rowGap: 12 }}>
         <div style={{ minWidth: 0 }}>
-          <div className="serif" style={{ fontSize: 46, fontWeight: 800, lineHeight: 1, letterSpacing: "-0.005em", color: "var(--color-text)" }}>
+          <div className="serif" style={{ fontSize: "var(--text-hero)", fontWeight: 800, lineHeight: 1, letterSpacing: "-0.005em", color: "var(--color-text)" }}>
             {hasPrice ? `$${fmt(price)}` : "—"}
           </div>
           {hasPrice && (
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
-              <span className="mono" style={{ fontSize: 14, fontWeight: 700, color: up ? "var(--color-bull)" : "var(--color-bear)" }}>
+              <span className="mono" style={{ fontSize: "var(--text-body)", fontWeight: 700, color: up ? "var(--color-bull)" : "var(--color-bear)" }}>
                 {signed(change)} ({signed(changePct)}%) today
               </span>
             </div>
@@ -157,7 +154,7 @@ export default function StockHero({ ticker, profile, fallbackQuote, initialCandl
 
       {/* Range row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 16px", flexWrap: "wrap", gap: 10 }}>
-        <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: rUp ? "var(--color-bull)" : "var(--color-bear)" }}>
+        <span className="mono" style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: rUp ? "var(--color-bull)" : "var(--color-bear)" }}>
           {rangePct == null ? "" : signed(rangePct)}%{" "}
           <span style={{ color: "var(--color-muted)", fontWeight: 500 }}>· {RANGE_LABEL[range]}</span>
         </span>

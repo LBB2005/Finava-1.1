@@ -35,7 +35,7 @@ function Row({ r }: { r: MoneyRelation }) {
         width: "100%",
         textAlign: "left",
         padding: "7px 8px",
-        borderRadius: 8,
+        borderRadius: "var(--radius-md)",
         border: "1px solid transparent",
         background: "transparent",
         cursor: clickable ? "pointer" : "default",
@@ -47,7 +47,7 @@ function Row({ r }: { r: MoneyRelation }) {
         <span style={{ width: 7, height: 7, borderRadius: 99, background: color, flexShrink: 0 }} />
         <span
           style={{
-            fontSize: 12.5,
+            fontSize: "var(--text-sm)",
             fontWeight: 600,
             color: "var(--color-text)",
             whiteSpace: "nowrap",
@@ -58,7 +58,7 @@ function Row({ r }: { r: MoneyRelation }) {
           {r.name}
         </span>
         {r.ticker && r.ticker !== r.name && (
-          <span className="mono" style={{ fontSize: 9.5, color: "var(--color-muted)", flexShrink: 0 }}>
+          <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", flexShrink: 0 }}>
             {r.ticker}
           </span>
         )}
@@ -80,13 +80,13 @@ function Row({ r }: { r: MoneyRelation }) {
 
       {/* weight / provenance */}
       <span style={{ display: "flex", alignItems: "center", gap: 8, justifySelf: "end" }}>
-        <span className="mono" style={{ fontSize: 10.5, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>
+        <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>
           {right}
         </span>
         {r.confidence === "estimated" && r.model ? (
           <ModelBadge slug={r.model} size={11} showLabel={false} title="AI-estimated" />
         ) : (
-          <span className="mono" style={{ fontSize: 8.5, letterSpacing: "0.04em", color: "var(--color-muted)" }}>
+          <span className="mono" style={{ fontSize: "var(--text-micro)", letterSpacing: "0.04em", color: "var(--color-muted)" }}>
             FINNHUB
           </span>
         )}

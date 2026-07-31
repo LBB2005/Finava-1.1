@@ -115,9 +115,13 @@ export default function StockChart({ candles, range, mode, height = 300, loading
   }, [data]);
 
   if (!data) {
+    // Loading gets a chart-shaped shimmer; error/empty use the house empty-note.
+    if (loading) {
+      return <div className="skeleton" style={{ width: "100%", height }} aria-label="Loading chart" />;
+    }
     return (
-      <div className="flex items-center justify-center text-[12px] text-[var(--color-muted)]" style={{ height }}>
-        {loading ? "Loading chart…" : error ? "Chart unavailable" : "No price data"}
+      <div className="empty-note" style={{ height, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {error ? "Chart unavailable" : "No price data"}
       </div>
     );
   }
@@ -156,7 +160,9 @@ export default function StockChart({ candles, range, mode, height = 300, loading
     const idx = Math.round((k / (tickCount - 1 || 1)) * (data.n - 1));
     return candles!.t[idx];
   });
-  const axisFont = narrow ? 8.5 : 9.5;
+  // Axis labels ride the micro step; the narrow-screen variant stays a smaller
+  // numeric size (tiny axis text ≤10 is the sanctioned off-ramp).
+  const axisFont: string | number = narrow ? 8.5 : "var(--text-micro)";
 
   return (
     <div ref={containerRef} style={{ position: "relative", height }}>
@@ -225,14 +231,14 @@ export default function StockChart({ candles, range, mode, height = 300, loading
           <>
             {mode === "area" && <path d={data.area} fill="url(#stockchart-fill)" />}
             <path d={data.line} fill="none" stroke={stroke} strokeWidth="1.7" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-            {/* dashed current-price line */}
-            <line x1={PADX} y1={lastY} x2={VW - PADR} y2={lastY} stroke={stroke} strokeWidth="1" strokeDasharray="2 3" vectorEffect="non-scaling-stroke" opacity="0.55" />
+            {/* dashed current-price line — house "3 4" dash rhythm */}
+            <line x1={PADX} y1={lastY} x2={VW - PADR} y2={lastY} stroke={stroke} strokeWidth="1" strokeDasharray="3 4" vectorEffect="non-scaling-stroke" opacity="0.55" />
           </>
         )}
 
         {h && (
           <>
-            <line x1={h.px} y1={PADT} x2={h.px} y2={data.priceBottom} stroke="var(--color-border-strong)" strokeWidth="1" strokeDasharray={isCandle ? "3 3" : "0"} vectorEffect="non-scaling-stroke" />
+            <line x1={h.px} y1={PADT} x2={h.px} y2={data.priceBottom} stroke="var(--color-border-strong)" strokeWidth="1" strokeDasharray={isCandle ? "3 4" : "0"} vectorEffect="non-scaling-stroke" />
             {!isCandle && <circle cx={h.px} cy={h.py} r="3.6" fill={stroke} stroke="var(--color-bg)" strokeWidth="1.6" />}
           </>
         )}
@@ -266,12 +272,12 @@ export default function StockChart({ candles, range, mode, height = 300, loading
           right: 4,
           top: `clamp(9px, ${(lastY / height) * 100}%, calc(100% - 9px))`,
           transform: "translateY(-50%)",
-          fontSize: 9.5,
+          fontSize: "var(--text-micro)",
           fontWeight: 700,
-          color: "#fff",
+          color: "var(--color-on-accent)",
           background: stroke,
           padding: "1px 5px",
-          borderRadius: 3,
+          borderRadius: "var(--radius-xs)",
           pointerEvents: "none",
           lineHeight: 1.3,
         }}
@@ -308,12 +314,12 @@ export default function StockChart({ candles, range, mode, height = 300, loading
             top: 0,
             pointerEvents: "none",
             padding: "3px 8px",
-            borderRadius: 7,
-            fontSize: 11,
+            borderRadius: "var(--radius-sm)",
+            fontSize: "var(--text-meta)",
             left: `clamp(0px, ${(h.px / VW) * 100}% - 52px, calc(100% - 132px))`,
             background: "var(--color-bg)",
             border: "1px solid var(--color-border)",
-            boxShadow: "var(--shadow-card)",
+            boxShadow: "var(--shadow-pop)",
             whiteSpace: "nowrap",
           }}
         >

@@ -68,19 +68,15 @@ export default function StockPage() {
     const notFound = error.status === 404;
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 px-6" style={{ background: "var(--color-bg)" }}>
-        <p className="text-[15px] font-semibold text-[var(--color-text)]" style={{ fontFamily: "var(--font-serif)" }}>
+        <p className="text-[length:var(--text-title)] font-semibold text-[var(--color-text)]" style={{ fontFamily: "var(--font-serif)" }}>
           {notFound ? `Couldn't find “${ticker}”` : "Couldn't load this stock"}
         </p>
-        <p className="text-[12.5px] text-[var(--color-muted)] max-w-[360px] text-center">
+        <p className="text-[length:var(--text-sm)] text-[var(--color-muted)] max-w-[360px] text-center">
           {notFound
             ? "Double-check the symbol, or try another ticker."
             : error.message || "The data service may be unavailable right now."}
         </p>
-        <button
-          onClick={() => router.push("/portfolio")}
-          className="text-[12px] px-3.5 py-[7px] rounded-[6px] mt-1"
-          style={{ border: "1px solid var(--color-accent)", background: "var(--color-accent)", color: "white" }}
-        >
+        <button onClick={() => router.push("/portfolio")} className="btn btn-primary mt-1">
           Back to portfolio
         </button>
       </div>
@@ -93,29 +89,29 @@ export default function StockPage() {
       <div className="research-root h-full overflow-y-auto" style={{ background: "var(--color-bg)" }} aria-busy="true" aria-label={`Loading ${ticker}`}>
         <div style={{ padding: "22px var(--page-gutter) 0", background: "linear-gradient(180deg, var(--color-accent-light), transparent 80%)" }}>
           <div className="flex items-center gap-3.5">
-            <div className="w-[44px] h-[44px] rounded-[8px] skeleton" />
+            <div className="w-[44px] h-[44px] rounded-[var(--radius-sm)] skeleton" />
             <div className="flex flex-col gap-2">
               <div className="h-[20px] w-[160px] skeleton" />
               <div className="h-[12px] w-[120px] skeleton" />
             </div>
           </div>
-          <div className="h-[46px] w-[200px] skeleton mt-4 rounded-[6px]" />
-          <div className="h-[300px] skeleton mt-3 rounded-[6px]" />
+          <div className="h-[46px] w-[200px] skeleton mt-4" />
+          <div className="h-[300px] skeleton mt-3" />
 
           {!slow ? (
-            <p className="mt-3.5 text-[12px] flex items-center gap-2" style={{ color: "var(--color-muted)" }}>
-              <span className="inline-block w-3 h-3 rounded-full border-2 border-[var(--color-border-strong)] border-t-[var(--color-accent)] animate-spin" />
+            <p className="mt-3.5 text-[length:var(--text-meta)] flex items-center gap-2" style={{ color: "var(--color-muted)" }}>
+              <span className="spin inline-block w-3 h-3 rounded-full border-2 border-[var(--color-border-strong)] border-t-[var(--color-accent)]" />
               Loading quote &amp; chart for {ticker}…
             </p>
           ) : (
             <div className="mt-3.5 flex items-center gap-3">
-              <p className="text-[12px]" style={{ color: "var(--color-muted)" }}>
+              <p className="text-[length:var(--text-meta)]" style={{ color: "var(--color-muted)" }}>
                 Taking longer than usual — the data service may be busy.
               </p>
               <button
                 onClick={() => { setSlow(false); mutate(); }}
-                className="text-[11.5px] font-semibold px-3 py-[5px] rounded-[6px]"
-                style={{ border: "1px solid var(--color-accent)", color: "var(--color-accent)", background: "var(--color-accent-light)" }}
+                className="btn"
+                style={{ borderColor: "var(--color-accent)", color: "var(--color-accent)", background: "var(--color-accent-light)" }}
               >
                 Retry
               </button>
@@ -165,12 +161,12 @@ export default function StockPage() {
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
           <span className="ticker-chip">{ticker}</span>
           {livePrice != null && (
-            <span className="serif" style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text)" }}>
+            <span className="serif" style={{ fontSize: "var(--text-lg)", fontWeight: 800, color: "var(--color-text)" }}>
               ${livePrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           )}
           {chg != null && (
-            <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: chg >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
+            <span className="mono" style={{ fontSize: "var(--text-meta)", fontWeight: 700, color: chg >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
               {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
             </span>
           )}
