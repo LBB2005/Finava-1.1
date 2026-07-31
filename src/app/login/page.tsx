@@ -9,36 +9,45 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="w-9 h-9 rounded-xl bg-[var(--color-accent)] flex items-center justify-center shadow-sm">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <div
+            className="w-9 h-9 rounded-[var(--radius-md)] bg-[var(--color-accent)] flex items-center justify-center"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-on-accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
               <polyline points="16 7 22 7 22 13" />
             </svg>
           </div>
-          <span className="text-xl font-bold text-[var(--color-text)] tracking-tight">Finava</span>
+          <span className="text-[length:var(--text-xl)] font-bold text-[var(--color-text)] tracking-tight">Finava</span>
         </div>
 
         {/* Card */}
-        <div className="bg-white border border-[var(--color-border)] rounded-2xl shadow-sm px-8 py-8">
-          <h1 className="text-lg font-semibold text-[var(--color-text)] text-center mb-1">
+        <div
+          className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-md)] px-8 py-8"
+          style={{ boxShadow: "var(--shadow-card)" }}
+        >
+          <h1 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-text)] text-center mb-1">
             Welcome back
           </h1>
-          <p className="text-sm text-[var(--color-muted)] text-center mb-7">
+          <p className="text-[length:var(--text-sm)] text-[var(--color-muted)] text-center mb-7">
             Sign in to your AI research platform
           </p>
 
           {betaDenied && (
-            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-800">
+            <div
+              className="mb-5 rounded-[var(--radius-md)] px-4 py-3 text-center text-[length:var(--text-sm)]"
+              style={{
+                border: "1px solid var(--color-warn-border)",
+                background: "var(--color-warn-bg)",
+                color: "var(--color-warn-text)",
+              }}
+            >
               Finava is in private beta. Your account isn&apos;t on the list yet —
               join the waitlist and we&apos;ll be in touch.
             </div>
           )}
 
-          <button
-            onClick={signIn}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl border border-[var(--color-border)] bg-white hover:bg-[var(--color-sidebar)] text-sm font-medium text-[var(--color-text)] transition-colors duration-150 shadow-sm disabled:opacity-50"
-          >
+          <button onClick={signIn} disabled={loading} className="btn w-full gap-3 py-2.5">
             {/* Google icon */}
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -50,7 +59,7 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <p className="text-center text-xs text-[var(--color-muted)] mt-6">
+        <p className="text-center text-[length:var(--text-sm)] text-[var(--color-muted)] mt-6">
           By continuing, you confirm you are 18 or older and agree to our{" "}
           <a href="/terms" className="underline hover:text-[var(--color-text)]">Terms of Service</a> and{" "}
           <a href="/privacy" className="underline hover:text-[var(--color-text)]">Privacy Policy</a>.

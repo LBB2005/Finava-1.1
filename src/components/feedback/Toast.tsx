@@ -74,7 +74,7 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
       </span>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <p className="text-[13px] leading-snug text-[var(--color-text)]">
+        <p className="text-[length:var(--text-sm)] leading-snug text-[var(--color-text)]">
           {toast.message}
         </p>
         {action && (
@@ -84,7 +84,7 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
               action.onClick();
               onDismiss(toast.id);
             }}
-            className="-ml-1 w-fit rounded-[var(--radius-sm)] px-1.5 py-0.5 text-[12px] font-semibold transition-colors hover:bg-[color-mix(in_oklab,var(--color-text)_6%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
+            className="-ml-1 w-fit rounded-[var(--radius-sm)] px-1.5 py-0.5 text-[length:var(--text-sm)] font-semibold transition-colors hover:bg-[color-mix(in_oklab,var(--color-text)_6%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
             style={{ color: accent }}
           >
             {action.label}

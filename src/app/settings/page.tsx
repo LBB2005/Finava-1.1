@@ -9,7 +9,8 @@ import { usePortfolio } from "@/hooks/usePortfolio";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import type { Accent } from "@/lib/appearance";
 import ConnectBrokerageButton from "@/components/portfolio/ConnectBrokerageButton";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { axisProps, gridProps, ChartTooltip } from "@/lib/chartTheme";
 import { FORMAT_PRESETS, sanitizeFormats, type FormatKey } from "@/lib/templates";
 import type { Template } from "@/types/chat";
 
@@ -125,8 +126,12 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       style={{ background: checked ? "var(--color-accent)" : "var(--color-border-strong)" }}
     >
       <span
-        className="inline-block h-[16px] w-[16px] transform rounded-full bg-white shadow transition-transform duration-200"
-        style={{ transform: checked ? "translateX(21px)" : "translateX(3px)" }}
+        className="inline-block h-[16px] w-[16px] transform rounded-full transition-transform duration-200"
+        style={{
+          background: "var(--color-on-accent)",
+          boxShadow: "var(--shadow-card)",
+          transform: checked ? "translateX(21px)" : "translateX(3px)",
+        }}
       />
     </button>
   );
@@ -144,22 +149,13 @@ function Btn({
   disabled?: boolean;
   children: React.ReactNode;
 }) {
-  const styles: Record<BtnVariant, React.CSSProperties> = {
-    soft: {
-      background: "var(--color-surface)",
-      border: "1px solid var(--color-border-strong)",
-      color: "var(--color-text)",
-    },
-    prim: { background: "var(--color-accent)", border: "1px solid var(--color-accent)", color: "#fff" },
-    danger: { background: "transparent", border: "1px solid var(--color-bear)", color: "var(--color-bear)" },
+  const classes: Record<BtnVariant, string> = {
+    soft: "btn",
+    prim: "btn btn-primary",
+    danger: "btn btn-danger",
   };
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`set-btn set-btn--${variant} inline-flex items-center gap-1.5 px-[13px] py-[7px] text-[12.5px] font-semibold rounded-[8px] transition-colors duration-150 disabled:opacity-50`}
-      style={styles[variant]}
-    >
+    <button onClick={onClick} disabled={disabled} className={classes[variant]}>
       {children}
     </button>
   );
@@ -182,12 +178,12 @@ function Row({
       style={{ borderBottom: "1px solid var(--color-border)" }}
     >
       <div className="min-w-0">
-        <p className="text-[13.5px] font-semibold" style={{ color: danger ? "var(--color-bear)" : "var(--color-text)" }}>
+        <p className="text-[length:var(--text-sm)] font-semibold" style={{ color: danger ? "var(--color-bear)" : "var(--color-text)" }}>
           {label}
         </p>
         {description && (
           <p
-            className="text-[12.5px] mt-[3px] leading-relaxed"
+            className="text-[length:var(--text-sm)] mt-[3px] leading-relaxed"
             style={{ color: "var(--color-text-secondary)", maxWidth: "42ch" }}
           >
             {description}
@@ -203,11 +199,11 @@ function Head({ title, description }: { title: string; description?: string }) {
   return (
     <div>
       <div className="mb-2">
-        <h2 className="text-[19px] font-bold tracking-[-0.01em]" style={{ color: "var(--color-text)" }}>
+        <h2 className="text-[length:var(--text-xl)] font-bold tracking-[-0.01em]" style={{ color: "var(--color-text)" }}>
           {title}
         </h2>
         {description && (
-          <p className="text-[13px] mt-[5px] leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+          <p className="text-[length:var(--text-sm)] mt-[5px] leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
             {description}
           </p>
         )}
@@ -231,20 +227,20 @@ function Segmented<T extends string>({
 }) {
   return (
     <div
-      className="inline-flex gap-[3px] p-[3px] rounded-[8px]"
+      className="inline-flex gap-[3px] p-[3px] rounded-[var(--radius-sm)]"
       style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
     >
       {options.map((o) => (
         <button
           key={o.v}
           onClick={() => onChange(o.v)}
-          className="inline-flex items-center gap-1.5 px-3 py-[5px] text-[12px] font-medium rounded-[5px] transition-all duration-150"
+          className="inline-flex items-center gap-1.5 px-3 py-[5px] text-[length:var(--text-sm)] font-medium rounded-[var(--radius-sm)] transition-all duration-150"
           style={
             value === o.v
               ? {
                   background: "var(--color-bg)",
                   color: "var(--color-accent)",
-                  boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
+                  boxShadow: "var(--shadow-card)",
                   fontWeight: 600,
                 }
               : { color: "var(--color-text-secondary)" }
@@ -361,14 +357,14 @@ function GeneralSection() {
       <Head title="General" description="App-wide preferences." />
       <Row label="Language" description="Language used across the app.">
         <span
-          className="text-[13px] flex items-center gap-[7px]"
+          className="text-[length:var(--text-sm)] flex items-center gap-2"
           style={{ color: "var(--color-text-secondary)" }}
         >
           <Icon name="globe" size={14} /> English
         </span>
       </Row>
       <Row label="Start screen" description="Where Finava opens when you launch the app.">
-        <span className="text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
+        <span className="text-[length:var(--text-sm)]" style={{ color: "var(--color-text-secondary)" }}>
           Chat
         </span>
       </Row>
@@ -379,7 +375,7 @@ function GeneralSection() {
         >
           <div className="flex items-center gap-2.5">
             <span
-              className="text-[11px] font-semibold tabular-nums"
+              className="text-[length:var(--text-meta)] font-semibold tabular-nums"
               style={{ color: devBypass ? "var(--color-accent)" : "var(--color-muted)" }}
             >
               {devBypass ? "On" : "Off"}
@@ -437,20 +433,20 @@ function ConnectionRow({
 }) {
   return (
     <div
-      className="flex items-center gap-[13px] py-[14px]"
+      className="flex items-center gap-3 py-[14px]"
       style={{ borderBottom: "1px solid var(--color-border)" }}
     >
       <div
-        className="w-10 h-10 rounded-[10px] flex items-center justify-center font-extrabold text-[13px] flex-shrink-0"
+        className="w-10 h-10 rounded-[var(--radius-md)] flex items-center justify-center font-extrabold text-[length:var(--text-sm)] flex-shrink-0"
         style={{ background: color, color: fg, border: `1px solid ${border ? "var(--color-border-strong)" : "transparent"}` }}
       >
         {logo}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[13.5px] font-semibold" style={{ color: "var(--color-text)" }}>
+        <div className="text-[length:var(--text-sm)] font-semibold" style={{ color: "var(--color-text)" }}>
           {name}
         </div>
-        <div className="text-[12px] mt-[2px] flex items-center gap-1.5" style={{ color: "var(--color-text-secondary)" }}>
+        <div className="text-[length:var(--text-sm)] mt-[2px] flex items-center gap-1.5" style={{ color: "var(--color-text-secondary)" }}>
           <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: live ? "var(--color-bull)" : "var(--color-muted)" }} />
           {status}
         </div>
@@ -491,11 +487,7 @@ function PlaidRow() {
           {busy ? "Disconnecting…" : confirming ? "Confirm disconnect" : "Disconnect"}
         </Btn>
       ) : (
-        <ConnectBrokerageButton
-          className="inline-flex items-center gap-1.5 px-[13px] py-[7px] text-[12.5px] font-semibold rounded-[8px] bg-[var(--color-accent)] text-white transition-colors duration-150"
-          label="Connect"
-          onLinked={refresh}
-        />
+        <ConnectBrokerageButton className="btn btn-primary" label="Connect" onLinked={refresh} />
       )}
     </ConnectionRow>
   );
@@ -521,7 +513,7 @@ function ConnectionsSection({ userData }: { userData: UserData | undefined }) {
       </ConnectionRow>
       <PlaidRow />
       {/* When connected, manual portfolio entry is disabled — Plaid is the source of truth. */}
-      <p className="text-[11.5px] mt-3 leading-relaxed" style={{ color: "var(--color-muted)" }}>
+      <p className="text-[length:var(--text-meta)] mt-3 leading-relaxed" style={{ color: "var(--color-muted)" }}>
         Connecting a brokerage replaces your portfolio with the synced holdings and turns off
         manual entry. Disconnecting keeps those holdings as editable manual positions.
       </p>
@@ -653,17 +645,16 @@ function TemplatesSection() {
         <div className="pr-7">
           {draft ? (
             <div>
-              <label className="block text-[12px] mb-1.5" style={{ color: "var(--color-text-secondary)" }}>Name</label>
+              <label className="block text-[length:var(--text-sm)] mb-1.5" style={{ color: "var(--color-text-secondary)" }}>Name</label>
               <input
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
                 maxLength={80}
                 placeholder="e.g. Earnings deep-dive"
-                className="w-full text-[13px] px-[11px] py-[8px] rounded-[8px] outline-none mb-4"
-                style={{ background: "var(--color-bg)", border: "1px solid var(--color-border-strong)", color: "var(--color-text)" }}
+                className="input mb-4"
               />
 
-              <label className="block text-[12px] mb-1.5" style={{ color: "var(--color-text-secondary)" }}>
+              <label className="block text-[length:var(--text-sm)] mb-1.5" style={{ color: "var(--color-text-secondary)" }}>
                 Instructions <span style={{ color: "var(--color-muted)" }}>— how Finava should respond</span>
               </label>
               <textarea
@@ -672,34 +663,33 @@ function TemplatesSection() {
                 maxLength={2000}
                 rows={3}
                 placeholder="Lead with the bottom line, always quantify the key numbers, and end with the biggest risk to watch."
-                className="w-full text-[13px] px-[11px] py-[8px] rounded-[8px] outline-none resize-none mb-5 leading-relaxed"
-                style={{ background: "var(--color-bg)", border: "1px solid var(--color-border-strong)", color: "var(--color-text)" }}
+                className="input resize-none mb-5 leading-relaxed"
               />
 
-              <label className="block text-[12px] mb-2" style={{ color: "var(--color-text-secondary)" }}>
+              <label className="block text-[length:var(--text-sm)] mb-2" style={{ color: "var(--color-text-secondary)" }}>
                 Format <span style={{ color: "var(--color-muted)" }}>— combine a few, or let Finava choose</span>
               </label>
 
               <button
                 type="button"
                 onClick={() => setDraft({ ...draft, formats: [] })}
-                className="w-full flex items-center gap-3 rounded-[10px] px-3 py-2.5 mb-2.5 text-left transition-colors duration-100"
+                className="w-full flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 mb-2.5 text-left transition-colors duration-100"
                 style={{
                   background: "var(--color-bg)",
                   border: `${draft.formats.length === 0 ? 2 : 1}px solid ${draft.formats.length === 0 ? "var(--color-accent)" : "var(--color-border)"}`,
                 }}
               >
                 <span
-                  className="w-9 h-9 rounded-[8px] flex items-center justify-center flex-shrink-0"
+                  className="w-9 h-9 rounded-[var(--radius-sm)] flex items-center justify-center flex-shrink-0"
                   style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5L13 3z" />
                   </svg>
                 </span>
                 <span>
-                  <span className="block text-[13px] font-semibold" style={{ color: "var(--color-text)" }}>Auto</span>
-                  <span className="block text-[11.5px]" style={{ color: "var(--color-text-secondary)" }}>Finava picks the best structure for each question</span>
+                  <span className="block text-[length:var(--text-sm)] font-semibold" style={{ color: "var(--color-text)" }}>Auto</span>
+                  <span className="block text-[length:var(--text-meta)]" style={{ color: "var(--color-text-secondary)" }}>Finava picks the best structure for each question</span>
                 </span>
               </button>
 
@@ -711,7 +701,7 @@ function TemplatesSection() {
                       key={p.key}
                       type="button"
                       onClick={() => toggleFormat(p.key)}
-                      className="relative rounded-[10px] px-2 pt-2.5 pb-1.5 transition-colors duration-100"
+                      className="relative rounded-[var(--radius-md)] px-2 pt-2.5 pb-1.5 transition-colors duration-100"
                       style={{
                         background: "var(--color-bg)",
                         border: `${on ? 2 : 1}px solid ${on ? "var(--color-accent)" : "var(--color-border)"}`,
@@ -720,7 +710,7 @@ function TemplatesSection() {
                       {on && (
                         <span
                           className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center"
-                          style={{ background: "var(--color-accent)", color: "#fff" }}
+                          style={{ background: "var(--color-accent)", color: "var(--color-on-accent)" }}
                         >
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20 6 9 17 4 12" />
@@ -728,7 +718,7 @@ function TemplatesSection() {
                         </span>
                       )}
                       <FormatThumb k={p.key} />
-                      <p className="text-[11.5px] font-medium text-center mt-2 leading-tight" style={{ color: on ? "var(--color-accent)" : "var(--color-text-secondary)" }}>
+                      <p className="text-[length:var(--text-meta)] font-medium text-center mt-2 leading-tight" style={{ color: on ? "var(--color-accent)" : "var(--color-text-secondary)" }}>
                         {p.label}
                       </p>
                     </button>
@@ -755,15 +745,15 @@ function TemplatesSection() {
           ) : (
             <div className="flex flex-col items-center justify-center text-center" style={{ minHeight: 340 }}>
               <div
-                className="w-12 h-12 rounded-[12px] flex items-center justify-center mb-3.5"
+                className="w-12 h-12 rounded-[var(--radius-md)] flex items-center justify-center mb-3.5"
                 style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
               >
-                <Icon name="templates" size={22} stroke={1.8} />
+                <Icon name="templates" size={22} />
               </div>
-              <p className="text-[14.5px] font-semibold" style={{ color: "var(--color-text)" }}>
+              <p className="text-[length:var(--text-body)] font-semibold" style={{ color: "var(--color-text)" }}>
                 {list.length > 0 ? "Select a template to edit" : "Create your first template"}
               </p>
-              <p className="text-[12.5px] mt-1 mb-4 max-w-[34ch]" style={{ color: "var(--color-text-secondary)" }}>
+              <p className="text-[length:var(--text-sm)] mt-1 mb-4 max-w-[34ch]" style={{ color: "var(--color-text-secondary)" }}>
                 Templates shape how Finava answers — tone, structure, and what to always include.
               </p>
               <Btn variant="prim" onClick={openNew}>
@@ -782,7 +772,7 @@ function TemplatesSection() {
             <button
               onClick={openNew}
               aria-label="New template"
-              className="w-6 h-6 rounded-[7px] flex items-center justify-center transition-colors duration-100"
+              className="w-6 h-6 rounded-[var(--radius-sm)] flex items-center justify-center transition-colors duration-100"
               style={{ color: "var(--color-text-secondary)", background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
             >
               <Icon name="plus" size={13} />
@@ -790,7 +780,7 @@ function TemplatesSection() {
           </div>
 
           {list.length === 0 ? (
-            <p className="text-[12px] py-2" style={{ color: "var(--color-muted)" }}>
+            <p className="text-[length:var(--text-sm)] py-2" style={{ color: "var(--color-muted)" }}>
               No templates yet.
             </p>
           ) : (
@@ -803,11 +793,11 @@ function TemplatesSection() {
                   <button
                     key={t.id}
                     onClick={() => openEdit(t)}
-                    className="text-left rounded-[8px] px-[10px] py-[8px] transition-colors duration-100"
+                    className="text-left rounded-[var(--radius-md)] px-2.5 py-2 transition-colors duration-100"
                     style={isOpen ? { background: "var(--color-accent-light)" } : undefined}
                   >
-                    <p className="text-[13px] font-medium truncate" style={{ color: isOpen ? "var(--color-accent)" : "var(--color-text)" }}>{t.title}</p>
-                    <p className="text-[11px] mt-[1px] truncate" style={{ color: "var(--color-muted)" }}>{sub}</p>
+                    <p className="text-[length:var(--text-sm)] font-medium truncate" style={{ color: isOpen ? "var(--color-accent)" : "var(--color-text)" }}>{t.title}</p>
+                    <p className="text-[length:var(--text-meta)] mt-[1px] truncate" style={{ color: "var(--color-muted)" }}>{sub}</p>
                   </button>
                 );
               })}
@@ -875,7 +865,7 @@ function ProfileSection({ userData, mutate }: { userData: UserData | undefined; 
           />
         ) : (
           <div
-            className="w-[60px] h-[60px] rounded-full flex items-center justify-center text-[22px] font-bold flex-shrink-0"
+            className="w-[60px] h-[60px] rounded-full flex items-center justify-center text-[length:var(--text-display)] font-bold flex-shrink-0"
             style={{
               background: "var(--color-accent-light)",
               color: "var(--color-accent)",
@@ -886,13 +876,13 @@ function ProfileSection({ userData, mutate }: { userData: UserData | undefined; 
           </div>
         )}
         <div>
-          <div className="text-[17px] font-bold" style={{ color: "var(--color-text)" }}>
+          <div className="text-[length:var(--text-lg)] font-bold" style={{ color: "var(--color-text)" }}>
             {userData?.name ?? "—"}
           </div>
-          <div className="text-[12.5px] mt-[1px]" style={{ color: "var(--color-text-secondary)" }}>
+          <div className="text-[length:var(--text-sm)] mt-[1px]" style={{ color: "var(--color-text-secondary)" }}>
             {userData?.email ?? "—"}
           </div>
-          <div className="text-[11.5px] mt-1" style={{ color: "var(--color-muted)" }}>
+          <div className="text-[length:var(--text-meta)] mt-1" style={{ color: "var(--color-muted)" }}>
             Member since {memberSince}
           </div>
         </div>
@@ -901,7 +891,7 @@ function ProfileSection({ userData, mutate }: { userData: UserData | undefined; 
       <Row label="Display name" description="How your name appears across the app.">
         <div className="flex items-center gap-2">
           {saved && (
-            <span className="text-[12px] font-semibold" style={{ color: "var(--color-bull)" }}>
+            <span className="text-[length:var(--text-sm)] font-semibold" style={{ color: "var(--color-bull)" }}>
               Saved
             </span>
           )}
@@ -912,21 +902,8 @@ function ProfileSection({ userData, mutate }: { userData: UserData | undefined; 
               setSaved(false);
             }}
             onKeyDown={(e) => e.key === "Enter" && saveName()}
-            className="text-[13px] px-[11px] py-[7px] rounded-[8px] outline-none transition-colors duration-150"
-            style={{
-              background: "var(--color-bg)",
-              border: "1px solid var(--color-border-strong)",
-              color: "var(--color-text)",
-              width: 170,
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = "var(--color-accent)";
-              e.currentTarget.style.boxShadow = "0 0 0 3px var(--color-accent-light)";
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = "var(--color-border-strong)";
-              e.currentTarget.style.boxShadow = "none";
-            }}
+            className="input"
+            style={{ width: 170 }}
           />
           <Btn variant="prim" onClick={saveName} disabled={saving || !name.trim()}>
             {saving ? "Saving…" : "Save"}
@@ -935,7 +912,7 @@ function ProfileSection({ userData, mutate }: { userData: UserData | undefined; 
       </Row>
 
       <Row label="Email" description="Your login email. Managed by Google.">
-        <span className="text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
+        <span className="text-[length:var(--text-sm)]" style={{ color: "var(--color-text-secondary)" }}>
           {userData?.email ?? "—"}
         </span>
       </Row>
@@ -1034,7 +1011,7 @@ function PrivacySection({ userData, mutate }: { userData: UserData | undefined; 
         </Btn>
       </Row>
       {privacyError && (
-        <p style={{ marginTop: 10, fontSize: 12.5, color: "var(--color-bear, #f87171)" }}>{privacyError}</p>
+        <p style={{ marginTop: 10, fontSize: "var(--text-sm)", color: "var(--color-bear)" }}>{privacyError}</p>
       )}
     </div>
   );
@@ -1171,11 +1148,11 @@ function BillingSection({ userData, mutate }: { userData: UserData | undefined; 
       {/* Plan changed banner */}
       {changed && (
         <div
-          className="mb-5 rounded-[10px] px-4 py-3 text-[13px] flex items-center justify-between"
+          className="mb-5 rounded-[var(--radius-md)] px-4 py-3 text-[length:var(--text-sm)] flex items-center justify-between"
           style={{ border: "1px solid var(--color-bull)", background: "var(--color-surface)", color: "var(--color-text)" }}
         >
           <span>Switching to Finava {changed} — updating your plan…</span>
-          <button onClick={() => setChanged(null)} className="text-[12px] font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+          <button onClick={() => setChanged(null)} className="text-[length:var(--text-sm)] font-semibold" style={{ color: "var(--color-text-secondary)" }}>
             Dismiss
           </button>
         </div>
@@ -1185,7 +1162,7 @@ function BillingSection({ userData, mutate }: { userData: UserData | undefined; 
       <div
         style={{
           border: "1px solid var(--color-accent-medium)",
-          borderRadius: 14,
+          borderRadius: "var(--radius-md)",
           padding: 20,
           background: "var(--color-accent-light)",
           marginBottom: 22,
@@ -1196,16 +1173,16 @@ function BillingSection({ userData, mutate }: { userData: UserData | undefined; 
             <div className="eyebrow-label" style={{ color: "var(--color-accent)", letterSpacing: "0.18em" }}>
               Current plan
             </div>
-            <div className="mt-1.5 text-[26px] font-bold" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)" }}>
+            <div className="mt-1.5 text-[length:var(--text-stat)] font-bold" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)" }}>
               Finava {plan}
             </div>
-            <div className="text-[12.5px] mt-[3px]" style={{ color: "var(--color-text-secondary)" }}>
+            <div className="text-[length:var(--text-sm)] mt-[3px]" style={{ color: "var(--color-text-secondary)" }}>
               {statusLine}
               {status === "past_due" && " · payment failed"}
             </div>
           </div>
           <span
-            className="inline-flex items-center gap-1.5 px-2.5 py-[3px] rounded-full text-[12px] font-semibold uppercase"
+            className="inline-flex items-center gap-1.5 px-2.5 py-[3px] rounded-full text-[length:var(--text-sm)] font-semibold uppercase"
             style={{
               background: "var(--color-accent-light)",
               color: "var(--color-accent)",
@@ -1217,9 +1194,9 @@ function BillingSection({ userData, mutate }: { userData: UserData | undefined; 
         </div>
         <div className="grid grid-cols-2 gap-x-5 mt-4">
           {planFeatures(plan).map((f) => (
-            <div key={f} className="flex items-center gap-[9px] text-[12.5px] py-[5px]" style={{ color: "var(--color-text-secondary)" }}>
+            <div key={f} className="flex items-center gap-2 text-[length:var(--text-sm)] py-1" style={{ color: "var(--color-text-secondary)" }}>
               <span style={{ color: "var(--color-bull)" }} className="flex-shrink-0">
-                <Icon name="check" size={14} stroke={2.6} />
+                <Icon name="check" size={14} />
               </span>
               {f}
             </div>
@@ -1251,48 +1228,37 @@ function BillingSection({ userData, mutate }: { userData: UserData | undefined; 
       {picking && (
         <div
           className="fixed inset-0 flex items-center justify-center"
-          style={{ zIndex: 1000, background: "rgba(15,23,42,0.45)", backdropFilter: "blur(4px)" }}
+          style={{ zIndex: 1000, background: "var(--color-scrim)", backdropFilter: "blur(4px)" }}
           onClick={() => setPicking(false)}
         >
           <div
-            className="rounded-[18px] p-6 w-full"
+            className="rounded-[var(--radius-xl)] p-6 w-full"
             style={{
               maxWidth: 520,
               margin: "0 16px",
               background: "var(--color-bg)",
               border: "1px solid var(--color-border)",
-              boxShadow: "0 24px 60px rgba(15,23,42,0.18)",
+              boxShadow: "var(--shadow-pop)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal header */}
             <div className="flex items-center justify-between mb-5">
-              <p className="text-[16px] font-bold" style={{ color: "var(--color-text)" }}>
+              <p className="text-[length:var(--text-lg)] font-bold" style={{ color: "var(--color-text)" }}>
                 {isSubscribed ? "Change plan" : "Choose a plan"}
               </p>
               <div className="flex items-center gap-3">
-                <div
-                  className="inline-flex gap-[3px] p-[3px] rounded-[8px]"
-                  style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
-                >
-                  {(["monthly", "annual"] as const).map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setCadence(c)}
-                      className="px-3 py-[5px] text-[12px] font-medium rounded-[5px] capitalize transition-all duration-150"
-                      style={
-                        cadence === c
-                          ? { background: "var(--color-bg)", color: "var(--color-accent)", fontWeight: 600 }
-                          : { color: "var(--color-text-secondary)" }
-                      }
-                    >
-                      {c === "annual" ? "Annual · save 2 mo" : "Monthly"}
-                    </button>
-                  ))}
-                </div>
+                <Segmented
+                  value={cadence}
+                  onChange={setCadence}
+                  options={[
+                    { v: "monthly", label: "Monthly" },
+                    { v: "annual", label: "Annual · save 2 mo" },
+                  ]}
+                />
                 <button
                   onClick={() => setPicking(false)}
-                  className="rounded-[7px] p-1 transition-colors duration-100"
+                  className="rounded-[var(--radius-sm)] p-1 transition-colors duration-100"
                   style={{ color: "var(--color-text-secondary)" }}
                 >
                   <Icon name="x" size={18} />
@@ -1317,36 +1283,36 @@ function BillingSection({ userData, mutate }: { userData: UserData | undefined; 
                 return (
                   <div
                     key={p}
-                    className="rounded-[12px] p-4 flex flex-col"
+                    className="rounded-[var(--radius-md)] p-4 flex flex-col"
                     style={{
                       border: isCurrent ? "1.5px solid var(--color-accent)" : "1px solid var(--color-border)",
                       background: isCurrent ? "var(--color-accent-light)" : "var(--color-surface)",
                     }}
                   >
                     <div className="flex items-start justify-between mb-0.5">
-                      <div className="text-[14px] font-bold" style={{ color: "var(--color-text)" }}>
+                      <div className="text-[length:var(--text-body)] font-bold" style={{ color: "var(--color-text)" }}>
                         Finava {c.label}
                       </div>
                       {isCurrent && (
                         <span
-                          className="text-[9px] font-bold uppercase px-1.5 py-[2px] rounded-full flex-shrink-0"
-                          style={{ background: "var(--color-accent)", color: "#fff", letterSpacing: "0.1em" }}
+                          className="text-[length:var(--text-micro)] font-bold uppercase px-1.5 py-[2px] rounded-full flex-shrink-0"
+                          style={{ background: "var(--color-accent)", color: "var(--color-on-accent)", letterSpacing: "0.1em" }}
                         >
                           Current
                         </span>
                       )}
                     </div>
-                    <div className="text-[22px] font-bold mt-1" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)" }}>
+                    <div className="text-[length:var(--text-display)] font-bold mt-1 tabular-nums" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)" }}>
                       {cadence === "monthly" ? c.price.monthly : c.price.annual}
-                      <span className="text-[12px] font-normal" style={{ color: "var(--color-text-secondary)" }}>
+                      <span className="text-[length:var(--text-sm)] font-normal" style={{ color: "var(--color-text-secondary)" }}>
                         {cadence === "monthly" ? " / mo" : " / yr"}
                       </span>
                     </div>
                     <div className="mt-3 mb-4 flex-1 space-y-1.5">
                       {planFeatures(p).map((f) => (
-                        <div key={f} className="flex items-center gap-1.5 text-[11.5px]" style={{ color: "var(--color-text-secondary)" }}>
+                        <div key={f} className="flex items-center gap-1.5 text-[length:var(--text-meta)]" style={{ color: "var(--color-text-secondary)" }}>
                           <span style={{ color: "var(--color-bull)" }}>
-                            <Icon name="check" size={12} stroke={2.6} />
+                            <Icon name="check" size={12} />
                           </span>
                           {f}
                         </div>
@@ -1364,7 +1330,7 @@ function BillingSection({ userData, mutate }: { userData: UserData | undefined; 
               })}
             </div>
 
-            <div className="mt-3 text-[11.5px]" style={{ color: "var(--color-muted)" }}>
+            <div className="mt-3 text-[length:var(--text-meta)]" style={{ color: "var(--color-muted)" }}>
               Finava Quant · hedge-fund suite · coming soon.
               {isSubscribed && " Plan changes are prorated to your billing cycle."}
             </div>
@@ -1378,22 +1344,22 @@ function BillingSection({ userData, mutate }: { userData: UserData | undefined; 
 function StatCard({ label, value, sub }: { label: string; value: number | string; sub: string }) {
   return (
     <div
-      className="rounded-[12px] px-4 py-[15px]"
+      className="rounded-[var(--radius-md)] px-4 py-4"
       style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)" }}
     >
       <div
-        className="text-[10px] font-bold uppercase"
+        className="text-[length:var(--text-micro)] font-bold uppercase"
         style={{ letterSpacing: "0.14em", color: "var(--color-muted)" }}
       >
         {label}
       </div>
       <div
-        className="text-[30px] font-bold leading-none mt-2"
+        className="text-[length:var(--text-stat)] font-bold leading-none mt-2 tabular-nums"
         style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)" }}
       >
         {value}
       </div>
-      <div className="text-[11px] mt-[5px]" style={{ color: "var(--color-text-secondary)" }}>
+      <div className="mono text-[length:var(--text-meta)] mt-[5px]" style={{ color: "var(--color-text-secondary)" }}>
         {sub}
       </div>
     </div>
@@ -1440,7 +1406,7 @@ function UsageBar({ pct, used, limit }: { pct: number; used: number; limit: numb
           }}
         />
       </div>
-      <div className="flex justify-between text-[11px] mt-1.5" style={{ color: "var(--color-text-secondary)" }}>
+      <div className="mono flex justify-between text-[length:var(--text-meta)] mt-1.5" style={{ color: "var(--color-text-secondary)" }}>
         <span>
           {unlimited ? `${Math.round(used)} credits` : `${Math.round(used)} / ${limit} credits`}
         </span>
@@ -1448,24 +1414,6 @@ function UsageBar({ pct, used, limit }: { pct: number; used: number; limit: numb
           {unlimited ? "Unlimited" : `${pct}%`}
         </span>
       </div>
-    </div>
-  );
-}
-
-interface UsageTooltipProps {
-  active?: boolean;
-  payload?: { value: number; payload: { date: string } }[];
-}
-function UsageTooltip({ active, payload }: UsageTooltipProps) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0];
-  return (
-    <div
-      className="rounded-[8px] px-2.5 py-1.5 text-[11px]"
-      style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)", boxShadow: "var(--shadow-pop)" }}
-    >
-      <div style={{ color: "var(--color-muted)" }}>{fmtDay(p.payload.date)}</div>
-      <div style={{ color: "var(--color-text)", fontWeight: 700 }}>{Math.round(p.value)} credits</div>
     </div>
   );
 }
@@ -1524,10 +1472,10 @@ function UsageSection({ onUpgrade }: { onUpgrade: () => void }) {
       </Row>
 
       <div className="mt-7">
-        <p className="text-[13.5px] font-semibold" style={{ color: "var(--color-text)" }}>
+        <p className="text-[length:var(--text-sm)] font-semibold" style={{ color: "var(--color-text)" }}>
           Usage over time
         </p>
-        <p className="text-[12.5px] mt-[3px] mb-3" style={{ color: "var(--color-text-secondary)" }}>
+        <p className="text-[length:var(--text-sm)] mt-[3px] mb-3" style={{ color: "var(--color-text-secondary)" }}>
           Credits used per day over the last 30 days.
         </p>
         <div style={{ height: 196 }}>
@@ -1536,33 +1484,31 @@ function UsageSection({ onUpgrade }: { onUpgrade: () => void }) {
               <AreaChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: -16 }}>
                 <defs>
                   <linearGradient id="settingsUsageArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.32} />
+                    <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.28} />
                     <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-                <XAxis
-                  dataKey="date"
-                  tickFormatter={fmtDay}
-                  tick={{ fontSize: 10, fill: "var(--color-muted)" }}
-                  tickLine={false}
-                  axisLine={false}
-                  minTickGap={32}
+                <CartesianGrid {...gridProps} />
+                <XAxis dataKey="date" tickFormatter={fmtDay} {...axisProps} minTickGap={32} />
+                <YAxis {...axisProps} width={32} allowDecimals={false} />
+                <Tooltip
+                  content={({ active, label, payload }) => (
+                    <ChartTooltip
+                      active={active}
+                      label={label != null && label !== "" ? fmtDay(String(label)) : undefined}
+                      payload={payload as unknown as React.ComponentProps<typeof ChartTooltip>["payload"]}
+                      formatValue={(v) => `${Math.round(Number(v))}`}
+                    />
+                  )}
+                  cursor={{ stroke: "var(--color-border-strong)", strokeWidth: 1 }}
                 />
-                <YAxis
-                  tick={{ fontSize: 10, fill: "var(--color-muted)" }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={32}
-                  allowDecimals={false}
-                />
-                <Tooltip content={<UsageTooltip />} cursor={{ stroke: "var(--color-border-strong)", strokeWidth: 1 }} />
                 <Area type="monotone" dataKey="credits" stroke="var(--color-accent)" strokeWidth={1.8} fill="url(#settingsUsageArea)" />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
             <div
-              className="h-full flex items-center justify-center rounded-[12px] text-center px-6"
-              style={{ border: "1px dashed var(--color-border)", color: "var(--color-muted)", fontSize: 12.5 }}
+              className="h-full flex items-center justify-center rounded-[var(--radius-md)] text-center px-6"
+              style={{ border: "1px dashed var(--color-border)", color: "var(--color-muted)", fontSize: "var(--text-sm)" }}
             >
               No usage yet — your AI activity will chart here as you use Finava.
             </div>
@@ -1638,17 +1584,17 @@ export default function SettingsPage() {
       >
         <button
           onClick={exitSettings}
-          className="settings-back inline-flex items-center gap-1.5 text-[12px] font-medium rounded-[7px] transition-colors duration-100"
+          className="settings-back inline-flex items-center gap-1.5 text-[length:var(--text-sm)] font-medium rounded-[var(--radius-sm)] transition-colors duration-100"
           style={{ color: "var(--color-text-secondary)", padding: "5px 8px", margin: "0 2px 10px", alignSelf: "flex-start" }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12" />
             <polyline points="12 19 5 12 12 5" />
           </svg>
           Back to app
         </button>
         <div
-          className="text-[21px] font-bold tracking-[-0.01em]"
+          className="text-[length:var(--text-display)] font-bold tracking-[-0.01em]"
           style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)", padding: "0 10px", marginBottom: 22 }}
         >
           Settings
@@ -1662,10 +1608,10 @@ export default function SettingsPage() {
               <button
                 key={it.id}
                 onClick={() => nav(it.id)}
-                className={`settings-nav-item${active === it.id ? " is-active" : ""} w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13px] font-medium text-left mb-[1px] transition-colors duration-100`}
+                className={`settings-nav-item${active === it.id ? " is-active" : ""} w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-md)] text-[length:var(--text-sm)] font-medium text-left mb-[1px] transition-colors duration-100`}
               >
                 <span className="flex-shrink-0" style={{ opacity: active === it.id ? 1 : 0.85 }}>
-                  <Icon name={it.icon} size={16} stroke={1.9} />
+                  <Icon name={it.icon} size={16} />
                 </span>
                 {it.label}
               </button>
@@ -1679,7 +1625,7 @@ export default function SettingsPage() {
         <div style={{ maxWidth: active === "templates" ? 1000 : 624, margin: "0 auto", padding: "40px 44px 64px" }}>
           {checkoutNotice && (
             <div
-              className="mb-5 rounded-[10px] px-4 py-3 text-[13px] flex items-center justify-between"
+              className="mb-5 rounded-[var(--radius-md)] px-4 py-3 text-[length:var(--text-sm)] flex items-center justify-between"
               style={{
                 border: `1px solid ${checkoutNotice === "success" ? "var(--color-bull)" : "var(--color-border-strong)"}`,
                 background: "var(--color-surface)",
@@ -1693,7 +1639,7 @@ export default function SettingsPage() {
               </span>
               <button
                 onClick={() => setCheckoutNotice(null)}
-                className="text-[12px] font-semibold"
+                className="text-[length:var(--text-sm)] font-semibold"
                 style={{ color: "var(--color-text-secondary)" }}
               >
                 Dismiss

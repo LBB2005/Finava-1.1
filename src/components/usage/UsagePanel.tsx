@@ -27,10 +27,10 @@ function Meter({
   return (
     <div>
       <div className="flex justify-between items-baseline mb-1">
-        <span className="text-[11px] font-semibold" style={{ color: "var(--color-text)" }}>
+        <span className="text-[length:var(--text-meta)] font-semibold" style={{ color: "var(--color-text)" }}>
           {label}
         </span>
-        <span className="text-[10.5px]" style={{ color: "var(--color-text-secondary)" }}>
+        <span className="mono text-[length:var(--text-micro)]" style={{ color: "var(--color-text-secondary)" }}>
           {unlimited ? `${Math.round(used)} · Unlimited` : `${Math.round(used)} / ${limit}`}
         </span>
       </div>
@@ -59,11 +59,11 @@ export default function UsagePanel({
   return (
     <>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[12.5px] font-bold" style={{ color: "var(--color-text)" }}>
+        <span className="text-[length:var(--text-sm)] font-bold" style={{ color: "var(--color-text)" }}>
           Usage
         </span>
         <span
-          className="text-[10px] font-semibold px-2 py-[3px] rounded-full"
+          className="text-[length:var(--text-micro)] font-semibold px-2 py-[3px] rounded-full"
           style={{ background: "var(--color-surface)", color: "var(--color-text-secondary)" }}
         >
           {data.plan}
@@ -87,17 +87,13 @@ export default function UsagePanel({
         />
       </div>
 
-      <p className="text-[10.5px] mt-3 leading-snug" style={{ color: "var(--color-muted)" }}>
+      <p className="text-[length:var(--text-micro)] mt-3 leading-snug" style={{ color: "var(--color-muted)" }}>
         Weekly is a rolling 7-day window; daily resets at midnight UTC.
       </p>
 
-      <button
-        onClick={onSeeDetails}
-        className="w-full mt-3 inline-flex items-center justify-center gap-1.5 py-[7px] rounded-[8px] text-[12px] font-semibold transition-colors duration-150"
-        style={{ background: "var(--color-accent)", color: "#fff" }}
-      >
+      <button onClick={onSeeDetails} className="btn btn-primary w-full mt-3">
         See details
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="5" y1="12" x2="19" y2="12" />
           <polyline points="12 5 19 12 12 19" />
         </svg>

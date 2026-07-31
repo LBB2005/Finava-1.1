@@ -54,23 +54,19 @@ export default async function SharePage(
           borderBottom: "1px solid var(--color-border)",
         }}
       >
-        <Link href="/" className="serif text-[17px] font-extrabold tracking-[0.12em]" style={{ color: "var(--color-text)" }}>
+        <Link href="/" className="serif text-[length:var(--text-lg)] font-extrabold tracking-[0.12em]" style={{ color: "var(--color-text)" }}>
           FINAVA
         </Link>
-        <Link
-          href="/"
-          className="text-[12.5px] font-semibold px-3.5 py-1.5 rounded-[8px]"
-          style={{ background: "var(--color-accent)", color: "white" }}
-        >
+        <Link href="/" className="btn btn-primary px-3.5 py-1.5">
           Try Finava
         </Link>
       </header>
 
       <main className="max-w-[760px] mx-auto px-5 py-10">
-        <p className="mono text-[10.5px] uppercase tracking-[0.08em] mb-2" style={{ color: "var(--color-muted)" }}>
+        <p className="mono text-[length:var(--text-micro)] uppercase tracking-[0.08em] mb-2" style={{ color: "var(--color-muted)" }}>
           Shared conversation · {sharedDate}
         </p>
-        <h1 className="serif text-[28px] font-bold leading-[1.15] mb-8" style={{ color: "var(--color-text)", letterSpacing: "-0.015em" }}>
+        <h1 className="serif text-[length:var(--text-stat)] font-bold leading-[1.15] mb-8" style={{ color: "var(--color-text)", letterSpacing: "-0.015em" }}>
           {share.title}
         </h1>
 
@@ -79,8 +75,8 @@ export default async function SharePage(
             m.role === "user" ? (
               <div key={i} className="flex justify-end">
                 <div
-                  className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md text-[14px] leading-[1.55]"
-                  style={{ background: "var(--color-user-bubble)", color: "white" }}
+                  className="max-w-[85%] px-4 py-2.5 rounded-[var(--radius-lg)] rounded-br-[var(--radius-xs)] text-[length:var(--text-body)] leading-[1.55]"
+                  style={{ background: "var(--color-user-bubble)", color: "var(--color-on-accent)" }}
                 >
                   {m.content}
                 </div>
@@ -88,12 +84,12 @@ export default async function SharePage(
             ) : (
               <div key={i} className="flex gap-3">
                 <span
-                  className="serif flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold"
-                  style={{ background: "var(--color-accent)", color: "white" }}
+                  className="serif flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[length:var(--text-sm)] font-bold"
+                  style={{ background: "var(--color-accent)", color: "var(--color-on-accent)" }}
                 >
                   F
                 </span>
-                <div className="flex-1 min-w-0 text-[14px] leading-[1.6]" style={{ color: "var(--color-text)" }}>
+                <div className="flex-1 min-w-0 text-[length:var(--text-body)] leading-[1.6]" style={{ color: "var(--color-text)" }}>
                   <Markdown>{m.content}</Markdown>
                 </div>
               </div>
@@ -103,25 +99,21 @@ export default async function SharePage(
 
         {/* CTA footer */}
         <div
-          className="mt-12 rounded-2xl px-6 py-7 text-center"
+          className="mt-12 rounded-[var(--radius-md)] px-6 py-7 text-center"
           style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-accent-medium)" }}
         >
-          <p className="serif text-[19px] font-bold mb-1.5" style={{ color: "var(--color-text)" }}>
+          <p className="serif text-[length:var(--text-xl)] font-bold mb-1.5" style={{ color: "var(--color-text)" }}>
             Research stocks with AI agents
           </p>
-          <p className="text-[13px] mb-4" style={{ color: "var(--color-text-secondary)" }}>
+          <p className="text-[length:var(--text-sm)] mb-4" style={{ color: "var(--color-text-secondary)" }}>
             Finava runs 15 specialist agents over your portfolio, watchlists, and any ticker.
           </p>
-          <Link
-            href="/"
-            className="inline-block text-[13px] font-semibold px-5 py-2.5 rounded-[10px]"
-            style={{ background: "var(--color-accent)", color: "white" }}
-          >
+          <Link href="/" className="btn btn-primary px-5 py-2.5">
             Join the waitlist
           </Link>
         </div>
 
-        <p className="text-center text-[10.5px] mt-8 tracking-[0.04em]" style={{ color: "var(--color-muted)" }}>
+        <p className="text-center text-[length:var(--text-micro)] mt-8 tracking-[0.04em]" style={{ color: "var(--color-muted)" }}>
           Not financial advice · Always do your own research
         </p>
       </main>
