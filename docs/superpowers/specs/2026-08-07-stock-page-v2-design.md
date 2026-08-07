@@ -93,18 +93,19 @@ About/company description moves to the bottom of the left column (kept, demoted)
 
 ## 5. Finava tab — "one scroll, two chapters"
 
-**Chapter 1 — Finava's Read (verdict hero, "orb anchors left" arrangement):**
-- Left: the **score orb** (~84px ring; conic fill colored by stance tier; serif numeral
-  center + micro stance label). **Static at rest.** It breathes (the chat page's
+**Chapter 1 — Finava's Read (verdict hero, "headline leads, orb docked right"):**
+- Left (flex 1): eyebrow `FINAVA'S READ · 5 AGENTS · 2d ago · ↻`, the take as a bold
+  serif headline (`--text-stat` scale, key word optionally stance-colored), one-line
+  dek in `--text-sm` secondary, then the frost crew ribbon tucked beneath.
+- Right (docked): the **score orb** (~92px ring; conic fill colored by stance tier;
+  serif numeral center + micro stance label; `CONFIDENCE` micro caption below) — the
+  "seal of judgment". **Static at rest.** It breathes (the chat page's
   `breathe`/`glowpulse` pair) **only while an analysis is actively streaming**, and
   settles when done. `prefers-reduced-motion`/`data-motion="reduced"` disable it.
-- Right: eyebrow `FINAVA'S READ · 5 AGENTS · 2d ago · ↻`, the take as a bold serif
-  headline (`--text-stat` scale, key word optionally stance-colored), one-line dek in
-  `--text-sm` secondary.
-- Below: **frost crew ribbon** (`.frost-card` recipe, radius-lg): agent names with
-  status dots (bull = agree, warn = dissent), skeptic dissent bolded, right-aligned
-  model badges (existing ModelBadge). While streaming, this expands into the existing
-  live per-agent panel; collapsed ribbon when settled.
+- The **frost crew ribbon** (`.frost-card` recipe, radius-lg) sits under the headline
+  column: agent names with status dots (bull = agree, warn = dissent), skeptic dissent
+  bolded, right-aligned model badges (existing ModelBadge). While streaming, this
+  expands into the existing live per-agent panel; collapsed ribbon when settled.
 - Never-run state: chapter shows the orb hollow (track only) + "Run Finava's 5-agent
   analysis" `.btn-primary`; streaming state preserves today's live signal cards.
 
