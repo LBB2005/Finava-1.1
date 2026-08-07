@@ -86,10 +86,43 @@ About/company description moves to the bottom of the left column (kept, demoted)
 ## 4. Tab consolidation (7 → 5)
 
 `Overview · Financials · Street & News · Finava · Money Map`
-- **Street & News** = existing Analysts tab + News tab merged (analyst targets/ratings
-  first, news feed below; internal anchor from rail/notifications if needed).
+- **Street & News** = existing Analysts tab + News tab merged (full layout in §4a).
 - **Finava** = existing Finava Analysis + DCF merged (§5).
 - No functionality deleted — only relocated. Deep links (`?tab=`) map old names to new.
+
+### 4a. Street & News tab layout (approved iterations)
+
+Top-to-bottom, three blocks separated by `Rule`s:
+
+**1. The Street — "target range instrument."**
+- Centerpiece: a horizontal low→mean→high price-target bar (soft bear-tint left edge →
+  accent-light mid → bull-tint right edge) with two markers: today's price (ink tick,
+  labeled) and the mean target (accent tick, labeled). Low/high endpoint labels in
+  micro mono. Eyebrow: `PRICE TARGETS · N ANALYSTS`; right meta: mean + implied upside.
+- Below: ratings split bar (bull/warn/bear segments proportional to Buy/Hold/Sell)
+  + `58 BUY · 6 HOLD · 1 SELL` mono caption.
+- Below: recent rating changes list (firm · action + target move with semantic color ·
+  age). Existing analysts data; no target → block shows the ratings bar only; no
+  analyst coverage at all → `.empty-note` ("No Street coverage yet").
+
+**2. Sentiment — "three-gauge strip."**
+- One row, three equal cells divided by hairlines: **X Chatter (Grok)** · **News tone
+  (7d)** · **Street stance**. Each cell: eyebrow + 0–100 score (mono, tier-colored) +
+  a meter on the same bear→warn→bull gradient track + a one-line note.
+- Sources: X score = existing Grok X-sentiment signal; Street stance = derived
+  deterministically from the ratings distribution; News tone = provider sentiment on
+  recent stories aggregated (see block 3) — if a source is unavailable its cell shows
+  `—` + "Unavailable" (never fabricated).
+- Disagreement between gauges is the point — no blended composite number in v1.
+
+**3. News — "feature + wire."**
+- One featured story: thumbnail (existing og-image pipeline), serif headline, source ·
+  age mono eyebrow, 1–2 line summary, tone tag.
+- Below: compact wire rows — `SOURCE · AGE` (fixed-width mono column) + headline +
+  right-aligned tone tag. Tone tags (`POSITIVE`/`NEGATIVE`/`NEUTRAL`, 10% semantic
+  fill, `--radius-xs`) come from provider sentiment when present; rows without
+  sentiment simply omit the tag. Aggregated tag counts feed the News-tone gauge above.
+- States: skeleton rows while loading; `.empty-note` when the feed is empty.
 
 ## 5. Finava tab — "one scroll, two chapters"
 
