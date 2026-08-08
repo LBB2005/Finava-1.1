@@ -1495,6 +1495,70 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 }
 
 /* ── Chart-first stock page (/stock/[ticker]) ───────────────────────────── */
+
+/* Chart card + intelligence rail — chart pane and 248px rail share one
+   hairline card (spec §1). Below 900px the rail re-lays as a 2×2 grid
+   under the full-width chart. */
+.stock-chartcard {
+  display: flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  overflow: hidden;
+}
+.stock-chartpane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.intel-rail {
+  width: 248px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+}
+.intel-cell {
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+.intel-rail .intel-cell:last-child { border-bottom: none; }
+.intel-rail .intel-grow { flex: 1; }
+.intel-clickable { cursor: pointer; transition: background 130ms; }
+.intel-clickable:hover { background: var(--color-accent-light); }
+.intel-tile {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.intel-jump {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: 700;
+  color: var(--color-accent);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  align-self: center;
+}
+@media (max-width: 900px) {
+  .stock-chartcard { flex-direction: column; }
+  .intel-rail {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .intel-rail .intel-cell { border-bottom: 1px solid var(--color-border); }
+  .intel-rail .intel-cell:nth-child(odd) { border-right: 1px solid var(--color-border); }
+  .intel-rail .intel-cell:nth-last-child(-n + 2) { border-bottom: none; }
+}
 .stock-page a.newslink { display: block; }
 .stock-page a.newslink .h { transition: color 120ms; }
 .stock-page a.newslink:hover .h { color: var(--color-accent); }

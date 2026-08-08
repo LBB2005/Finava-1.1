@@ -13,6 +13,9 @@ export interface FinavaEntry {
   status: FinavaStatus;
   analysis: FinavaAnalysis;
   error: string | null;
+  /** When the verdict was produced — live runs stamp now; hydrated cache
+   *  carries the persisted timestamp (drives the "2d ago" age display). */
+  updatedAt: string | null;
 }
 
 const store = new Map<string, FinavaEntry>();
@@ -20,7 +23,7 @@ const inflight = new Set<string>();
 const listeners = new Map<string, Set<() => void>>();
 
 function emptyEntry(): FinavaEntry {
-  return { status: "idle", analysis: { signals: [], verdict: null }, error: null };
+  return { status: "idle", analysis: { signals: [], verdict: null }, error: null, updatedAt: null };
 }
 
 // Stable singleton for the "not started" state. useSyncExternalStore compares
@@ -30,7 +33,21 @@ const EMPTY: FinavaEntry = {
   status: "idle",
   analysis: { signals: [], verdict: null },
   error: null,
+  updatedAt: null,
 };
+
+/**
+ * Seed the store from the per-user verdict cache (GET /verdict) so the rail,
+ * Overview Read, and Finava tab render a completed analysis without charging a
+ * run. Never clobbers live state — only fills an idle/absent entry.
+ */
+export function hydrateFinava(ticker: string, analysis: FinavaAnalysis, updatedAt: string) {
+  const sym = ticker.toUpperCase();
+  const existing = store.get(sym);
+  if (existing && existing.status !== "idle") return;
+  if (!analysis.verdict) return;
+  setEntry(sym, { status: "done", analysis, error: null, updatedAt });
+}
 
 export function getEntry(ticker: string): FinavaEntry {
   return store.get(ticker) ?? EMPTY;
@@ -58,15 +75,26 @@ function withSignal(analysis: FinavaAnalysis, signal: FinavaSignal): FinavaAnaly
   return { ...analysis, signals: next };
 }
 
-/** Kick off (or no-op resume) the analysis for a ticker. Safe to call repeatedly. */
-export async function runFinava(ticker: string): Promise<void> {
+/**
+ * Kick off (or no-op resume) the analysis for a ticker. Safe to call repeatedly.
+ * `force` re-runs a done/hydrated ticker stale-while-revalidate style: the old
+ * verdict stays on screen while fresh signals stream in over it.
+ */
+export async function runFinava(ticker: string, opts: { force?: boolean } = {}): Promise<void> {
   const sym = ticker.toUpperCase();
   const existing = store.get(sym);
   if (inflight.has(sym)) return; // already running
-  if (existing && (existing.status === "done" || existing.status === "streaming")) return;
+  if (existing && existing.status === "streaming") return;
+  if (!opts.force && existing && existing.status === "done") return;
 
   inflight.add(sym);
-  setEntry(sym, { status: "streaming", analysis: { signals: [], verdict: null }, error: null });
+  const keep = opts.force && existing ? existing.analysis : { signals: [], verdict: null };
+  setEntry(sym, {
+    status: "streaming",
+    analysis: keep,
+    error: null,
+    updatedAt: existing?.updatedAt ?? null,
+  });
 
   try {
     const res = await authFetch(`/api/stock/${encodeURIComponent(sym)}/finava-analysis`, {
@@ -107,6 +135,7 @@ export async function runFinava(ticker: string): Promise<void> {
             ...cur,
             status: "done",
             analysis: { ...cur.analysis, verdict: event.verdict },
+            updatedAt: new Date().toISOString(),
           });
         } else if (event.type === "error") {
           setEntry(sym, { ...cur, status: "error", error: event.message });

@@ -7,6 +7,7 @@ import type { StockProfile } from "@/lib/stockData";
 import type { CandleResponse, TickerSnapshot } from "@/lib/finnhub";
 import StockChart, { type ChartMode } from "./StockChart";
 import AddToWatchlistButton from "@/components/watchlist/AddToWatchlistButton";
+import IntelligenceRail from "./IntelligenceRail";
 
 interface Props {
   ticker: string;
@@ -14,6 +15,9 @@ interface Props {
   fallbackQuote: TickerSnapshot | null;
   initialCandles: CandleResponse | null;
   initialRange: ChartRange;
+  /** Rail click-throughs — provided by the page, which owns tab state. */
+  onOpenAnalysis: (opts?: { run?: boolean }) => void;
+  onOpenDcf: () => void;
 }
 
 function fmt(n: number, d = 2) {
@@ -69,7 +73,7 @@ function LogoBadge({ logo, ticker, size = 44 }: { logo: string | null; ticker: s
   );
 }
 
-export default function StockHero({ ticker, profile, fallbackQuote, initialCandles, initialRange }: Props) {
+export default function StockHero({ ticker, profile, fallbackQuote, initialCandles, initialRange, onOpenAnalysis, onOpenDcf }: Props) {
   const [range, setRange] = useState<ChartRange>(initialRange);
   const [mode, setMode] = useState<ChartMode>("area");
 
@@ -147,24 +151,26 @@ export default function StockHero({ ticker, profile, fallbackQuote, initialCandl
         </div>
       </div>
 
-      {/* Chart */}
-      <div style={{ marginTop: 10 }}>
-        <StockChart candles={candles} range={range} mode={mode} height={300} loading={isLoading} error={!!error} />
-      </div>
-
-      {/* Range row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 16px", flexWrap: "wrap", gap: 10 }}>
-        <span className="mono" style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: rUp ? "var(--color-bull)" : "var(--color-bear)" }}>
-          {rangePct == null ? "" : signed(rangePct)}%{" "}
-          <span style={{ color: "var(--color-muted)", fontWeight: 500 }}>· {RANGE_LABEL[range]}</span>
-        </span>
-        <div style={{ display: "flex", gap: 5 }}>
-          {CHART_RANGES.map((r) => (
-            <button key={r} className={"tbtn" + (range === r ? " on" : "")} onClick={() => setRange(r)}>
-              {r}
-            </button>
-          ))}
+      {/* Chart card — chart pane + intelligence rail behind one hairline (§1) */}
+      <div className="stock-chartcard" style={{ marginTop: 10, marginBottom: 16 }}>
+        <div className="stock-chartpane">
+          <StockChart candles={candles} range={range} mode={mode} height={300} loading={isLoading} error={!!error} />
+          {/* Range row — nested in the chart pane so it never spans under the rail */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px 12px", flexWrap: "wrap", gap: 10, borderTop: "1px solid var(--color-border)" }}>
+            <span className="mono" style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: rUp ? "var(--color-bull)" : "var(--color-bear)" }}>
+              {rangePct == null ? "" : signed(rangePct)}%{" "}
+              <span style={{ color: "var(--color-muted)", fontWeight: 500 }}>· {RANGE_LABEL[range]}</span>
+            </span>
+            <div style={{ display: "flex", gap: 5 }}>
+              {CHART_RANGES.map((r) => (
+                <button key={r} className={"tbtn" + (range === r ? " on" : "")} onClick={() => setRange(r)}>
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
+        <IntelligenceRail ticker={ticker} onOpenAnalysis={onOpenAnalysis} onOpenDcf={onOpenDcf} />
       </div>
     </div>
   );

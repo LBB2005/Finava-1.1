@@ -22,5 +22,11 @@ export function useFinava(ticker: string | null) {
     }
   }, [sym]);
 
-  return { ...entry, run, retry };
+  /** Re-run a done ticker stale-while-revalidate: the old verdict stays on
+   *  screen while fresh signals stream over it (the rail's ↻). */
+  const refresh = useCallback(() => {
+    if (sym) void runFinava(sym, { force: true });
+  }, [sym]);
+
+  return { ...entry, run, retry, refresh };
 }

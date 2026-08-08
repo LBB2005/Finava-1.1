@@ -1,6 +1,6 @@
 "use client";
-import { useEffect } from "react";
 import { useFinava } from "@/hooks/useFinava";
+import { useVerdictCache } from "@/hooks/useVerdictCache";
 import { useQuotes } from "@/hooks/useQuotes";
 import {
   SIGNAL_ORDER,
@@ -124,14 +124,35 @@ export function FinavaTab({ ticker }: { ticker: string }) {
   const { quoteMap } = useQuotes([ticker]);
   const price = quoteMap.get(ticker)?.price ?? null;
 
-  // Tab click mounts this component — fire the run (no-op if already cached).
-  useEffect(() => {
-    run();
-  }, [run]);
+  // Cached-first: hydrate the store from the persisted verdict (free) instead
+  // of auto-running on mount. Runs start ONLY from explicit actions — the
+  // button below, the rail's Generate/↻, or a ?run=1 deep link.
+  const { neverRun, resolving } = useVerdictCache(ticker);
 
   const verdict = analysis.verdict;
   const byKey = new Map(analysis.signals.map((s) => [s.key, s]));
   const ringColor = verdict ? stanceColor(verdict.score >= 60 ? "bullish" : verdict.score <= 40 ? "bearish" : "neutral") : "var(--color-accent)";
+
+  if (status === "idle") {
+    if (resolving && !neverRun) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="skeleton" style={{ width: 168, height: 168 }} />
+          <div className="skeleton" style={{ width: "60%", height: 16 }} />
+        </div>
+      );
+    }
+    // Never run (or cache unavailable) — the one-click metered entry point.
+    return (
+      <div className="fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12 }}>
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", maxWidth: 480, lineHeight: 1.6 }}>
+          Deploy Finava&apos;s five specialist agents — fundamentals, momentum, sentiment,
+          analyst, insider — to score {ticker.toUpperCase()} and write a verdict.
+        </p>
+        <button className="tbtn on" onClick={run}>RUN FINAVA&apos;S 5-AGENT ANALYSIS</button>
+      </div>
+    );
+  }
 
   if (status === "error" && analysis.signals.length === 0) {
     return (

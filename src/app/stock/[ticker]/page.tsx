@@ -1,13 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useStockBundle } from "@/hooks/useStock";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useChatStore } from "@/stores/chatStore";
 import { buildStockSnapshot } from "@/lib/pageContext";
 import { useToast } from "@/hooks/useToast";
+import { runFinava } from "@/lib/finavaStore";
 import StockHero from "@/components/stock/StockHero";
-import InvestorLens from "@/components/stock/InvestorLens";
 import { OverviewTab, FinancialsTab, AnalystsTab, NewsTab } from "@/components/stock/StockTabs";
 import { DcfTab } from "@/components/stock/DcfTab";
 import { FinavaTab } from "@/components/stock/FinavaTab";
@@ -17,15 +17,48 @@ import ChatContextButton from "@/components/chat/ChatContextButton";
 const TABS = ["Overview", "Financials", "Analysts", "News", "DCF", "Finava", "Money Map"] as const;
 type Tab = (typeof TABS)[number];
 
+/** Resolve a ?tab= param (case-insensitive, tolerant of old names) to a Tab. */
+function tabFromParam(raw: string | null): Tab | null {
+  if (!raw) return null;
+  const norm = raw.trim().toLowerCase();
+  const direct = TABS.find((t) => t.toLowerCase() === norm);
+  if (direct) return direct;
+  // Aliases — old links and the upcoming consolidated names both land somewhere sane.
+  if (norm === "finava-analysis" || norm === "analysis") return "Finava";
+  if (norm === "moneymap" || norm === "money-map") return "Money Map";
+  return null;
+}
+
+/* useSearchParams requires a Suspense boundary in the App Router — the inner
+   component holds all page logic; this wrapper only satisfies the bailout. */
 export default function StockPage() {
+  return (
+    <Suspense fallback={null}>
+      <StockPageInner />
+    </Suspense>
+  );
+}
+
+function StockPageInner() {
   const params = useParams<{ ticker: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   const ticker = (params?.ticker ?? "").toUpperCase();
 
   const { bundle, error, isLoading, mutate } = useStockBundle(ticker || null);
   const { quoteMap } = useQuotes(ticker ? [ticker] : []);
-  const [tab, setTab] = useState<Tab>("Overview");
+  const [tab, setTab] = useState<Tab>(() => tabFromParam(searchParams.get("tab")) ?? "Overview");
+
+  // ?run=1 deep link (rail "Generate", notifications): start a metered run once
+  // the page is mounted. runFinava self-dedupes, so a re-render can't double-fire.
+  useEffect(() => {
+    if (ticker && searchParams.get("run") === "1") {
+      setTab("Finava");
+      void runFinava(ticker, { force: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticker]);
   // Flips on if the bundle hasn't arrived after a beat, so the skeleton can admit
   // it's taking longer than usual and offer a manual retry instead of hanging.
   const [slow, setSlow] = useState(false);
@@ -134,10 +167,12 @@ export default function StockPage() {
         fallbackQuote={bundle.quote}
         initialCandles={bundle.candles}
         initialRange={bundle.candleRange}
+        onOpenAnalysis={(opts) => {
+          setTab("Finava");
+          if (opts?.run) void runFinava(ticker, { force: true });
+        }}
+        onOpenDcf={() => setTab("DCF")}
       />
-
-      {/* The Lens — one personalized whisper drawn from the user's Investor DNA */}
-      <InvestorLens ticker={ticker} />
 
       {/* Sticky tab bar — pill lenses + mini ticker/price (F2d) */}
       <div
