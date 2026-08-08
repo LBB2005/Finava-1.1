@@ -213,7 +213,16 @@ function StockPageInner() {
       {/* Tab content */}
       <div style={{ padding: "22px var(--page-gutter) var(--content-pad-bottom)" }}>
         {tab === "Overview" && (
-          <OverviewTab ticker={ticker} profile={bundle.profile} keyStats={bundle.keyStats} sentiment={bundle.sentiment} />
+          <OverviewTab
+            ticker={ticker}
+            profile={bundle.profile}
+            keyStats={bundle.keyStats}
+            news={bundle.news}
+            onOpenAnalysis={(opts) => {
+              setTab("Finava");
+              if (opts?.run) void runFinava(ticker, { force: true });
+            }}
+          />
         )}
         {tab === "Financials" && <FinancialsTab fundamentals={bundle.fundamentals} />}
         {tab === "Analysts" && <AnalystsTab analysts={bundle.analysts} price={livePrice} />}

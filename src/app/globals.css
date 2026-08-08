@@ -1569,6 +1569,8 @@ html:has(.landing-root) { scroll-behavior: smooth; }
 @media (max-width: 760px) {
   .stock-page .overview-grid,
   .stock-page .analyst-grid { grid-template-columns: 1fr !important; }
+  .stock-page .overview-ttm { grid-template-columns: 1fr !important; }
+  .stock-page .overview-ttm > div { border-left: none !important; border-top: 1px solid var(--color-border); }
   .stock-page .overview-left,
   .stock-page .analyst-left { padding-right: 0 !important; }
   .stock-page .overview-right,

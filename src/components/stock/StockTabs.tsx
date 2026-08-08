@@ -1,9 +1,12 @@
 "use client";
 import { useState } from "react";
-import { authFetch } from "@/lib/authFetch";
+import useSWR from "swr";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useNewsImages } from "@/hooks/useNewsImages";
+import { useFinava } from "@/hooks/useFinava";
+import { useVerdictCache } from "@/hooks/useVerdictCache";
+import { FACTORS, factorColor, type FactorScores } from "@/lib/research";
 import type {
   StockProfile,
   KeyStats,
@@ -190,199 +193,424 @@ function sentimentColor(label: SentimentRead["label"]) {
   return "var(--color-warn)";
 }
 
-export function OverviewTab({
-  ticker,
-  profile,
-  keyStats,
-  sentiment,
-}: {
+/* ── Overview building blocks (Bull/Bear ledger — spec §3) ───────────────── */
+
+/** Quarterly financials response (GET /api/stock/[ticker]/financials). */
+interface FinQuarter {
+  year: number;
+  quarter: number;
+  revenue: number | null;
+  revenueYoY: number | null;
+  epsDiluted: number | null;
+  grossMargin: number | null;
+  netIncome: number | null;
+  fcf: number | null;
+}
+interface FinancialsResponse {
   ticker: string;
-  profile: StockProfile | null;
-  keyStats: KeyStats | null;
-  sentiment: SentimentRead | null;
+  quarters: FinQuarter[];
+  fcfIsProxy: boolean;
+  ttm: {
+    income: { revenue: number | null; grossProfit: number | null; operatingIncome: number | null; netIncome: number | null; epsDiluted: number | null };
+    balance: { cash: number | null; totalDebt: number | null; netCash: number | null; totalAssets: number | null; bookValuePerShare: number | null; asOf: string | null };
+    cashflow: { operatingCF: number | null; capex: number | null; fcf: number | null; buybacks: number | null; fcfMargin: number | null };
+  };
+}
+interface ScoreResponse {
+  ticker: string;
+  f: FactorScores;
+  score: number;
+  grade: string;
+}
+
+const publicJson = (url: string) =>
+  fetch(url).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
+
+function qLabel(q: FinQuarter): string {
+  return `Q${q.quarter}'${String(q.year).slice(2)}`;
+}
+
+/** Green catalyst / red risk chip — the FinavaTab recipe, shared here. */
+function LedgerChip({ text, tone }: { text: string; tone: "bull" | "bear" }) {
+  const c = tone === "bull" ? "var(--color-bull)" : "var(--color-bear)";
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        fontSize: "var(--text-meta)",
+        fontWeight: 600,
+        padding: "3px 9px",
+        borderRadius: "var(--radius-xs)",
+        color: c,
+        background: `color-mix(in oklab, ${c} 9%, transparent)`,
+        border: `1px solid color-mix(in oklab, ${c} 25%, transparent)`,
+        margin: "0 5px 6px 0",
+        lineHeight: 1.4,
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
+/** One score pillar: label · track · value, tier-colored fill. */
+function PillarRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
+      <span style={{ width: 86, fontSize: "var(--text-meta)", color: "var(--color-text-secondary)", flexShrink: 0 }}>{label}</span>
+      <div style={{ flex: 1, height: 6, borderRadius: 99, background: "var(--color-surface-2)", overflow: "hidden" }}>
+        <div style={{ display: "block", width: `${value}%`, height: "100%", borderRadius: 99, background: factorColor(value) }} />
+      </div>
+      <span className="mono" style={{ width: 24, textAlign: "right", fontSize: "var(--text-meta)", fontWeight: 700, color: "var(--color-text)" }}>
+        {Math.round(value)}
+      </span>
+    </div>
+  );
+}
+
+/** Label + latest value + YoY + an 8-quarter mini bar chart. */
+function TrajectoryMini({
+  label,
+  quarters,
+  value,
+  format,
+}: {
+  label: string;
+  quarters: FinQuarter[];
+  value: (q: FinQuarter) => number | null;
+  format: (v: number, q: FinQuarter) => string;
 }) {
-  const { holdings } = usePortfolio();
-  const { quoteMap } = useQuotes([ticker]);
-  const [sentOpen, setSentOpen] = useState(false);
-  const [take, setTake] = useState<string | null>(null);
-  const [genLoading, setGenLoading] = useState(false);
-  const [genError, setGenError] = useState<string | null>(null);
-
-  const price = quoteMap.get(ticker)?.price ?? 0;
-  const held = holdings.find((h) => h.ticker.toUpperCase() === ticker.toUpperCase());
-
-  async function generate() {
-    setGenLoading(true);
-    setGenError(null);
-    try {
-      const res = await authFetch(`/api/stock/${encodeURIComponent(ticker)}/ai-take`, { method: "POST" });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
-      setTake(body.take ?? "");
-    } catch (e) {
-      setGenError(e instanceof Error ? e.message : "Failed to generate take.");
-    } finally {
-      setGenLoading(false);
-    }
-  }
-
-  const chips = [profile?.industry, profile?.exchange, profile?.currency].filter(Boolean) as string[];
-  const has52 = keyStats?.high52 != null && keyStats?.low52 != null;
-  const pos52 = has52 && price > 0 ? ((price - keyStats!.low52!) / (keyStats!.high52! - keyStats!.low52! || 1)) * 100 : null;
-
-  // Position economics (only when held + we have a live price).
-  let posRows: React.ReactNode = null;
-  if (held && price > 0) {
-    const mv = held.shares * price;
-    const cb = held.shares * held.avgCost;
-    const gl = mv - cb;
-    const glp = cb > 0 ? (gl / cb) * 100 : 0;
-    const gu = gl >= 0;
-    posRows = (
-      <div style={{ marginTop: 14 }}>
-        <Rule>Your position</Rule>
-        <Fact l={`${fmt(held.shares, held.shares % 1 === 0 ? 0 : 2)} sh · avg $${fmt(held.avgCost)}`} v={`$${compact(mv)}`} />
-        <Fact l="Unrealized P/L" v={`${gu ? "+" : ""}$${compact(Math.abs(gl))} · ${signed(glp, 1)}%`} color={gu ? "var(--color-bull)" : "var(--color-bear)"} />
+  const vals = quarters.map((q) => value(q));
+  const present = vals.filter((v): v is number => v != null);
+  const latestQ = quarters.at(-1);
+  const latest = vals.at(-1) ?? null;
+  if (!latestQ || latest == null || present.length < 2) {
+    return (
+      <div style={{ marginBottom: 14 }}>
+        <span className="mono eyebrow-label" style={{ color: "var(--color-muted)" }}>{label}</span>
+        <p className="mono" style={{ margin: "3px 0 0", fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>Unavailable</p>
       </div>
     );
   }
-
+  const max = Math.max(...present.map(Math.abs), 1e-9);
   return (
-    <div className="fade-in">
-      {/* About strip */}
-      {profile && (
-        <div style={{ display: "flex", gap: 18, alignItems: "flex-start", paddingBottom: 22, marginBottom: 22, borderBottom: "1px solid var(--color-border)" }}>
-          <div style={{ width: 54, height: 54, borderRadius: "var(--radius-sm)", background: "var(--color-surface)", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
-            {profile.logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={profile.logo} alt="" width={40} height={40} style={{ objectFit: "contain", borderRadius: "var(--radius-xs)" }} />
-            ) : (
-              <span className="serif" style={{ color: "var(--color-accent)", fontWeight: 700, fontSize: "var(--text-lg)" }}>{ticker.slice(0, 2)}</span>
-            )}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p className="mono eyebrow-label" style={{ margin: "2px 0 7px", color: "var(--color-muted)" }}>
-              About · {profile.name ?? ticker}
-            </p>
-            <p style={{ margin: 0, fontSize: "var(--text-sm)", lineHeight: 1.62, color: "var(--color-text-secondary)", maxWidth: "82ch" }}>
-              {profile.name ?? ticker}{profile.exchange ? ` trades on ${profile.exchange}` : ""}
-              {profile.industry ? ` in the ${profile.industry} industry` : ""}.
-              {keyStats?.marketCap != null ? ` Market capitalisation is approximately $${compact(keyStats.marketCap * 1e6)}.` : ""}
-            </p>
-            <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
-              {chips.map((c) => chip(c))}
-              {profile.weburl && (
-                <a href={profile.weburl} target="_blank" rel="noopener noreferrer" className="mono" style={{ fontSize: "var(--text-micro)", fontWeight: 600, color: "var(--color-accent)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  Website <ExternalLinkIcon />
-                </a>
-              )}
-            </div>
-          </div>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, marginBottom: 14 }}>
+      <div style={{ minWidth: 0 }}>
+        <span className="mono eyebrow-label" style={{ color: "var(--color-muted)" }}>{label} · {quarters.length}Q</span>
+        <div className="mono" style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--color-text)", marginTop: 3 }}>
+          {format(latest, latestQ)}
         </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gap: 0 }} className="overview-grid">
-        {/* left — AI take */}
-        <div style={{ paddingRight: 32 }} className="overview-left">
-          <Rule>The Finava Read</Rule>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-            {sentiment && (
-              <button
-                onClick={() => setSentOpen((o) => !o)}
-                className="ghostbtn"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "var(--text-meta)",
-                  fontWeight: 600,
-                  letterSpacing: "0.03em",
-                  whiteSpace: "nowrap",
-                  padding: "6px 11px",
-                  borderRadius: "var(--radius-xs)",
-                  cursor: "pointer",
-                  border: "1px solid var(--color-accent-medium)",
-                  background: "var(--color-accent-light)",
-                  color: "var(--color-accent)",
-                }}
-              >
-                <span style={{ width: 7, height: 7, borderRadius: 99, background: sentimentColor(sentiment.label) }} />
-                SENTIMENT {sentiment.score} · {sentiment.label.toUpperCase()}
-                <ChevronIcon open={sentOpen} />
-              </button>
-            )}
-          </div>
-
-          {sentiment && sentOpen && (
-            <div className="fade-in" style={{ marginBottom: 16, padding: "14px 16px", border: "1px solid var(--color-border)", borderRadius: "var(--radius-xs)", background: "var(--color-surface)" }}>
-              <p className="mono eyebrow-label" style={{ margin: "0 0 12px", color: "var(--color-muted)" }}>
-                Sentiment detail · {sentiment.sampleSize} {sentiment.sampleSize === 1 ? "item" : "items"}
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 40px", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <div style={{ height: 6, borderRadius: 99, background: "var(--color-surface-2)", overflow: "hidden" }}>
-                  <div style={{ width: `${sentiment.score}%`, height: "100%", background: sentimentColor(sentiment.label) }} />
-                </div>
-                <span className="mono" style={{ fontSize: "var(--text-meta)", fontWeight: 600, textAlign: "right", color: "var(--color-text)" }}>{sentiment.score}</span>
-              </div>
-              <p style={{ margin: 0, fontSize: "var(--text-meta)", color: "var(--color-text-secondary)" }}>
-                Based on {sentiment.basis}.
-                {sentiment.placeholder ? " A lightweight heuristic — the full multi-source engine lands in a later phase." : ""}
-              </p>
-            </div>
-          )}
-
-          {take ? (
-            <>
-              <p style={{ margin: 0, fontSize: "var(--text-body)", lineHeight: 1.72, color: "var(--color-text-secondary)", whiteSpace: "pre-wrap" }}>{take}</p>
-              <button
-                onClick={generate}
-                disabled={genLoading}
-                className="mono"
-                style={{ marginTop: 14, fontSize: "var(--text-micro)", color: "var(--color-accent)", background: "transparent", border: "none", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 5 }}
-              >
-                {genLoading ? "Regenerating…" : <><RefreshIcon /> Regenerate</>}
-              </button>
-            </>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12 }}>
-              <p style={{ margin: 0, fontSize: "var(--text-body)", lineHeight: 1.7, color: "var(--color-text-secondary)" }}>
-                Generate a concise, balanced AI read on {ticker} from its latest fundamentals, analyst picture, and news. Nothing runs until you ask.
-              </p>
-              <button className="tbtn on" onClick={generate} disabled={genLoading} style={{ opacity: genLoading ? 0.6 : 1 }}>
-                {genLoading ? "GENERATING…" : "GENERATE AI TAKE"}
-              </button>
-            </div>
-          )}
-          {genError && <p style={{ marginTop: 10, fontSize: "var(--text-meta)", color: "var(--color-bear)" }}>{genError}</p>}
-          <p className="mono" style={{ margin: "16px 0 0", fontSize: "var(--text-micro)", color: "var(--color-muted)" }}>
-            Generated from latest fundamentals, analyst coverage &amp; news · not investment advice.
-          </p>
-        </div>
-
-        {/* right — flat ruled snapshot */}
-        <div style={{ borderLeft: "1px solid var(--color-border)", paddingLeft: 32 }} className="overview-right">
-          <Rule>Snapshot</Rule>
-          <Fact l="Market cap" v={keyStats?.marketCap != null ? `$${compact(keyStats.marketCap * 1e6)}` : "—"} />
-          <Fact l="P/E (TTM)" v={keyStats?.peTTM != null ? fmt(keyStats.peTTM, 1) : "—"} />
-          <Fact l="EPS (TTM)" v={keyStats?.epsTTM != null ? `$${fmt(keyStats.epsTTM)}` : "—"} />
-          <Fact l="Dividend yield" v={keyStats?.dividendYield != null ? `${fmt(keyStats.dividendYield, 2)}%` : "—"} />
-          <Fact l="Beta" v={keyStats?.beta != null ? fmt(keyStats.beta, 2) : "—"} />
-          {has52 && (
-            <div style={{ padding: "14px 0 4px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", whiteSpace: "nowrap" }}>52-week range</span>
-                {pos52 != null && <span className="mono" style={{ fontSize: "var(--text-meta)", color: "var(--color-text-secondary)" }}>{fmt(pos52, 0)}% of range</span>}
-              </div>
-              <RangeBar lo={keyStats!.low52!} hi={keyStats!.high52!} cur={price > 0 ? price : keyStats!.low52!} />
-            </div>
-          )}
-          {posRows}
-        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 30, flexShrink: 0 }}>
+        {vals.map((v, i) => (
+          <span
+            key={i}
+            title={v != null ? `${qLabel(quarters[i])}: ${format(v, quarters[i])}` : `${qLabel(quarters[i])}: —`}
+            style={{
+              display: "block",
+              width: 7,
+              height: v != null ? Math.max(3, (Math.abs(v) / max) * 30) : 3,
+              borderRadius: 1.5,
+              background: v == null ? "var(--color-surface-2)" : i === vals.length - 1 ? "var(--color-accent)" : "var(--color-accent-medium)",
+            }}
+          />
+        ))}
       </div>
     </div>
   );
 }
+
+/** TTM statement column: title + label/value lines. */
+function StatementCol({ title, lines }: { title: string; lines: Array<[string, string, string?]> }) {
+  return (
+    <div style={{ padding: "12px 16px", minWidth: 0 }}>
+      <p className="mono eyebrow-label" style={{ margin: "0 0 8px", color: "var(--color-muted)" }}>{title}</p>
+      {lines.map(([l, v, color]) => (
+        <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "4px 0", borderBottom: "1px solid color-mix(in oklab, var(--color-border) 55%, transparent)", fontSize: "var(--text-meta)" }}>
+          <span style={{ color: "var(--color-text-secondary)" }}>{l}</span>
+          <span className="mono" style={{ fontWeight: 600, color: color ?? "var(--color-text)" }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function OverviewTab({
+  ticker,
+  profile,
+  keyStats,
+  news,
+  onOpenAnalysis,
+}: {
+  ticker: string;
+  profile: StockProfile | null;
+  keyStats: KeyStats | null;
+  news: NewsItem[] | null;
+  onOpenAnalysis: (opts?: { run?: boolean }) => void;
+}) {
+  const { holdings } = usePortfolio();
+  const { quoteMap } = useQuotes([ticker]);
+
+  // Cached-first verdict (shared SWR key with the rail — one read per page).
+  const { resolving } = useVerdictCache(ticker);
+  const { analysis, status } = useFinava(ticker);
+  const verdict = analysis.verdict;
+
+  const score = useSWR<ScoreResponse>(`/api/stock/${encodeURIComponent(ticker)}/score`, publicJson, {
+    revalidateOnFocus: false, shouldRetryOnError: false, dedupingInterval: 300_000,
+  });
+  const fin = useSWR<FinancialsResponse>(`/api/stock/${encodeURIComponent(ticker)}/financials`, publicJson, {
+    revalidateOnFocus: false, shouldRetryOnError: false, dedupingInterval: 300_000,
+  });
+
+  const price = quoteMap.get(ticker)?.price ?? 0;
+  const held = holdings.find((h) => h.ticker.toUpperCase() === ticker.toUpperCase());
+  const has52 = keyStats?.high52 != null && keyStats?.low52 != null;
+
+  const quarters = fin.data?.quarters ?? [];
+  const ttm = fin.data?.ttm ?? null;
+  const chips = [profile?.industry, profile?.exchange, profile?.currency].filter(Boolean) as string[];
+
+  const money = (v: number | null) => (v == null ? "—" : `${v < 0 ? "−" : ""}$${compact(Math.abs(v))}`);
+  const pct = (v: number | null, d = 1) => (v == null ? "—" : `${fmt(v * 100, d)}%`);
+
+  return (
+    <div className="fade-in">
+      <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gap: 0 }} className="overview-grid">
+        {/* ── left · the ledger ── */}
+        <div style={{ paddingRight: 32 }} className="overview-left">
+          <Rule>The Finava Read</Rule>
+          {verdict ? (
+            <>
+              <p className="serif" style={{ margin: 0, fontSize: "var(--text-title)", lineHeight: 1.55, color: "var(--color-text)", maxWidth: "62ch" }}>
+                &ldquo;{verdict.take}&rdquo;
+              </p>
+              {(verdict.catalysts.length > 0 || verdict.risks.length > 0) && (
+                <div style={{ marginTop: 12 }}>
+                  {verdict.catalysts.map((c) => <LedgerChip key={c} text={c} tone="bull" />)}
+                  {verdict.risks.map((r) => <LedgerChip key={r} text={r} tone="bear" />)}
+                </div>
+              )}
+              <p className="mono" style={{ margin: "8px 0 0", fontSize: "var(--text-micro)", color: "var(--color-muted)" }}>
+                AI-generated by Finava&apos;s 5-agent analysis · not investment advice
+              </p>
+            </>
+          ) : status === "streaming" ? (
+            <p className="shimmer-text" style={{ margin: 0, fontSize: "var(--text-sm)" }}>Finava&apos;s agents are reading {ticker}…</p>
+          ) : resolving ? (
+            <div className="skeleton" style={{ width: "80%", height: 44 }} />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10 }}>
+              <p style={{ margin: 0, fontSize: "var(--text-sm)", lineHeight: 1.65, color: "var(--color-text-secondary)", maxWidth: "56ch" }}>
+                No read yet — deploy Finava&apos;s five agents to score {ticker} and argue the bull and bear case.
+              </p>
+              <button className="tbtn on" onClick={() => onOpenAnalysis({ run: true })}>GENERATE FINAVA&apos;S READ</button>
+            </div>
+          )}
+
+          {score.data && (
+            <div style={{ marginTop: 20 }}>
+              <Rule>Score pillars</Rule>
+              {FACTORS.map((f) => (
+                <PillarRow key={f.key} label={f.label} value={score.data!.f[f.key]} />
+              ))}
+            </div>
+          )}
+
+          {/* About — demoted to the bottom of the ledger column */}
+          {profile && (
+            <div style={{ marginTop: 20 }}>
+              <Rule>About</Rule>
+              <p style={{ margin: 0, fontSize: "var(--text-sm)", lineHeight: 1.62, color: "var(--color-text-secondary)", maxWidth: "82ch" }}>
+                {profile.name ?? ticker}{profile.exchange ? ` trades on ${profile.exchange}` : ""}
+                {profile.industry ? ` in the ${profile.industry} industry` : ""}.
+                {keyStats?.marketCap != null ? ` Market capitalisation is approximately $${compact(keyStats.marketCap * 1e6)}.` : ""}
+              </p>
+              <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+                {chips.map((c) => chip(c))}
+                {profile.weburl && (
+                  <a href={profile.weburl} target="_blank" rel="noopener noreferrer" className="mono" style={{ fontSize: "var(--text-micro)", fontWeight: 600, color: "var(--color-accent)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    Website <ExternalLinkIcon />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── right · evidence ── */}
+        <div style={{ borderLeft: "1px solid var(--color-border)", paddingLeft: 32 }} className="overview-right">
+          <Rule>Financial trajectory</Rule>
+          {fin.isLoading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
+              <div className="skeleton" style={{ width: "100%", height: 34 }} />
+              <div className="skeleton" style={{ width: "100%", height: 34 }} />
+              <div className="skeleton" style={{ width: "100%", height: 34 }} />
+            </div>
+          ) : quarters.length > 0 ? (
+            <>
+              <TrajectoryMini label="Revenue" quarters={quarters} value={(q) => q.revenue}
+                format={(v, q) => `$${compact(v)}${q.revenueYoY != null ? ` · ${q.revenueYoY >= 0 ? "+" : ""}${fmt(q.revenueYoY * 100, 0)}%` : ""}`} />
+              <TrajectoryMini label="EPS" quarters={quarters} value={(q) => q.epsDiluted} format={(v) => `$${fmt(v)}`} />
+              <TrajectoryMini label="Gross margin" quarters={quarters} value={(q) => q.grossMargin} format={(v) => `${fmt(v * 100, 1)}%`} />
+            </>
+          ) : (
+            <p className="mono" style={{ margin: "0 0 8px", fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>
+              Unavailable — no quarterly filings for {ticker}.
+            </p>
+          )}
+
+          {news && news.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <Rule>Latest news</Rule>
+              {news.slice(0, 4).map((n) => (
+                <a key={n.url} href={n.url} target="_blank" rel="noopener noreferrer" className="newslink" style={{ textDecoration: "none", display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid color-mix(in oklab, var(--color-border) 55%, transparent)" }}>
+                  <span className="mono" style={{ width: 74, flexShrink: 0, fontSize: "var(--text-micro)", color: "var(--color-muted)", paddingTop: 2, textTransform: "uppercase", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {n.source} · {timeAgo(n.datetime)}
+                  </span>
+                  <span className="h" style={{ fontSize: "var(--text-sm)", fontWeight: 600, lineHeight: 1.45, color: "var(--color-text)" }}>{n.headline}</span>
+                </a>
+              ))}
+            </div>
+          )}
+
+          {/* Snapshot — the old facts, demoted to a slim strip */}
+          <div style={{ marginTop: 14 }}>
+            <Rule>Snapshot</Rule>
+            <p className="mono" style={{ margin: 0, fontSize: "var(--text-meta)", lineHeight: 1.9, color: "var(--color-text-secondary)" }}>
+              {keyStats?.marketCap != null ? `$${compact(keyStats.marketCap * 1e6)}` : "—"} mkt cap
+              {" · "}P/E {keyStats?.peTTM != null ? fmt(keyStats.peTTM, 1) : "—"}
+              {" · "}EPS {keyStats?.epsTTM != null ? `$${fmt(keyStats.epsTTM)}` : "—"}
+              {" · "}β {keyStats?.beta != null ? fmt(keyStats.beta, 2) : "—"}
+              {keyStats?.dividendYield != null ? ` · ${fmt(keyStats.dividendYield, 2)}% yield` : ""}
+            </p>
+            {has52 && (
+              <div style={{ padding: "10px 0 2px" }}>
+                <RangeBar lo={keyStats!.low52!} hi={keyStats!.high52!} cur={price > 0 ? price : keyStats!.low52!} />
+              </div>
+            )}
+            {held && price > 0 && (() => {
+              const mv = held.shares * price;
+              const cb = held.shares * held.avgCost;
+              const gl = mv - cb;
+              const glp = cb > 0 ? (gl / cb) * 100 : 0;
+              return (
+                <p className="mono" style={{ margin: "8px 0 0", fontSize: "var(--text-meta)", color: "var(--color-text-secondary)" }}>
+                  You hold {fmt(held.shares, held.shares % 1 === 0 ? 0 : 2)} sh · ${compact(mv)} ·{" "}
+                  <span style={{ color: gl >= 0 ? "var(--color-bull)" : "var(--color-bear)", fontWeight: 700 }}>
+                    {gl >= 0 ? "+" : "−"}${compact(Math.abs(gl))} ({signed(glp, 1)}%)
+                  </span>
+                </p>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
+
+      {/* ── full-width · quarterly ledger table ── */}
+      {quarters.length > 0 && (
+        <div style={{ marginTop: 26 }}>
+          <Rule>Financials · quarterly</Rule>
+          <div style={{ overflowX: "auto" }}>
+            <table className="dt" style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Metric</th>
+                  {quarters.map((q) => (
+                    <th key={qLabel(q)} style={{ ...thStyle, textAlign: "right" }}>{qLabel(q)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {([
+                  ["Revenue", (q: FinQuarter) => money(q.revenue), undefined],
+                  ["YoY growth", (q: FinQuarter) => (q.revenueYoY == null ? "—" : `${q.revenueYoY >= 0 ? "+" : ""}${fmt(q.revenueYoY * 100, 0)}%`), (q: FinQuarter) => (q.revenueYoY == null ? undefined : q.revenueYoY >= 0 ? "var(--color-bull)" : "var(--color-bear)")],
+                  ["EPS (diluted)", (q: FinQuarter) => (q.epsDiluted == null ? "—" : `$${fmt(q.epsDiluted)}`), undefined],
+                  ["Gross margin", (q: FinQuarter) => pct(q.grossMargin), undefined],
+                  ["Free cash flow", (q: FinQuarter) => money(q.fcf), undefined],
+                ] as Array<[string, (q: FinQuarter) => string, ((q: FinQuarter) => string | undefined) | undefined]>).map(([label, cell, color]) => (
+                  <tr key={label}>
+                    <td style={{ padding: "7px 10px", borderBottom: "1px solid var(--color-border)", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{label}</td>
+                    {quarters.map((q) => (
+                      <td key={qLabel(q)} className="mono" style={{ padding: "7px 10px", borderBottom: "1px solid var(--color-border)", fontSize: "var(--text-meta)", fontWeight: 600, textAlign: "right", whiteSpace: "nowrap", color: color?.(q) ?? "var(--color-text)" }}>
+                        {cell(q)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {fin.data?.fcfIsProxy && (
+            <p className="mono" style={{ margin: "8px 0 0", fontSize: "var(--text-micro)", color: "var(--color-muted)" }}>
+              FCF uses operating cash flow where capex isn&apos;t reported.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── full-width · TTM three-statement summary ── */}
+      {ttm && (
+        <div style={{ marginTop: 26 }}>
+          <Rule>Three-statement summary · TTM</Rule>
+          <div className="overview-ttm" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+            <StatementCol
+              title="Income"
+              lines={[
+                ["Revenue", money(ttm.income.revenue)],
+                ["Gross profit", money(ttm.income.grossProfit)],
+                ["Operating income", money(ttm.income.operatingIncome)],
+                ["Net income", money(ttm.income.netIncome)],
+                ["EPS (diluted)", ttm.income.epsDiluted == null ? "—" : `$${fmt(ttm.income.epsDiluted)}`],
+              ]}
+            />
+            <div style={{ borderLeft: "1px solid var(--color-border)" }}>
+              <StatementCol
+                title={`Balance sheet${ttm.balance.asOf ? ` · ${ttm.balance.asOf}` : ""}`}
+                lines={[
+                  ["Cash & ST inv.", money(ttm.balance.cash)],
+                  ["Total debt", money(ttm.balance.totalDebt)],
+                  ["Net cash", money(ttm.balance.netCash), ttm.balance.netCash != null ? (ttm.balance.netCash >= 0 ? "var(--color-bull)" : "var(--color-bear)") : undefined],
+                  ["Total assets", money(ttm.balance.totalAssets)],
+                  ["Book value / share", ttm.balance.bookValuePerShare == null ? "—" : `$${fmt(ttm.balance.bookValuePerShare)}`],
+                ]}
+              />
+            </div>
+            <div style={{ borderLeft: "1px solid var(--color-border)" }}>
+              <StatementCol
+                title="Cash flow"
+                lines={[
+                  ["Operating CF", money(ttm.cashflow.operatingCF)],
+                  ["CapEx", ttm.cashflow.capex == null ? "—" : `−$${compact(Math.abs(ttm.cashflow.capex))}`],
+                  ["Free cash flow", money(ttm.cashflow.fcf)],
+                  ["Buybacks", money(ttm.cashflow.buybacks)],
+                  ["FCF margin", pct(ttm.cashflow.fcfMargin)],
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const thStyle: React.CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontSize: "var(--text-micro)",
+  fontWeight: 700,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+  color: "var(--color-muted)",
+  background: "var(--color-surface)",
+  textAlign: "left",
+  padding: "7px 10px",
+  borderBottom: "1px solid var(--color-border-strong)",
+  whiteSpace: "nowrap",
+};
 
 /* ── Financials ──────────────────────────────────────────────────────────── */
 export function FinancialsTab({ fundamentals }: { fundamentals: FundamentalTimeSeries | null }) {
