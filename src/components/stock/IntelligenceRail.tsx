@@ -8,9 +8,10 @@ import useSWR from "swr";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useFinava } from "@/hooks/useFinava";
 import { useVerdictCache, verdictAge, verdictIsStale } from "@/hooks/useVerdictCache";
+import { useDcfInputs } from "@/hooks/useDcfInputs";
 import { authFetcher } from "@/lib/authFetch";
 import { stanceFromScore } from "@/lib/finava";
-import { defaultFairValue, type DcfInputs } from "@/lib/dcf";
+import { defaultFairValue } from "@/lib/dcf";
 import type { FactorScores } from "@/lib/research";
 
 const jsonFetcher = (url: string) =>
@@ -111,11 +112,7 @@ export default function IntelligenceRail({ ticker, onOpenAnalysis, onOpenDcf }: 
     shouldRetryOnError: false,
     dedupingInterval: 300_000,
   });
-  const dcf = useSWR<{ inputs: DcfInputs }>(`/api/stock/${encodeURIComponent(sym)}/dcf`, jsonFetcher, {
-    revalidateOnFocus: false,
-    shouldRetryOnError: false,
-    dedupingInterval: 300_000,
-  });
+  const dcf = useDcfInputs(sym);
   const lens = useSWR<LensResponse>(`/api/dna/lens?ticker=${encodeURIComponent(sym)}`, authFetcher, {
     revalidateOnFocus: false,
     shouldRetryOnError: false,
@@ -129,8 +126,8 @@ export default function IntelligenceRail({ ticker, onOpenAnalysis, onOpenDcf }: 
   const { quoteMap } = useQuotes([sym]);
   const livePrice = quoteMap.get(sym)?.price ?? null;
 
-  const fairValue = dcf.data ? defaultFairValue(dcf.data.inputs) : null;
-  const fvPrice = livePrice ?? dcf.data?.inputs.currentPrice ?? null;
+  const fairValue = dcf.data ? defaultFairValue(dcf.data) : null;
+  const fvPrice = livePrice ?? dcf.data?.currentPrice ?? null;
   const upsidePct =
     fairValue != null && fvPrice != null && fvPrice > 0
       ? ((fairValue - fvPrice) / fvPrice) * 100

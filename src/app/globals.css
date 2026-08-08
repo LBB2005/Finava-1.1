@@ -1590,17 +1590,29 @@ html:has(.landing-root) { scroll-behavior: smooth; }
   .stock-page .fin-grid > div { border-left: none !important; padding-left: 0 !important; }
 }
 
-/* Finava Analysis — score ring pulses while signals stream; grid stacks the left
-   score panel above the detail column on narrow viewports. */
-@keyframes finavaPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+/* Finava tab — the verdict orb breathes ONLY while an analysis is actively
+   streaming (design-system motion rule: motion signals live work, then settles). */
+@keyframes orb-breathe {
+  0%, 100% { transform: scale(0.97); }
+  50% { transform: scale(1.03); }
+}
+@keyframes orb-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-accent) 22%, transparent); }
+  50% { box-shadow: 0 0 0 11px color-mix(in oklab, var(--color-accent) 0%, transparent); }
+}
+.orb-live {
+  border-radius: 50%;
+  animation: orb-breathe 2.4s ease-in-out infinite, orb-glow 2.4s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .finava-grid [style*="finavaPulse"] { animation: none !important; }
+  .orb-live { animation: none; }
 }
+[data-motion="reduced"] .orb-live { animation: none; }
+
+/* Verdict hero — headline leads, orb docked right; stacks centered on mobile. */
 @media (max-width: 760px) {
-  .stock-page .finava-grid { grid-template-columns: 1fr !important; gap: 18px !important; }
+  .stock-page .finava-hero { flex-direction: column-reverse !important; align-items: center !important; text-align: center; }
+  .stock-page .finava-hero .finava-hero-eyebrow { justify-content: center; }
   .stock-page .dcf-grid { grid-template-columns: 1fr !important; gap: 22px !important; }
   .stock-page .dcf-right { border-left: none !important; padding-left: 0 !important; border-top: 1px solid var(--color-border); padding-top: 20px; }
 }

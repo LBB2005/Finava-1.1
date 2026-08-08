@@ -1,16 +1,12 @@
 "use client";
 import { useMemo, useState } from "react";
-import useSWR from "swr";
 import { useQuotes } from "@/hooks/useQuotes";
-import { computeDcf, defaultGrowthFor, type DcfInputs } from "@/lib/dcf";
+import { useDcfInputs } from "@/hooks/useDcfInputs";
+import { computeDcf, defaultGrowthFor } from "@/lib/dcf";
 import Rule from "@/components/ui/Rule";
 
-const dcfFetcher = (url: string) =>
-  fetch(url).then(async (r) => {
-    const body = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(body?.error ?? `HTTP ${r.status}`);
-    return body.inputs as DcfInputs;
-  });
+// Inputs come via the shared useDcfInputs hook — one SWR key + shape with the
+// intelligence rail.
 
 function fmtMoney(n: number | null | undefined, d = 2): string {
   return typeof n === "number" && Number.isFinite(n)
@@ -63,11 +59,7 @@ function Fact({ l, v, color }: { l: string; v: string; color?: string }) {
 }
 
 export function DcfTab({ ticker }: { ticker: string }) {
-  const { data: inputs, error, isLoading } = useSWR<DcfInputs>(
-    `/api/stock/${encodeURIComponent(ticker)}/dcf`,
-    dcfFetcher,
-    { revalidateOnFocus: false, shouldRetryOnError: false }
-  );
+  const { data: inputs, error, isLoading } = useDcfInputs(ticker);
 
   // Slider overrides start null and fall back to data-derived defaults, so we never
   // need an effect to seed them once the inputs load.
@@ -125,7 +117,7 @@ export function DcfTab({ ticker }: { ticker: string }) {
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
           {/* Section-level display numeral → --text-stat; --text-hero stays
               reserved for the page hero price. */}
-          <span className="serif" style={{ fontSize: "var(--text-stat)", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--color-text)", lineHeight: 1 }}>
+          <span className="serif" style={{ fontSize: "var(--text-stat)", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--color-accent)", lineHeight: 1 }}>
             {fmtMoney(result.fairValue)}
           </span>
           {upside != null && (

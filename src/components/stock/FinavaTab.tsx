@@ -1,6 +1,6 @@
 "use client";
 import { useFinava } from "@/hooks/useFinava";
-import { useVerdictCache } from "@/hooks/useVerdictCache";
+import { useVerdictCache, verdictAge } from "@/hooks/useVerdictCache";
 import { useQuotes } from "@/hooks/useQuotes";
 import {
   SIGNAL_ORDER,
@@ -29,14 +29,26 @@ function signedPct(n: number | null | undefined): string {
   return `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
 }
 
-/* ── score ring (left panel) ──────────────────────────────────────────────── */
-function ScoreRing({ score, color, pending }: { score: number | null; color: string; pending: boolean }) {
+/* ── score orb (hero, docked right) — breathes only while streaming ───────── */
+function ScoreOrb({
+  score,
+  stance,
+  color,
+  live,
+}: {
+  score: number | null;
+  stance: string | null;
+  color: string;
+  live: boolean;
+}) {
   const pct = score ?? 0;
-  const bg = pending
-    ? "conic-gradient(var(--color-border-strong) 0% 25%, var(--color-surface-2) 25% 100%)"
-    : `conic-gradient(${color} 0% ${pct}%, var(--color-surface-2) ${pct}% 100%)`;
+  const bg =
+    score == null
+      ? "conic-gradient(var(--color-border-strong) 0% 25%, var(--color-surface-2) 25% 100%)"
+      : `conic-gradient(${color} 0% ${pct}%, var(--color-surface-2) ${pct}% 100%)`;
   return (
     <div
+      className={live ? "orb-live" : undefined}
       style={{
         width: 96,
         height: 96,
@@ -46,20 +58,37 @@ function ScoreRing({ score, color, pending }: { score: number | null; color: str
         alignItems: "center",
         justifyContent: "center",
         transition: "background 0.6s ease",
-        animation: pending ? "finavaPulse 1.4s ease-in-out infinite" : undefined,
       }}
     >
       <div style={{ width: 74, height: 74, background: "var(--color-bg)", borderRadius: "50%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        {pending ? (
+        {score == null ? (
           <span className="skeleton" style={{ width: 30, height: 10, borderRadius: 99 }} aria-label="Scoring" />
         ) : (
           <>
             <span className="serif" style={{ fontSize: "var(--text-stat)", fontWeight: 800, color: "var(--color-text)", lineHeight: 1 }}>{score}</span>
-            <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", letterSpacing: "0.08em", marginTop: 2 }}>/ 100</span>
+            <span className="mono" style={{ fontSize: 7.5, color: "var(--color-muted)", letterSpacing: "0.1em", marginTop: 2, textTransform: "uppercase", maxWidth: 62, textAlign: "center", lineHeight: 1.3 }}>
+              {stance ?? "/ 100"}
+            </span>
           </>
         )}
       </div>
     </div>
+  );
+}
+
+/** "The debate is sizing, not direction. Rest of the take…" → headline + dek. */
+function splitTake(take: string): { headline: string; dek: string | null } {
+  // [\s\S] instead of dotAll — tsconfig targets ES2017 (no `s` flag).
+  const m = take.match(/^([\s\S]+?[.!?])["'”’]?\s+([\s\S]+)$/);
+  return m ? { headline: m[1], dek: m[2] } : { headline: take, dek: null };
+}
+
+function RefreshGlyph({ size = 11 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="23 4 23 10 17 10" />
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+    </svg>
   );
 }
 
@@ -93,20 +122,6 @@ function SignalBar({ signalKey, signal }: { signalKey: SignalKey; signal: Finava
   );
 }
 
-function ConfDots({ confidence }: { confidence: "Low" | "Moderate" | "High" }) {
-  const on = confidence === "High" ? 3 : confidence === "Moderate" ? 2 : 1;
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "var(--color-bg)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", padding: "7px 11px" }}>
-      <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Confidence</span>
-      <div style={{ display: "flex", gap: 3 }}>
-        {[0, 1, 2].map((i) => (
-          <span key={i} style={{ width: 7, height: 7, borderRadius: 99, background: i < on ? "var(--color-bull)" : "var(--color-surface-2)" }} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function CompareBox({ src, value, price, highlight }: { src: string; value: number | null; price: number | null; highlight?: boolean }) {
   const up = value != null && price && price > 0 ? ((value - price) / price) * 100 : null;
   return (
@@ -120,7 +135,7 @@ function CompareBox({ src, value, price, highlight }: { src: string; value: numb
 
 /* ── main ─────────────────────────────────────────────────────────────────── */
 export function FinavaTab({ ticker }: { ticker: string }) {
-  const { status, analysis, error, run, retry } = useFinava(ticker);
+  const { status, analysis, error, run, retry, refresh, updatedAt } = useFinava(ticker);
   const { quoteMap } = useQuotes([ticker]);
   const price = quoteMap.get(ticker)?.price ?? null;
 
@@ -132,24 +147,41 @@ export function FinavaTab({ ticker }: { ticker: string }) {
   const verdict = analysis.verdict;
   const byKey = new Map(analysis.signals.map((s) => [s.key, s]));
   const ringColor = verdict ? stanceColor(verdict.score >= 60 ? "bullish" : verdict.score <= 40 ? "bearish" : "neutral") : "var(--color-accent)";
+  const streaming = status === "streaming";
+  const age = verdictAge(updatedAt);
 
   if (status === "idle") {
     if (resolving && !neverRun) {
       return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div className="skeleton" style={{ width: 168, height: 168 }} />
-          <div className="skeleton" style={{ width: "60%", height: 16 }} />
+        <div style={{ display: "flex", gap: 26, alignItems: "flex-start" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="skeleton" style={{ width: "70%", height: 30 }} />
+            <div className="skeleton" style={{ width: "50%", height: 16 }} />
+          </div>
+          <div className="skeleton" style={{ width: 96, height: 96, borderRadius: "50%" }} />
         </div>
       );
     }
     // Never run (or cache unavailable) — the one-click metered entry point.
     return (
-      <div className="fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12 }}>
-        <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", maxWidth: 480, lineHeight: 1.6 }}>
-          Deploy Finava&apos;s five specialist agents — fundamentals, momentum, sentiment,
-          analyst, insider — to score {ticker.toUpperCase()} and write a verdict.
-        </p>
-        <button className="tbtn on" onClick={run}>RUN FINAVA&apos;S 5-AGENT ANALYSIS</button>
+      <div className="fade-in finava-hero" style={{ display: "flex", gap: 26, alignItems: "flex-start" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="finava-hero-eyebrow mono eyebrow-label" style={{ color: "var(--color-accent)", display: "flex", alignItems: "center", gap: 6 }}>
+            Finava&apos;s Read · 5 agents
+          </div>
+          <p className="serif" style={{ margin: "10px 0 6px", fontSize: "var(--text-display)", fontWeight: 800, lineHeight: 1.3, color: "var(--color-text)", letterSpacing: "-0.01em" }}>
+            No verdict on {ticker.toUpperCase()} yet.
+          </p>
+          <p style={{ margin: "0 0 14px", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", maxWidth: 480, lineHeight: 1.6 }}>
+            Deploy the five specialist agents — fundamentals, momentum, sentiment, analyst,
+            insider — to score it and write the verdict.
+          </p>
+          <button className="tbtn on" onClick={run}>RUN FINAVA&apos;S 5-AGENT ANALYSIS</button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <ScoreOrb score={null} stance={null} color={ringColor} live={false} />
+          <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", letterSpacing: "0.1em" }}>CONFIDENCE —</span>
+        </div>
       </div>
     );
   }
@@ -163,45 +195,77 @@ export function FinavaTab({ ticker }: { ticker: string }) {
     );
   }
 
-  return (
-    <div className="fade-in finava-grid" style={{ display: "grid", gridTemplateColumns: "168px 1fr", gap: 28, alignItems: "start" }}>
-      {/* ── left panel ─────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: 14, background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
-        <ScoreRing score={verdict?.score ?? null} color={ringColor} pending={!verdict} />
-        {verdict ? (
-          <span className={"mono fade-in pill " + (verdict.score >= 60 ? "pill-bull" : verdict.score <= 40 ? "pill-bear" : "pill-warn")}>
-            {verdict.stance}
-          </span>
-        ) : (
-          <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", letterSpacing: "0.05em" }}>ANALYSING…</span>
-        )}
+  const take = verdict ? splitTake(verdict.take) : null;
 
-        <div style={{ width: "100%", background: "var(--color-bg)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", padding: "9px 11px" }}>
-          <div className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Fair Value</div>
-          <div className="serif" style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--color-text)", marginTop: 1 }}>{verdict ? fmtMoney(verdict.fairValue) : "—"}</div>
-          <div className="mono" style={{ fontSize: "var(--text-micro)", marginTop: 1, color: verdict?.upsidePct == null ? "var(--color-muted)" : verdict.upsidePct >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
-            {verdict?.upsidePct != null ? `${signedPct(verdict.upsidePct)} upside` : "—"}
+  return (
+    <div className="fade-in" style={{ minWidth: 0 }}>
+      {/* ── Chapter 1 · verdict hero — headline leads, orb docked right ────── */}
+      <div className="finava-hero" style={{ display: "flex", gap: 26, alignItems: "flex-start" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="finava-hero-eyebrow mono eyebrow-label" style={{ color: "var(--color-accent)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span>Finava&apos;s Read · 5 agents{!streaming && age ? ` · ${age}` : ""}</span>
+            {streaming ? (
+              <span className="shimmer-text" style={{ textTransform: "none", letterSpacing: 0 }}>streaming…</span>
+            ) : (
+              <button
+                onClick={refresh}
+                title="Re-run the 5-agent analysis (uses credits)"
+                aria-label="Refresh the analysis"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-accent)", padding: 2, display: "inline-flex" }}
+              >
+                <RefreshGlyph />
+              </button>
+            )}
           </div>
+          {take ? (
+            <>
+              <p className="serif" style={{ margin: "10px 0 0", fontSize: "var(--text-stat)", fontWeight: 800, lineHeight: 1.25, color: "var(--color-text)", letterSpacing: "-0.015em", textWrap: "balance" }}>
+                {take.headline}
+              </p>
+              {take.dek && (
+                <p style={{ margin: "8px 0 0", fontSize: "var(--text-sm)", lineHeight: 1.6, color: "var(--color-text-secondary)", maxWidth: "68ch" }}>
+                  {take.dek}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="shimmer-text serif" style={{ margin: "10px 0 0", fontSize: "var(--text-display)", fontWeight: 800 }}>
+              Reading {ticker.toUpperCase()} — five agents at work…
+            </p>
+          )}
+
+          {/* Crew ribbon — frost summary once settled; the live bars stream below. */}
+          {!streaming && analysis.signals.length > 0 && (
+            <div className="frost-card" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderRadius: "var(--radius-lg)", marginTop: 14, flexWrap: "wrap" }}>
+              {analysis.signals.map((s) => (
+                <span key={s.key} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-micro)", color: "var(--color-text-secondary)", fontWeight: s.stance === "bearish" ? 700 : 500 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 99, background: stanceColor(s.stance), flexShrink: 0 }} />
+                  {s.label}
+                </span>
+              ))}
+              <span style={{ marginLeft: "auto", display: "inline-flex", gap: 5 }}>
+                {Array.from(new Set(analysis.signals.flatMap((s) => (s.model ? [s.model] : [])))).slice(0, 3).map((m) => (
+                  <ModelBadge key={m} slug={m} size={11} />
+                ))}
+              </span>
+            </div>
+          )}
         </div>
 
-        {verdict && <ConfDots confidence={verdict.confidence} />}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, flexShrink: 0 }}>
+          <ScoreOrb score={verdict?.score ?? null} stance={verdict?.stance ?? null} color={ringColor} live={streaming} />
+          <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", letterSpacing: "0.1em" }}>
+            CONFIDENCE {verdict ? verdict.confidence.toUpperCase() : "—"}
+          </span>
+        </div>
       </div>
 
-      {/* ── right column ───────────────────────────────────────────────────── */}
-      <div style={{ minWidth: 0 }}>
+      {/* ── detail column ──────────────────────────────────────────────────── */}
+      <div style={{ minWidth: 0, marginTop: 24 }}>
         <Rule>Signal Breakdown</Rule>
         {SIGNAL_ORDER.map((k) => (
           <SignalBar key={k} signalKey={k} signal={byKey.get(k)} />
         ))}
-
-        <div style={{ marginTop: 20 }}>
-          <Rule>The Finava Take</Rule>
-          {verdict ? (
-            <p className="fade-in" style={{ margin: 0, fontSize: "var(--text-sm)", lineHeight: 1.65, color: "var(--color-text-secondary)" }}>{verdict.take}</p>
-          ) : (
-            <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-muted)" }}>Synthesising the verdict from the signals above…</p>
-          )}
-        </div>
 
         {verdict && (
           <div className="fade-in" style={{ marginTop: 20 }}>
