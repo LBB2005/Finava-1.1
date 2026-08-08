@@ -8,13 +8,13 @@ import { buildStockSnapshot } from "@/lib/pageContext";
 import { useToast } from "@/hooks/useToast";
 import { runFinava } from "@/lib/finavaStore";
 import StockHero from "@/components/stock/StockHero";
-import { OverviewTab, FinancialsTab, AnalystsTab, NewsTab } from "@/components/stock/StockTabs";
+import { OverviewTab, FinancialsTab, StreetNewsTab } from "@/components/stock/StockTabs";
 import { DcfTab } from "@/components/stock/DcfTab";
 import { FinavaTab } from "@/components/stock/FinavaTab";
 import { MoneyMapTab } from "@/components/stock/MoneyMapTab";
 import ChatContextButton from "@/components/chat/ChatContextButton";
 
-const TABS = ["Overview", "Financials", "Analysts", "News", "DCF", "Finava", "Money Map"] as const;
+const TABS = ["Overview", "Financials", "Street & News", "Finava", "Money Map"] as const;
 type Tab = (typeof TABS)[number];
 
 /** Resolve a ?tab= param (case-insensitive, tolerant of old names) to a Tab. */
@@ -23,8 +23,9 @@ function tabFromParam(raw: string | null): Tab | null {
   const norm = raw.trim().toLowerCase();
   const direct = TABS.find((t) => t.toLowerCase() === norm);
   if (direct) return direct;
-  // Aliases — old links and the upcoming consolidated names both land somewhere sane.
-  if (norm === "finava-analysis" || norm === "analysis") return "Finava";
+  // Aliases — pre-consolidation names keep landing somewhere sane.
+  if (norm === "analysts" || norm === "news" || norm === "street" || norm === "street-and-news") return "Street & News";
+  if (norm === "finava-analysis" || norm === "analysis" || norm === "dcf") return "Finava";
   if (norm === "moneymap" || norm === "money-map") return "Money Map";
   return null;
 }
@@ -171,7 +172,13 @@ function StockPageInner() {
           setTab("Finava");
           if (opts?.run) void runFinava(ticker, { force: true });
         }}
-        onOpenDcf={() => setTab("DCF")}
+        onOpenDcf={() => {
+          setTab("Finava");
+          // Let the tab mount, then bring the DCF chapter into view.
+          requestAnimationFrame(() => {
+            document.getElementById("dcf-chapter")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+        }}
       />
 
       {/* Sticky tab bar — pill lenses + mini ticker/price (F2d) */}
@@ -225,10 +232,18 @@ function StockPageInner() {
           />
         )}
         {tab === "Financials" && <FinancialsTab fundamentals={bundle.fundamentals} />}
-        {tab === "Analysts" && <AnalystsTab analysts={bundle.analysts} price={livePrice} />}
-        {tab === "News" && <NewsTab news={bundle.news} />}
-        {tab === "DCF" && <DcfTab ticker={ticker} />}
-        {tab === "Finava" && <FinavaTab ticker={ticker} />}
+        {tab === "Street & News" && (
+          <StreetNewsTab ticker={ticker} analysts={bundle.analysts} price={livePrice} news={bundle.news} sentiment={bundle.sentiment} />
+        )}
+        {tab === "Finava" && (
+          <>
+            <FinavaTab ticker={ticker} />
+            {/* DCF chapter — merged under Finava (full two-chapter hero lands in Phase E) */}
+            <div id="dcf-chapter" style={{ marginTop: 34 }}>
+              <DcfTab ticker={ticker} />
+            </div>
+          </>
+        )}
         {tab === "Money Map" && <MoneyMapTab ticker={ticker} />}
       </div>
     </div>

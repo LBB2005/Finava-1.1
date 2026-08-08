@@ -6,6 +6,8 @@ import { useQuotes } from "@/hooks/useQuotes";
 import { useNewsImages } from "@/hooks/useNewsImages";
 import { useFinava } from "@/hooks/useFinava";
 import { useVerdictCache } from "@/hooks/useVerdictCache";
+import { useToast } from "@/hooks/useToast";
+import { authFetch } from "@/lib/authFetch";
 import { FACTORS, factorColor, type FactorScores } from "@/lib/research";
 import type {
   StockProfile,
@@ -711,7 +713,7 @@ export function AnalystsTab({ analysts, price }: { analysts: AnalystRatings | nu
         )}
       </div>
       <div style={{ borderLeft: "1px solid var(--color-border)", paddingLeft: 32 }} className="analyst-right">
-        <Rule>Price target</Rule>
+        <Rule>Price target{analysts.numberOfAnalysts ? ` · ${analysts.numberOfAnalysts} analysts` : ""}</Rule>
         {analysts.targetMean == null ? (
           <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)", margin: "10px 0 0", lineHeight: 1.5 }}>
             Unavailable — analyst price targets aren’t provided on the current data tier.
@@ -737,6 +739,180 @@ export function AnalystsTab({ analysts, price }: { analysts: AnalystRatings | nu
             )}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Sentiment strip (Street & News · spec §4a block 2) ──────────────────────
+   Three gauges on one bear→warn→bull scale: X Chatter (cached Grok), News tone
+   (headline-based aggregate), Street stance (derived from the ratings
+   distribution). Disagreement between the three is the story. */
+
+function toneColor(score: number): string {
+  if (score >= 60) return "var(--color-bull)";
+  if (score >= 40) return "var(--color-warn)";
+  return "var(--color-bear)";
+}
+
+function GaugeCell({
+  label,
+  score,
+  note,
+  action,
+}: {
+  label: string;
+  score: number | null;
+  note: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div style={{ padding: "13px 16px", minWidth: 0 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+        <span className="mono eyebrow-label" style={{ color: "var(--color-muted)" }}>{label}</span>
+        {score != null ? (
+          <span className="mono" style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: toneColor(score) }}>{score}</span>
+        ) : (
+          <span className="mono" style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--color-muted)" }}>—</span>
+        )}
+      </div>
+      <div style={{ height: 7, borderRadius: 99, background: "var(--color-surface-2)", overflow: "hidden", margin: "8px 0 7px" }}>
+        {score != null && (
+          <div style={{ display: "block", width: `${Math.max(2, Math.min(100, score))}%`, height: "100%", borderRadius: 99, background: toneColor(score) }} />
+        )}
+      </div>
+      <div style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", lineHeight: 1.5, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        {note}
+        {action}
+      </div>
+    </div>
+  );
+}
+
+interface XSentimentPayload {
+  score: number;
+  confidence: number;
+  foundPosts: number;
+  detail: string;
+  updatedAt: string;
+}
+
+export function SentimentStrip({
+  ticker,
+  sentiment,
+  analysts,
+}: {
+  ticker: string;
+  sentiment: SentimentRead | null;
+  analysts: AnalystRatings | null;
+}) {
+  const toast = useToast();
+  const [analyzing, setAnalyzing] = useState(false);
+  const x = useSWR<XSentimentPayload>(
+    `/api/stock/${encodeURIComponent(ticker)}/x-sentiment`,
+    publicJson,
+    { revalidateOnFocus: false, shouldRetryOnError: false, dedupingInterval: 300_000 }
+  );
+
+  async function analyze() {
+    setAnalyzing(true);
+    try {
+      const res = await authFetch(`/api/stock/${encodeURIComponent(ticker)}/x-sentiment`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
+      await x.mutate(body, { revalidate: false });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "X analysis failed.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  // Street stance — deterministic weighted read of the ratings distribution.
+  let street: { score: number; caption: string } | null = null;
+  if (analysts) {
+    const total = analysts.strongBuy + analysts.buy + analysts.hold + analysts.sell + analysts.strongSell;
+    if (total > 0) {
+      const weighted =
+        (analysts.strongBuy * 100 + analysts.buy * 75 + analysts.hold * 50 + analysts.sell * 25) / total;
+      street = {
+        score: Math.round(weighted),
+        caption: `${analysts.strongBuy + analysts.buy} Buy · ${analysts.hold} Hold · ${analysts.sell + analysts.strongSell} Sell`,
+      };
+    }
+  }
+
+  return (
+    <div>
+      <Rule>Sentiment</Rule>
+      <div className="sentiment-strip" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+        <GaugeCell
+          label="X chatter · Grok"
+          score={x.data?.score ?? null}
+          note={
+            x.data ? (
+              <span title={x.data.detail} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>
+                {x.data.foundPosts} posts · {timeAgo(new Date(x.data.updatedAt).getTime() / 1000)}
+              </span>
+            ) : (
+              <span>No X read yet</span>
+            )
+          }
+          action={
+            !x.data && (
+              <button
+                className="tbtn"
+                style={{ height: 22, fontSize: "var(--text-micro)", padding: "0 8px" }}
+                disabled={analyzing}
+                onClick={analyze}
+                title="Searches X via Grok — uses credits"
+              >
+                {analyzing ? "ANALYSING…" : "ANALYZE"}
+              </button>
+            )
+          }
+        />
+        <div style={{ borderLeft: "1px solid var(--color-border)" }}>
+          <GaugeCell
+            label="News tone · 30d"
+            score={sentiment?.score ?? null}
+            note={<span>{sentiment ? `Headline-based estimate · ${sentiment.sampleSize} items` : "Unavailable"}</span>}
+          />
+        </div>
+        <div style={{ borderLeft: "1px solid var(--color-border)" }}>
+          <GaugeCell
+            label="Street stance"
+            score={street?.score ?? null}
+            note={<span>{street ? street.caption : "No analyst coverage"}</span>}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Street & News (consolidated tab — spec §4a) ─────────────────────────── */
+export function StreetNewsTab({
+  ticker,
+  analysts,
+  price,
+  news,
+  sentiment,
+}: {
+  ticker: string;
+  analysts: AnalystRatings | null;
+  price: number | null;
+  news: NewsItem[] | null;
+  sentiment: SentimentRead | null;
+}) {
+  return (
+    <div className="fade-in">
+      <AnalystsTab analysts={analysts} price={price} />
+      <div style={{ marginTop: 26 }}>
+        <SentimentStrip ticker={ticker} sentiment={sentiment} analysts={analysts} />
+      </div>
+      <div style={{ marginTop: 26 }}>
+        <NewsTab news={news} />
       </div>
     </div>
   );
