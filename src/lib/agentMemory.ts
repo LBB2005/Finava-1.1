@@ -26,6 +26,9 @@ const AGENT_TTL_MS: Record<string, number> = {
   run_macro_agent:        4  * 60 * 60 * 1000,
   run_sentiment_agent:    5  * 60 * 60 * 1000,
   run_hype_agent:         5  * 60 * 60 * 1000,
+  // Stock-page X Chatter gauge — one Grok x_search per ticker per window,
+  // shared by every viewer (market-wide data, deliberately not per-user).
+  "x-sentiment":          5  * 60 * 60 * 1000,
   run_insider_agent:      6  * 60 * 60 * 1000,
   run_risk_agent:         12 * 60 * 60 * 1000,
   run_earnings_agent:     12 * 60 * 60 * 1000,

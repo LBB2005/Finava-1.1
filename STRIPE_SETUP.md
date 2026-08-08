@@ -145,6 +145,8 @@ alone) is also fine for a small beta.
 3. Set `NEXT_PUBLIC_APP_URL` to the production URL and all the live env vars in your
    host (Vercel project env).
 4. Set `ADMIN_UIDS` to your own Firebase UID(s) so you retain full (Quant) access.
+   `ADMIN_EMAILS` does the same by verified email — use it for a tester who hasn't
+   signed in yet and so has no UID.
 
 ---
 
@@ -162,4 +164,5 @@ STRIPE_PRICE_PRO_ANNUAL
 STRIPE_PRICE_QUANT_MONTHLY
 STRIPE_PRICE_QUANT_ANNUAL
 ADMIN_UIDS
+ADMIN_EMAILS
 ```

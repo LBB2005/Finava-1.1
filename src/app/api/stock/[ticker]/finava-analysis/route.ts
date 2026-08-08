@@ -38,6 +38,7 @@ import {
 } from "@/lib/finava";
 import { fenceExternal, EXTERNAL_DATA_RULE } from "@/lib/externalContent";
 import { DATA_ACCURACY_RULE } from "@/lib/dataAccuracy";
+import { saveVerdict } from "@/lib/verdictStore";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -263,6 +264,7 @@ export async function POST(
       );
 
       // ── Synthesis ──────────────────────────────────────────────────────────
+      let completedVerdict: FinavaVerdict | null = null;
       try {
         const street = an?.targetMean ?? null;
         const signalLines = signals
@@ -327,9 +329,17 @@ Respond with ONLY this JSON (no markdown):
           model: AGENT_MODELS["finavaSynthesis"],
         };
         send({ type: "verdict", verdict });
+        completedVerdict = verdict;
       } catch (err) {
         console.error("[finava synthesis]", symbol, err);
         send({ type: "error", message: "Failed to synthesise the verdict." });
+      }
+
+      // Persist the completed run for the cached-first stock page (rail /
+      // Overview Read / tab hydration). Awaited so the serverless runtime
+      // can't kill the write after the stream closes; saveVerdict never throws.
+      if (completedVerdict) {
+        await saveVerdict(userId, symbol, completedVerdict, signals);
       }
 
       controller.close();

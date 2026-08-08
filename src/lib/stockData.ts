@@ -61,6 +61,9 @@ export interface AnalystRatings {
   targetMean: number | null;
   targetHigh: number | null;
   targetLow: number | null;
+  targetMedian: number | null;
+  /** Analysts contributing to the price target (differs from the ratings sum). */
+  numberOfAnalysts: number | null;
 }
 
 export interface InsiderTrade {
@@ -193,6 +196,8 @@ function extractAnalysts(trends: unknown, target: unknown): AnalystRatings | nul
     targetMean: num(t.targetMean),
     targetHigh: num(t.targetHigh),
     targetLow: num(t.targetLow),
+    targetMedian: num(t.targetMedian),
+    numberOfAnalysts: num(t.numberOfAnalysts),
   };
 }
 

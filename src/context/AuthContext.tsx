@@ -52,7 +52,9 @@ function isPublicRoute(pathname: string): boolean {
 const DEV_ENABLED = process.env.NODE_ENV !== "production";
 
 // Private-beta lockdown (mirrors the server gate in requireAuth). When on, only
-// admin UIDs may use the app; any other signed-in Google user is signed back out.
+// allowlisted accounts may use the app; any other signed-in Google user is signed
+// back out. Matching on email as well as UID is what lets a brand-new tester in on
+// their first sign-in, before they have a UID to list.
 const BETA_ADMIN_ONLY = process.env.NEXT_PUBLIC_BETA_ADMIN_ONLY === "1";
 const ADMIN_UIDS = new Set(
   (process.env.NEXT_PUBLIC_ADMIN_UIDS ?? "")
@@ -60,6 +62,19 @@ const ADMIN_UIDS = new Set(
     .map((s) => s.trim())
     .filter(Boolean)
 );
+const ADMIN_EMAILS = new Set(
+  (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+);
+
+// This is UX only — the server gate in requireAuth is the real boundary — but keep
+// the emailVerified rule identical so the two can't disagree.
+function isAllowlisted(u: User): boolean {
+  if (ADMIN_UIDS.has(u.uid)) return true;
+  return !!u.email && u.emailVerified && ADMIN_EMAILS.has(u.email.toLowerCase());
+}
 
 // Stand-in for a Firebase user. Has no real UID/token, so authenticated
 // Firestore reads and token-gated API calls will not work under it.
@@ -83,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // A real, non-admin user under the beta lockdown is treated as not-signed-in:
   // the server rejects their token anyway, so never mount the app shell for them.
   const betaLockedOut =
-    BETA_ADMIN_ONLY && realUser !== null && !ADMIN_UIDS.has(realUser.uid);
+    BETA_ADMIN_ONLY && realUser !== null && !isAllowlisted(realUser);
 
   const user = betaLockedOut
     ? null

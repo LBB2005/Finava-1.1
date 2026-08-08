@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { useQuotes } from "@/hooks/useQuotes";
-import { computeDcf, type DcfInputs } from "@/lib/dcf";
+import { computeDcf, defaultGrowthFor, type DcfInputs } from "@/lib/dcf";
 import Rule from "@/components/ui/Rule";
 
 const dcfFetcher = (url: string) =>
@@ -78,10 +78,7 @@ export function DcfTab({ ticker }: { ticker: string }) {
   const livePrice = quoteMap.get(ticker)?.price ?? null;
   const price = livePrice ?? inputs?.currentPrice ?? null;
 
-  const defaultGrowth =
-    inputs?.historicalGrowth != null
-      ? Math.min(0.25, Math.max(0, inputs.historicalGrowth))
-      : 0.08;
+  const defaultGrowth = inputs ? defaultGrowthFor(inputs) : 0.08;
   const wacc = waccOverride ?? inputs?.suggestedWacc ?? 0.09;
   const growth = growthOverride ?? defaultGrowth;
 

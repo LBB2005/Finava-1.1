@@ -185,6 +185,27 @@ Top-to-bottom, three blocks separated by `Rule`s:
 - Existing suites must stay green. UI states verified in-browser (light/dark, accents,
   density, reduced motion, <900px), per the app's standard.
 
+## 9a. Implementation-scope decisions (resolved with Liam during planning)
+
+Exploration surfaced four data gaps; the resolutions below supersede the affected lines:
+1. **Quarterly financials** — built new: EDGAR 10-Q calendar-quarter frames (Q4 derived
+   as FY − Q1..Q3) + Finnhub `getEarnings` for 8-quarter diluted EPS, via
+   `GET /api/stock/[ticker]/financials` (quarterly ledger + TTM three-statement).
+2. **X Chatter gauge** — cached Grok route (`GET/POST /api/stock/[ticker]/x-sentiment`),
+   shared 5h per-ticker cache in agentCache (market-wide data, deliberately not
+   per-user); POST is authed + usage-gated (~120 credits); degraded reads are never
+   cached or shown as scores.
+3. **News tone** — aggregate gauge only in v1, from the existing headline-keyword
+   `placeholderSentiment` (footnoted "headline-based estimate"); NO per-story tone tags.
+4. **Street block** — degraded-first: ratings split bar leads; the target-range
+   instrument renders only when targets exist (premium-gated on the current Finnhub
+   tier); the rating-changes feed is dropped from v1 (no data source).
+
+Field-shape deviations from §1/§2: verdict `confidence` is `"Low"|"Moderate"|"High"`
+(displayed as the word + age — never a fabricated percentage); the verdict pill/orb
+tier derives from `verdict.score`; the cached doc stores the full run
+(`{verdict, signals, updatedAt}`) so the Finava tab hydrates without re-running.
+
 ## 10. Out of scope (explicit)
 
 - No changes to Research/Portfolio/Watchlist/etc. pages.

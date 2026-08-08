@@ -9,6 +9,7 @@
  */
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase-admin";
+import { isAdminUid } from "@/lib/adminAllowlist";
 import {
   PLANS,
   PLAN_ORDER,
@@ -22,7 +23,7 @@ import {
 } from "@/lib/plans";
 
 export type EntitlementSource =
-  | "admin" // ADMIN_UIDS — full access
+  | "admin" // ADMIN_UIDS / ADMIN_EMAILS — full access
   | "dev" // dev-bypass user in non-production
   | "subscription" // active/grace paid plan
   | "trial" // inside the 3-day no-card trial
@@ -44,15 +45,6 @@ export interface ResolvedEntitlement {
 /** Statuses that should still grant the paid plan (past_due = grace period). */
 const PAID_STATUSES = new Set(["active", "trialing", "past_due"]);
 
-function adminUids(): Set<string> {
-  return new Set(
-    (process.env.ADMIN_UIDS ?? "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-  );
-}
-
 function entitlement(
   plan: PlanName,
   source: EntitlementSource,
@@ -73,8 +65,8 @@ function entitlement(
  * Resolve a user's effective entitlement.
  *
  * Precedence (highest wins):
- *   1. dev-bypass user / admin UID → Quant (full access), BEFORE any Firestore read
- *      so local dev works with no doc.
+ *   1. dev-bypass user / allowlisted admin (UID or verified email) → Quant (full
+ *      access), BEFORE any Firestore read so local dev works with no doc.
  *   2. Active paid subscription (status active|trialing|past_due) → that plan.
  *      Paid ALWAYS beats trial.
  *   3. Trial still running (trialEndsAt in the future) → Pro-level.
@@ -85,7 +77,7 @@ export async function resolvePlan(userId: string): Promise<ResolvedEntitlement> 
   if (userId === "dev-user" && process.env.NODE_ENV !== "production") {
     return entitlement("Quant", "dev");
   }
-  if (adminUids().has(userId)) {
+  if (await isAdminUid(userId)) {
     return entitlement("Quant", "admin");
   }
 

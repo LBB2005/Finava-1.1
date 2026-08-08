@@ -15,6 +15,7 @@ const deps = vi.hoisted(() => ({
   getBasicFinancials: vi.fn(),
   suggestedWaccFromBeta: vi.fn(),
   defaultFairValue: vi.fn(),
+  saveVerdict: vi.fn(),
 }));
 
 vi.mock("@/lib/requireAuth", () => ({ requireAuth: deps.requireAuth }));
@@ -46,6 +47,7 @@ vi.mock("@/lib/dcf", () => ({
   suggestedWaccFromBeta: deps.suggestedWaccFromBeta,
   defaultFairValue: deps.defaultFairValue,
 }));
+vi.mock("@/lib/verdictStore", () => ({ saveVerdict: deps.saveVerdict }));
 
 import { POST } from "./route";
 
@@ -173,6 +175,15 @@ describe("POST /api/stock/[ticker]/finava-analysis", () => {
     expect(body).toContain('"fairValue":230');
     expect(body).toContain('"upsidePct":15');
     expect(body).toContain('"comparison":{"finava":230,"street":225,"dcf":215}');
+
+    // Completed run is persisted for the cached-first stock page.
+    expect(deps.saveVerdict).toHaveBeenCalledTimes(1);
+    expect(deps.saveVerdict).toHaveBeenCalledWith(
+      "user_123",
+      "AAPL",
+      expect.objectContaining({ score: 82, fairValue: 230, confidence: "High" }),
+      expect.arrayContaining([expect.objectContaining({ key: "fundamentals" })])
+    );
   });
 
   it("degrades failed signal agents to neutral and emits an error on synthesis failure", async () => {
@@ -190,5 +201,9 @@ describe("POST /api/stock/[ticker]/finava-analysis", () => {
     expect(body).toContain('"headline":"Signal unavailable"');
     expect(body).toContain('"score":100');
     expect(body).toContain('"type":"error","message":"Failed to synthesise the verdict."');
+
+    // Nothing is persisted when synthesis fails — the cache only ever holds
+    // completed verdicts.
+    expect(deps.saveVerdict).not.toHaveBeenCalled();
   });
 });

@@ -219,6 +219,183 @@ export function extractFundamentalTimeSeries(facts: any, years = 5): Fundamental
   };
 }
 
+// ── Quarterly time series (stock page v2 financials) ──────────────────────────
+
+export interface QuarterlyMetric {
+  year: number;
+  quarter: 1 | 2 | 3 | 4;
+  value: number;
+}
+
+function qOrd(m: { year: number; quarter: number }): number {
+  return m.year * 4 + (m.quarter - 1);
+}
+
+/**
+ * Extract a discrete quarterly series for a duration concept using SEC's
+ * calendar-quarter frames ("CY2024Q1" …). SEC computes these de-YTD'd values
+ * across filings, so they're clean discrete quarters regardless of form type.
+ * Q4 usually has NO quarterly frame (companies report the full year in the
+ * 10-K), so it is derived as FY − (Q1+Q2+Q3) whenever the annual frame and all
+ * three quarters exist. Multiple `keys` merge like extractAnnualSeries: the
+ * concept with the freshest data wins, earlier-ending concepts back-fill.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractQuarterlySeries(us: any, ...keys: string[]): QuarterlyMetric[] {
+  const perKey: Array<{ quarters: Map<number, QuarterlyMetric>; annual: Map<number, number> }> = [];
+  for (const key of keys) {
+    const units = us[key]?.units?.USD ?? [];
+    const quarters = new Map<number, QuarterlyMetric>();
+    const annual = new Map<number, number>();
+    for (const u of units as Array<{ frame?: string; val: number }>) {
+      if (!u.frame || typeof u.val !== "number") continue;
+      const q = /^CY(\d{4})Q([1-4])$/.exec(u.frame);
+      if (q) {
+        const m = { year: +q[1], quarter: +q[2] as 1 | 2 | 3 | 4, value: u.val };
+        quarters.set(qOrd(m), m);
+        continue;
+      }
+      const y = /^CY(\d{4})$/.exec(u.frame);
+      if (y) annual.set(+y[1], u.val);
+    }
+    if (quarters.size > 0 || annual.size > 0) perKey.push({ quarters, annual });
+  }
+  if (perKey.length === 0) return [];
+
+  // Merge across tags BEFORE deriving Q4 — tag-switch issuers (e.g. Revenues →
+  // RevenueFromContract…) can have a year's Q1-Q3 under one tag and the annual
+  // total under the other. Freshest-ending concept wins overlaps; others back-fill.
+  const freshness = (e: (typeof perKey)[number]) =>
+    Math.max(
+      ...[...e.quarters.keys()].concat([...e.annual.keys()].map((y) => qOrd({ year: y, quarter: 4 })))
+    );
+  perKey.sort((a, b) => freshness(b) - freshness(a));
+
+  const merged = new Map<number, QuarterlyMetric>();
+  const mergedAnnual = new Map<number, number>();
+  for (const { quarters, annual } of perKey) {
+    for (const m of quarters.values()) if (!merged.has(qOrd(m))) merged.set(qOrd(m), m);
+    for (const [year, val] of annual) if (!mergedAnnual.has(year)) mergedAnnual.set(year, val);
+  }
+
+  // Derive missing Q4s from the annual total (Q4 rarely gets its own frame).
+  for (const [year, fy] of mergedAnnual) {
+    const ord4 = qOrd({ year, quarter: 4 });
+    if (merged.has(ord4)) continue;
+    const q1 = merged.get(qOrd({ year, quarter: 1 }))?.value;
+    const q2 = merged.get(qOrd({ year, quarter: 2 }))?.value;
+    const q3 = merged.get(qOrd({ year, quarter: 3 }))?.value;
+    if (q1 != null && q2 != null && q3 != null) {
+      merged.set(ord4, { year, quarter: 4, value: fy - q1 - q2 - q3 });
+    }
+  }
+
+  return Array.from(merged.values()).sort((a, b) => qOrd(a) - qOrd(b));
+}
+
+export interface QuarterlyFundamentals {
+  revenue: QuarterlyMetric[];
+  grossProfit: QuarterlyMetric[];
+  costOfRevenue: QuarterlyMetric[];
+  netIncome: QuarterlyMetric[];
+  operatingIncome: QuarterlyMetric[];
+  operatingCashFlow: QuarterlyMetric[];
+  capex: QuarterlyMetric[];
+  buybacks: QuarterlyMetric[];
+}
+
+/**
+ * Discrete quarterly fundamentals for the stock page's ledger/trajectory.
+ * `quarters` trims each series to the most recent N (default 12 so the caller
+ * can compute YoY for the last 8). Missing concepts → empty arrays; the UI
+ * renders gaps as "—" (Data Accuracy Rule — never invent).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function extractQuarterlyFundamentals(facts: any, quarters = 12): QuarterlyFundamentals {
+  const us = facts?.facts?.["us-gaap"] ?? {};
+  const trim = (arr: QuarterlyMetric[]) => arr.slice(-quarters);
+  return {
+    revenue: trim(
+      extractQuarterlySeries(us, "Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax")
+    ),
+    grossProfit: trim(extractQuarterlySeries(us, "GrossProfit")),
+    costOfRevenue: trim(
+      extractQuarterlySeries(us, "CostOfRevenue", "CostOfGoodsAndServicesSold")
+    ),
+    netIncome: trim(extractQuarterlySeries(us, "NetIncomeLoss")),
+    operatingIncome: trim(extractQuarterlySeries(us, "OperatingIncomeLoss")),
+    operatingCashFlow: trim(
+      extractQuarterlySeries(us, "NetCashProvidedByUsedInOperatingActivities")
+    ),
+    capex: trim(extractQuarterlySeries(us, "PaymentsToAcquirePropertyPlantAndEquipment")),
+    buybacks: trim(extractQuarterlySeries(us, "PaymentsForRepurchaseOfCommonStock")),
+  };
+}
+
+export interface BalanceSnapshot {
+  cash: number | null;
+  totalDebt: number | null;
+  totalAssets: number | null;
+  equity: number | null;
+  sharesOutstanding: number | null;
+  asOf: string | null; // end date of the freshest instant fact used
+}
+
+/**
+ * Latest instantaneous balance-sheet snapshot from quarterly instant frames
+ * ("CY2025Q2I"), i.e. as fresh as the most recent 10-Q — unlike
+ * extractFinancialMetrics, which is annual-only and can lag by a year.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function extractBalanceSnapshot(facts: any): BalanceSnapshot {
+  const us = facts?.facts?.["us-gaap"] ?? {};
+  const dei = facts?.facts?.dei ?? {};
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const latestInstant = (src: any, ...keys: string[]): { val: number; end: string } | null => {
+    let best: { val: number; end: string } | null = null;
+    for (const key of keys) {
+      const units = src[key]?.units?.USD ?? src[key]?.units?.shares ?? [];
+      for (const u of units as Array<{ frame?: string; val: number; end?: string }>) {
+        if (!u.frame || !/^CY\d{4}Q[1-4]I$/.test(u.frame)) continue;
+        if (typeof u.val !== "number" || !u.end) continue;
+        if (!best || u.end > best.end) best = { val: u.val, end: u.end };
+      }
+    }
+    return best;
+  };
+
+  const cash = latestInstant(
+    us,
+    "CashCashEquivalentsAndShortTermInvestments",
+    "CashAndCashEquivalentsAtCarryingValue"
+  );
+  const debt = latestInstant(us, "LongTermDebt", "LongTermDebtNoncurrent");
+  const assets = latestInstant(us, "Assets");
+  const equity = latestInstant(
+    us,
+    "StockholdersEquity",
+    "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"
+  );
+  const shares =
+    latestInstant(us, "CommonStockSharesOutstanding") ??
+    latestInstant(dei, "EntityCommonStockSharesOutstanding");
+
+  const dates = [cash, debt, assets, equity, shares]
+    .map((x) => x?.end)
+    .filter((x): x is string => !!x)
+    .sort();
+
+  return {
+    cash: cash?.val ?? null,
+    totalDebt: debt?.val ?? null,
+    totalAssets: assets?.val ?? null,
+    equity: equity?.val ?? null,
+    sharesOutstanding: shares?.val ?? null,
+    asOf: dates.at(-1) ?? null,
+  };
+}
+
 // ── EDGAR full-text search for Form 4 filings ─────────────────────────────────
 
 export interface Form4Filing {

@@ -83,12 +83,20 @@ export function computeDcf(inputs: DcfInputs, a: DcfAssumptions): DcfResult {
   return { fairValue, equityValue, pvExplicit, pvTerminal, upsidePct };
 }
 
+/** The default growth assumption: historical revenue CAGR clamped to [0, 25%],
+ *  else 8%. Shared by defaultFairValue, the DCF tab's slider start position,
+ *  and the intelligence rail — so they can never disagree. */
+export function defaultGrowthFor(inputs: Pick<DcfInputs, "historicalGrowth">): number {
+  return inputs.historicalGrowth != null
+    ? Math.min(0.25, Math.max(0, inputs.historicalGrowth))
+    : 0.08;
+}
+
 /** Convenience: the fair value under the suggested/default assumptions. Used by the
  *  Finava synthesis to feed the three-way valuation comparison. */
 export function defaultFairValue(inputs: DcfInputs): number | null {
-  const growth =
-    inputs.historicalGrowth != null
-      ? Math.min(0.25, Math.max(0, inputs.historicalGrowth))
-      : 0.08;
-  return computeDcf(inputs, { wacc: inputs.suggestedWacc, growth }).fairValue;
+  return computeDcf(inputs, {
+    wacc: inputs.suggestedWacc,
+    growth: defaultGrowthFor(inputs),
+  }).fairValue;
 }

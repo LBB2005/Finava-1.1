@@ -2,14 +2,140 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import aaplFacts from "@/test/fixtures/edgar-companyfacts-aapl.json";
 import proxyFacts from "@/test/fixtures/edgar-companyfacts-proxy-fcf.json";
 import {
+  extractBalanceSnapshot,
   extractFinancialMetrics,
   extractFundamentalTimeSeries,
+  extractQuarterlyFundamentals,
   getCikByTicker,
   getCompanyFacts,
   getLatest10KText,
   getRecentFilings,
   searchRecentForm4,
 } from "./edgar";
+
+/** Build a duration-concept entry list from [frame, val] pairs. */
+function duration(pairs: Array<[string, number]>) {
+  return {
+    units: { USD: pairs.map(([frame, val]) => ({ form: "10-Q", frame, val, end: "" })) },
+  };
+}
+/** Build an instant-concept entry list from [frame, val, end] triples. */
+function instant(triples: Array<[string, number, string]>) {
+  return {
+    units: { USD: triples.map(([frame, val, end]) => ({ form: "10-Q", frame, val, end })) },
+  };
+}
+
+const QUARTERLY_FACTS = {
+  facts: {
+    "us-gaap": {
+      // 2024 Q1-Q3 + annual (Q4 must be derived: 450 − 330 = 120); 2025 full
+      // via frames+annual; 2026 Q1. Split across the two revenue tags to
+      // exercise concept merging (fresh tag wins, old tag back-fills).
+      Revenues: duration([
+        ["CY2024Q1", 100],
+        ["CY2024Q2", 110],
+      ]),
+      RevenueFromContractWithCustomerExcludingAssessedTax: duration([
+        ["CY2024Q3", 120],
+        ["CY2024", 450],
+        ["CY2025Q1", 130],
+        ["CY2025Q2", 140],
+        ["CY2025Q3", 150],
+        ["CY2025", 580],
+        ["CY2026Q1", 170],
+      ]),
+      GrossProfit: duration([["CY2025Q3", 60]]),
+      CostOfRevenue: duration([["CY2026Q1", 68]]),
+      NetIncomeLoss: duration([
+        ["CY2025Q2", 25],
+        ["CY2025Q3", 25],
+        ["CY2025Q4", 25],
+        ["CY2026Q1", 25],
+      ]),
+      OperatingIncomeLoss: duration([
+        ["CY2025Q2", 30],
+        ["CY2025Q3", 30],
+        ["CY2025Q4", 30],
+        ["CY2026Q1", 30],
+      ]),
+      NetCashProvidedByUsedInOperatingActivities: duration([
+        ["CY2025Q2", 40],
+        ["CY2025Q3", 40],
+        ["CY2025Q4", 40],
+        ["CY2026Q1", 40],
+      ]),
+      PaymentsForRepurchaseOfCommonStock: duration([
+        ["CY2025Q2", 10],
+        ["CY2025Q3", 10],
+        ["CY2025Q4", 10],
+        ["CY2026Q1", 10],
+      ]),
+      CashCashEquivalentsAndShortTermInvestments: instant([
+        ["CY2025Q4I", 480, "2025-12-27"],
+        ["CY2026Q1I", 500, "2026-03-28"],
+      ]),
+      LongTermDebt: instant([["CY2026Q1I", 100, "2026-03-28"]]),
+      Assets: instant([["CY2026Q1I", 2000, "2026-03-28"]]),
+      StockholdersEquity: instant([["CY2026Q1I", 800, "2026-03-28"]]),
+    },
+    dei: {
+      EntityCommonStockSharesOutstanding: {
+        units: { shares: [{ form: "10-Q", frame: "CY2026Q1I", val: 100, end: "2026-03-28" }] },
+      },
+    },
+  },
+};
+
+describe("EDGAR quarterly extraction", () => {
+  it("extracts discrete quarters, derives Q4 from the annual frame, and merges tags", () => {
+    const q = extractQuarterlyFundamentals(QUARTERLY_FACTS, 12);
+    expect(q.revenue).toEqual([
+      { year: 2024, quarter: 1, value: 100 },
+      { year: 2024, quarter: 2, value: 110 },
+      { year: 2024, quarter: 3, value: 120 },
+      { year: 2024, quarter: 4, value: 120 }, // 450 − (100+110+120)
+      { year: 2025, quarter: 1, value: 130 },
+      { year: 2025, quarter: 2, value: 140 },
+      { year: 2025, quarter: 3, value: 150 },
+      { year: 2025, quarter: 4, value: 160 }, // 580 − (130+140+150)
+      { year: 2026, quarter: 1, value: 170 },
+    ]);
+    expect(q.grossProfit).toEqual([{ year: 2025, quarter: 3, value: 60 }]);
+    expect(q.costOfRevenue).toEqual([{ year: 2026, quarter: 1, value: 68 }]);
+    expect(q.capex).toEqual([]); // absent concept → empty, never invented
+  });
+
+  it("trims to the requested number of quarters", () => {
+    const q = extractQuarterlyFundamentals(QUARTERLY_FACTS, 4);
+    expect(q.revenue).toHaveLength(4);
+    expect(q.revenue[0]).toEqual({ year: 2025, quarter: 2, value: 140 });
+  });
+
+  it("takes the freshest instant snapshot for the balance sheet (dei shares fallback)", () => {
+    expect(extractBalanceSnapshot(QUARTERLY_FACTS)).toEqual({
+      cash: 500, // CY2026Q1I beats CY2025Q4I
+      totalDebt: 100,
+      totalAssets: 2000,
+      equity: 800,
+      sharesOutstanding: 100,
+      asOf: "2026-03-28",
+    });
+  });
+
+  it("returns empty series and a null snapshot for factless issuers", () => {
+    const q = extractQuarterlyFundamentals({ facts: {} }, 8);
+    expect(q.revenue).toEqual([]);
+    expect(extractBalanceSnapshot({ facts: {} })).toEqual({
+      cash: null,
+      totalDebt: null,
+      totalAssets: null,
+      equity: null,
+      sharesOutstanding: null,
+      asOf: null,
+    });
+  });
+});
 
 describe("EDGAR facts extraction", () => {
   it("extracts the latest annual financial metrics with share units", () => {
