@@ -185,14 +185,14 @@ function TableHead() {
               textAlign: RIGHT_COLS.has(h) ? "right" : "left",
               fontSize: "var(--text-micro)", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
               color: "var(--color-muted)", padding: "8px 12px",
-              background: "var(--color-surface)", borderBottom: "1px solid var(--color-border-strong)",
+              borderBottom: "1px solid var(--color-border)",
               whiteSpace: "nowrap",
             }}
           >
             {h}
           </th>
         ))}
-        <th style={{ width: 30, background: "var(--color-surface)", borderBottom: "1px solid var(--color-border-strong)" }} />
+        <th style={{ width: 30, borderBottom: "1px solid var(--color-border)" }} />
       </tr>
     </thead>
   );
@@ -299,29 +299,30 @@ function RailSection({ title, count, children }: {
   title: string; count?: number; children: React.ReactNode;
 }) {
   return (
-    <div className="b-railsec">
-      <div className="b-railhead">
-        <span className="mono b-railtitle" style={{ textTransform: "uppercase", fontSize: "var(--text-micro)", letterSpacing: "0.1em", color: "var(--color-muted)" }}>
-          {title}
-        </span>
-        {count != null && <span className="mono b-railcount">{count}</span>}
+    <div style={{ border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "10px 14px",
+        background: "var(--color-surface)",
+        borderBottom: "1px solid var(--color-border)",
+      }}>
+        <p className="eyebrow-label" style={{ color: "var(--color-muted)", margin: 0 }}>{title}</p>
+        {count != null && (
+          <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)" }}>{count}</span>
+        )}
       </div>
       {children}
     </div>
   );
 }
 
-// ─── KPI tile ─────────────────────────────────────────────────────────────────
+// ─── Insight stat — bare label/value pair, mirrors the portfolio stat row ────
 
-function KpiTile({ label, value, accent, last }: {
-  label: string; value: string; accent?: string; last?: boolean;
+function InsightStat({ label, value, accent }: {
+  label: string; value: string; accent?: string;
 }) {
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", gap: 3,
-      paddingRight: last ? 0 : 20,
-      borderRight: last ? "none" : "1px solid var(--color-border)",
-    }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 3, marginRight: 24 }}>
       <span className="mono" style={{ fontSize: "var(--text-micro)", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--color-muted)", whiteSpace: "nowrap" }}>
         {label}
       </span>
@@ -397,17 +398,17 @@ export default function WatchlistSplitRail() {
     };
   }).sort((a, b) => b.score - a.score);
 
-  // KPI summary
+  // Insight summary
   const n = rows.length;
   const changes = rows.map((r) => r.changePct).filter((c): c is number => c != null);
   const gainers = changes.filter((c) => c >= 0).length;
-  const decliners = n - gainers;
   const avg = changes.length ? changes.reduce((s, c) => s + c, 0) / changes.length : null;
-  const avgScore = rows.length ? Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length) : 0;
   const signalCount = rows.reduce((s, r) => s + r.signals.length, 0);
 
   // Rail data
   const movers = [...rows].sort((a, b) => (b.changePct ?? 0) - (a.changePct ?? 0));
+  const topMover = movers[0] ?? null;
+  const worstMover = movers.length > 1 ? movers[movers.length - 1] : null;
   const feed = rows.flatMap((r) => r.signals.map((sig) => ({ ...sig, ticker: r.ticker })));
 
   async function handleCreate() {
@@ -444,7 +445,7 @@ export default function WatchlistSplitRail() {
           KPI strip as the standardized second row */}
       <PageHeader
         title="Watchlist"
-        subtitle={`${n} TICKER${n !== 1 ? "S" : ""} · LIVE`}
+        subtitle={`${n} TICKER${n !== 1 ? "S" : ""} · ${gainers} GREEN TODAY`}
         center={
           watchlists.length > 0 ? (
             <div className="b-lenses b-lenses-pill">
@@ -497,16 +498,21 @@ export default function WatchlistSplitRail() {
         secondRow={
           active ? (
             <>
-              <KpiTile label="Tracked" value={`${n}`} />
-              <KpiTile label="Gainers" value={`${gainers}`} accent={gainers ? "var(--color-bull)" : undefined} />
-              <KpiTile label="Decliners" value={`${decliners}`} accent={decliners ? "var(--color-bear)" : undefined} />
-              <KpiTile
+              <InsightStat
                 label="Avg day"
                 value={avg == null ? "—" : `${avg >= 0 ? "+" : ""}${avg.toFixed(2)}%`}
                 accent={avg == null ? undefined : avg >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
               />
-              <KpiTile label="Avg score" value={`${avgScore}`} />
-              <KpiTile label="Signals" value={`${signalCount}`} accent="var(--color-accent)" last />
+              <InsightStat
+                label="Top mover"
+                value={topMover?.changePct == null ? "—" : `${topMover.ticker} ${topMover.changePct >= 0 ? "+" : ""}${topMover.changePct.toFixed(2)}%`}
+                accent={topMover?.changePct == null ? undefined : topMover.changePct >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
+              />
+              <InsightStat
+                label="Worst mover"
+                value={worstMover?.changePct == null ? "—" : `${worstMover.ticker} ${worstMover.changePct >= 0 ? "+" : ""}${worstMover.changePct.toFixed(2)}%`}
+                accent={worstMover?.changePct == null ? undefined : worstMover.changePct >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
+              />
               <div style={{ marginLeft: "auto" }}>
                 <AddTickerSearch
                   existing={active?.tickers ?? []}
@@ -553,17 +559,28 @@ export default function WatchlistSplitRail() {
         ) : (
           // Split rail layout
           <div style={{ height: "100%", overflowY: "auto", scrollbarGutter: "stable both-edges", padding: "var(--content-pad-top) var(--page-gutter) var(--content-pad-bottom)", display: "grid", gridTemplateColumns: "minmax(0,1fr) 268px", gap: 16, alignItems: "start" }}>
-            {/* Table */}
-            <div className="b-board">
-              <div className="b-boardhead">
-                <span className="b-boardtitle">{active?.name ?? "Watchlist"}</span>
-                <span className="mono b-live" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            {/* Table — same card chrome as the portfolio holdings table */}
+            <div style={{ border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "12px 18px",
+                background: "var(--color-surface)",
+                borderBottom: "1px solid var(--color-border)",
+              }}>
+                <p className="eyebrow-label" style={{ color: "var(--color-muted)", margin: 0 }}>{active?.name ?? "Watchlist"}</p>
+                <span className="mono" style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  fontSize: "var(--text-micro)", fontWeight: 700, letterSpacing: "0.08em",
+                  color: "var(--color-bull)",
+                }}>
                   <span style={{ width: 6, height: 6, borderRadius: 999, background: "currentColor", flexShrink: 0 }} />
                   LIVE
                 </span>
-                <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", marginLeft: "auto" }}>SORTED · FINAVA SCORE</span>
+                <span style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", marginLeft: "auto" }}>
+                  Sorted by Finava score · click a row to open
+                </span>
               </div>
-              <table className="b-table" style={{ width: "100%" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <TableHead />
                 <tbody>
                   {rows.map((row, i) => (
@@ -580,7 +597,7 @@ export default function WatchlistSplitRail() {
             </div>
 
             {/* Rail */}
-            <div className="b-rail">
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {/* Signals */}
               <RailSection title="Signals" count={signalCount}>
                 {feed.length === 0 ? (
@@ -593,7 +610,7 @@ export default function WatchlistSplitRail() {
                     return (
                       <div
                         key={i}
-                        className="b-railrow"
+                        className="portfolio-row"
                         onClick={() => router.push(`/stock/${sig.ticker}`)}
                         style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "9px 13px", borderBottom: i < Math.min(feed.length, 5) - 1 ? "1px solid var(--color-border)" : "none" }}
                       >
@@ -615,7 +632,7 @@ export default function WatchlistSplitRail() {
                 {movers.slice(0, 5).map((row) => (
                   <div
                     key={row.ticker}
-                    className="b-railrow"
+                    className="portfolio-row"
                     onClick={() => router.push(`/stock/${row.ticker}`)}
                     style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderBottom: "1px solid var(--color-border)" }}
                   >
@@ -635,7 +652,7 @@ export default function WatchlistSplitRail() {
                 {rows.slice(0, 5).map((row) => (
                   <div
                     key={row.ticker}
-                    className="b-railrow"
+                    className="portfolio-row"
                     onClick={() => router.push(`/stock/${row.ticker}`)}
                     style={{ display: "grid", gridTemplateColumns: "44px 1fr auto", alignItems: "center", gap: 9, padding: "8px 13px", borderBottom: "1px solid var(--color-border)" }}
                   >
