@@ -8,9 +8,10 @@ import { useToast } from "@/hooks/useToast";
 import { useLiveBoard } from "@/hooks/useLiveBoard";
 import { useFactorUniverse } from "@/hooks/useFactorUniverse";
 import {
-  FACTORS, WEIGHTS, grade, gradeClass, factorColor, NAME_BY_TICKER,
+  WEIGHTS, NAME_BY_TICKER,
   type FactorScores, type Stock,
 } from "@/lib/research";
+import ScorePill from "@/components/ui/ScorePill";
 import ChatContextButton from "@/components/chat/ChatContextButton";
 import PageHeader from "@/components/layout/PageHeader";
 import AddTickerSearch from "@/components/watchlist/AddTickerSearch";
@@ -47,11 +48,6 @@ function intradaySeries(ticker: string, dayPct: number, n = 30): number[] {
   out[0] = 100;
   out[n - 1] = 100 * (1 + target);
   return out;
-}
-
-function factorFill(v: number): string {
-  const c = v >= 67 ? "var(--color-bull)" : v >= 40 ? "var(--color-warn)" : "var(--color-bear)";
-  return `color-mix(in oklab, ${c} 16%, transparent)`;
 }
 
 function scoreTierColor(s: number): string {
@@ -148,64 +144,6 @@ function deriveSignals(changePct: number | null, f: FactorScores | null): Signal
 
 // ─── Primitives ──────────────────────────────────────────────────────────────
 
-function ScoreBar({ score, w = 56 }: { score: number; w?: number }) {
-  const c = scoreTierColor(score);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ width: w, height: 6, borderRadius: 999, background: "var(--color-surface-2)", overflow: "hidden" }}>
-        <div style={{ width: `${score}%`, height: "100%", borderRadius: 999, background: c }} />
-      </div>
-      <span className="mono" style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--color-text)", minWidth: 18 }}>
-        {score}
-      </span>
-    </div>
-  );
-}
-
-function FactorTiles({ f }: { f: FactorScores }) {
-  return (
-    <div style={{ display: "inline-flex", gap: 3 }}>
-      {FACTORS.map((fac) => {
-        const v = f[fac.key];
-        return (
-          <div
-            key={fac.key}
-            title={`${fac.short}: ${v}`}
-            style={{
-              width: 15, height: 15, borderRadius: "var(--radius-xs)",
-              background: factorFill(v),
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-          >
-            <div style={{ width: 7, height: 7, borderRadius: 2, background: factorColor(v) }} />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function FactorSkeleton() {
-  return (
-    <div style={{ display: "inline-flex", gap: 3 }}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="skeleton" style={{ width: 15, height: 15, borderRadius: "var(--radius-xs)" }} />
-      ))}
-    </div>
-  );
-}
-
-function GradePill({ g }: { g: string }) {
-  return (
-    <span
-      className={"mono grade " + gradeClass(g)}
-      style={{ fontSize: "var(--text-micro)", fontWeight: 700, padding: "2px 6px", borderRadius: "var(--radius-xs)", letterSpacing: "0.01em", whiteSpace: "nowrap" }}
-    >
-      {g}
-    </span>
-  );
-}
-
 function SignalChip({ sig }: { sig: Signal }) {
   const tone = SIGNAL_TONE[sig.k];
   return (
@@ -226,8 +164,14 @@ function SignalChip({ sig }: { sig: Signal }) {
 
 // ─── Table ───────────────────────────────────────────────────────────────────
 
-const COLS = ["#", "Ticker", "Last", "Day", "Factor profile", "Finava", "Grd", "Signal", "30m"] as const;
-const RIGHT_COLS = new Set(["Last", "Day", "30m"]);
+const COLS = ["Ticker", "Finava", "Last", "Day", "Mkt Cap", "Trend"] as const;
+const RIGHT_COLS = new Set(["Last", "Day", "Mkt Cap", "Trend"]);
+
+function fmtCap(cap: number | null): string {
+  if (cap == null) return "—";
+  if (cap >= 1e12) return `$${(cap / 1e12).toFixed(1)}T`;
+  return `$${(cap / 1e9).toFixed(1)}B`;
+}
 
 function TableHead() {
   return (
@@ -259,77 +203,79 @@ interface RowData {
   name: string;
   price: number | null;
   changePct: number | null;
+  marketCap: number | null;
   f: FactorScores | null;
   score: number;
-  grade: string;
   series: number[];
   signals: Signal[];
 }
 
-function TableRow({ data, rank, onRemove, onClick }: {
+function TableRow({ data, isLast, onRemove, onClick }: {
   data: RowData;
-  rank: number;
+  isLast: boolean;
   onRemove: (t: string) => void;
   onClick: (t: string) => void;
 }) {
   const up = (data.changePct ?? 0) >= 0;
   const fmtPrice = data.price == null
     ? "—"
-    : data.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    : `$${data.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const fmtChange = data.changePct == null
     ? "—"
-    : `${data.changePct >= 0 ? "▲ +" : "▼ "}${Math.abs(data.changePct).toFixed(2)}%`;
+    : `${data.changePct >= 0 ? "+" : ""}${data.changePct.toFixed(2)}%`;
 
   return (
     <tr
-      className="b-row"
+      className="portfolio-row std-focus"
       onClick={() => onClick(data.ticker)}
-      style={{ borderBottom: "1px solid var(--color-border)" }}
+      style={{
+        borderBottom: isLast ? "none" : "1px solid var(--color-border)",
+        cursor: "pointer",
+      }}
     >
-      <td className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", padding: "8px 12px" }}>
-        {String(rank).padStart(2, "0")}
-      </td>
+      {/* Ticker chip + company name — mirrors the portfolio holdings table */}
       <td style={{ padding: "8px 12px" }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span className="mono" style={{ fontSize: "var(--text-sm)", fontWeight: 700, letterSpacing: "0.02em", color: "var(--color-accent)" }}>
-            {data.ticker}
-          </span>
-          <span style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)", maxWidth: 104, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{
+            fontSize: "var(--text-meta)", fontWeight: 700, letterSpacing: "0.04em",
+            color: "var(--color-accent)", background: "var(--color-accent-light)",
+            padding: "3px 7px", borderRadius: "var(--radius-xs)",
+          }}>{data.ticker}</span>
+          <span style={{
+            fontSize: "var(--text-sm)", color: "var(--color-text-secondary)",
+            maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
             {data.name}
           </span>
         </div>
       </td>
-      <td className="mono" style={{ textAlign: "right", fontSize: "var(--text-sm)", color: "var(--color-text)", padding: "8px 12px" }}>
+      {/* Finava score pill — "—" until the factor universe has this ticker */}
+      <td style={{ padding: "8px 12px" }}>
+        {data.f
+          ? <ScorePill score={data.score} />
+          : <span className="mono" style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)" }}>—</span>}
+      </td>
+      {/* Last price */}
+      <td className="mono" style={{ textAlign: "right", fontSize: "var(--text-sm)", color: "var(--color-text)", padding: "8px 12px", fontVariantNumeric: "tabular-nums" }}>
         {fmtPrice}
       </td>
+      {/* Day % */}
+      <td className="mono" style={{
+        textAlign: "right", padding: "8px 12px",
+        fontSize: "var(--text-sm)", fontWeight: 600, fontVariantNumeric: "tabular-nums",
+        color: data.changePct == null ? "var(--color-muted)" : up ? "var(--color-bull)" : "var(--color-bear)",
+      }}>
+        {fmtChange}
+      </td>
+      {/* Market cap */}
+      <td className="mono" style={{ textAlign: "right", fontSize: "var(--text-sm)", color: "var(--color-text)", padding: "8px 12px", fontVariantNumeric: "tabular-nums" }}>
+        {fmtCap(data.marketCap)}
+      </td>
+      {/* Trend sparkline */}
       <td style={{ textAlign: "right", padding: "8px 12px" }}>
-        <span
-          className="mono"
-          style={{
-            color: data.changePct == null ? "var(--color-muted)" : up ? "var(--color-bull)" : "var(--color-bear)",
-            fontWeight: 700, fontSize: "var(--text-sm)", whiteSpace: "nowrap",
-          }}
-        >
-          {fmtChange}
-        </span>
-      </td>
-      <td style={{ padding: "8px 12px" }}>
-        {data.f ? <FactorTiles f={data.f} /> : <FactorSkeleton />}
-      </td>
-      <td style={{ padding: "8px 12px" }}>
-        <ScoreBar score={data.score} w={56} />
-      </td>
-      <td style={{ padding: "8px 12px" }}>
-        <GradePill g={data.grade} />
-      </td>
-      <td style={{ padding: "8px 12px" }}>
-        {data.signals[0]
-          ? <SignalChip sig={data.signals[0]} />
-          : <span className="mono" style={{ fontSize: "var(--text-micro)", color: "var(--color-muted)" }}>—</span>
-        }
-      </td>
-      <td style={{ padding: "8px 12px", textAlign: "right" }}>
-        <Sparkline data={data.series} width={54} height={18} stroke={up ? "var(--color-bull)" : "var(--color-bear)"} />
+        <div style={{ display: "inline-block" }}>
+          <Sparkline data={data.series} width={68} height={22} stroke={up ? "var(--color-bull)" : "var(--color-bear)"} />
+        </div>
       </td>
       <td style={{ padding: "8px 10px", textAlign: "right" }}>
         <button
@@ -437,16 +383,15 @@ export default function WatchlistSplitRail() {
     const f = stock?.f ?? null;
     const changePct = live?.changePct ?? null;
     const sc = stock ? scoreFor(stock) : 0;
-    const g = grade(sc);
     const signals = deriveSignals(changePct, f);
     return {
       ticker,
       name: NAME_BY_TICKER[ticker] ?? ticker,
       price: live?.price ?? null,
       changePct,
+      marketCap: live?.marketCap ?? null,
       f,
       score: sc,
-      grade: g,
       series: intradaySeries(ticker, changePct ?? 0),
       signals,
     };
@@ -625,7 +570,7 @@ export default function WatchlistSplitRail() {
                     <TableRow
                       key={row.ticker}
                       data={row}
-                      rank={i + 1}
+                      isLast={i === rows.length - 1}
                       onRemove={(t) => active && removeTicker(active.id, t)}
                       onClick={(t) => router.push(`/stock/${t}`)}
                     />
