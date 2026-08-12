@@ -11,6 +11,8 @@ import ConnectBrokerageButton from "@/components/portfolio/ConnectBrokerageButto
 import ChatContextButton from "@/components/chat/ChatContextButton";
 import PageHeader from "@/components/layout/PageHeader";
 import Sparkline from "@/components/ui/Sparkline";
+import ScorePill from "@/components/ui/ScorePill";
+import { seedRng, finavaScore } from "@/lib/finavaScore";
 
 type Period = "1D" | "1W" | "1M" | "YTD" | "1Y" | "5Y" | "ALL";
 const PERIODS: Period[] = ["1D", "1W", "1M", "YTD", "1Y", "5Y", "ALL"];
@@ -51,44 +53,6 @@ interface HoldingRow {
   pct: number;
   gainLoss: number;
   gainLossPct: number;
-}
-
-function seedRng(seed: string) {
-  let h = 2166136261;
-  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return () => {
-    h += 0x6d2b79f5;
-    let t = h;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function finavaScore(ticker: string): number {
-  const rng = seedRng(ticker + "finava25");
-  return Math.floor(rng() * 30 + 60);
-}
-
-// Tier-colored score pill
-function ScorePill({ score }: { score: number }) {
-  const color =
-    score >= 70 ? "var(--color-bull)"
-    : score >= 60 ? "var(--color-warn)"
-    : "var(--color-bear)";
-  const bg =
-    score >= 80 ? "color-mix(in oklab, var(--color-bull) 13%, transparent)"
-    : score >= 70 ? "color-mix(in oklab, var(--color-bull) 8%, transparent)"
-    : score >= 60 ? "color-mix(in oklab, var(--color-warn) 13%, transparent)"
-    : "color-mix(in oklab, var(--color-bear) 15%, transparent)";
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", justifyContent: "center",
-      minWidth: 30, padding: "3px 8px", borderRadius: "var(--radius-xs)",
-      fontSize: "var(--text-meta)", fontWeight: 700, color, background: bg,
-      fontVariantNumeric: "tabular-nums",
-    }}>{score}</span>
-  );
 }
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
