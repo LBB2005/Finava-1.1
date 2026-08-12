@@ -615,11 +615,16 @@ export default function PortfolioPage() {
               <div style={{
                 border: "1px solid var(--color-border)",
                 borderRadius: "var(--radius-lg)",
-                padding: 20,
-                background: "var(--color-surface)",
+                overflow: "hidden",
               }}>
-                <Eyebrow>Allocation</Eyebrow>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, marginTop: 14 }}>
+                <div style={{
+                  padding: "12px 18px",
+                  background: "var(--color-surface)",
+                  borderBottom: "1px solid var(--color-border)",
+                }}>
+                  <Eyebrow>Allocation</Eyebrow>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: 20 }}>
                   <svg width="172" height="172" viewBox="0 0 172 172" style={{ flexShrink: 0 }}>
                     {segments.map((seg) => (
                       <path
@@ -706,7 +711,7 @@ export default function PortfolioPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r) => {
+                    {rows.map((r, rowIdx) => {
                       const score = finavaScore(r.holding.ticker);
                       const dayPct = r.quote?.changePct ?? 0;
                       const isDayPos = dayPct >= 0;
@@ -714,8 +719,11 @@ export default function PortfolioPage() {
                       return (
                         <tr
                           key={r.holding.ticker}
-                          className="portfolio-row"
-                          style={{ borderBottom: "1px solid var(--color-border)", cursor: "pointer" }}
+                          className="portfolio-row std-focus"
+                          style={{
+                            borderBottom: rowIdx < rows.length - 1 ? "1px solid var(--color-border)" : "none",
+                            cursor: "pointer",
+                          }}
                           onClick={() => router.push(`/stock/${r.holding.ticker}`)}
                         >
                           {/* Ticker chip + company name */}
