@@ -332,7 +332,7 @@ body {
 }
 .portfolio-kpis {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
 }
 .portfolio-alloc-grid {
   display: grid;
@@ -340,10 +340,16 @@ body {
 }
 @media (max-width: 900px) {
   .portfolio-kpis {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
+    row-gap: 18px;
   }
   .portfolio-alloc-grid {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .portfolio-kpis {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 

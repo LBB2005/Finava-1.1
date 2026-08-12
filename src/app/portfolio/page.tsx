@@ -303,12 +303,15 @@ function PortfolioSkeleton() {
       maxWidth: 1100, margin: "0 auto", padding: "26px var(--page-gutter) 8px",
       display: "flex", flexDirection: "column", gap: 22,
     }}>
-      <div className="skeleton" style={{
-        height: 220, border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-xl)",
-      }} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 28, padding: "0 4px" }}>
-        {[0, 1, 2, 3].map((i) => (
+      {/* Open hero shimmer — eyebrow, value, chart region (no card chrome) */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <Shimmer w={130} h={9} />
+        <Shimmer w={240} h={40} />
+        <Shimmer w={160} h={12} />
+        <div className="skeleton" style={{ height: 160, borderRadius: "var(--radius-md)", marginTop: 8 }} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 28, padding: "0 4px" }}>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
           <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <Shimmer w="55%" h={9} />
             <Shimmer w="75%" h={22} />
@@ -574,6 +577,13 @@ export default function PortfolioPage() {
 
             {/* ── KPI strip ── */}
             <div className="portfolio-kpis" style={{ gap: 28, padding: "0 4px" }}>
+              <KpiStat
+                label="All-time"
+                value={`${totalGain >= 0 ? "+" : "−"}$${fmt0(Math.abs(totalGain))}`}
+                sub={`${totalGainPct >= 0 ? "+" : ""}${fmt(totalGainPct, 1)}% overall`}
+                accent={totalGain >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
+              />
+              <KpiStat label="Invested" value={`$${fmt0(totalCost)}`} sub="Cost basis" />
               <KpiStat
                 label="Buying power"
                 value={cashBalance > 0 ? `$${fmt0(cashBalance)}` : "—"}
