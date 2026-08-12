@@ -324,13 +324,11 @@ body {
   background: var(--color-accent-light);
 }
 
-/* Portfolio page grids — two-column on desktop, stacked on tablet/mobile. */
-.portfolio-hero {
-  display: grid;
-  grid-template-columns: minmax(300px, 0.9fr) 1.4fr;
-}
-.portfolio-hero-chart {
-  border-left: 1px solid var(--color-border);
+/* Portfolio page grids — open hero stacks; alloc two-column on desktop. */
+.portfolio-hero-open {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 .portfolio-kpis {
   display: grid;
@@ -341,13 +339,6 @@ body {
   grid-template-columns: 300px 1fr;
 }
 @media (max-width: 900px) {
-  .portfolio-hero {
-    grid-template-columns: 1fr;
-  }
-  .portfolio-hero-chart {
-    border-left: none;
-    border-top: 1px solid var(--color-border);
-  }
   .portfolio-kpis {
     grid-template-columns: repeat(2, 1fr);
   }

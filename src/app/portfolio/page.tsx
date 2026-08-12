@@ -127,7 +127,7 @@ function BenchmarkChart({
   period: Period;
   seed: string;
 }) {
-  const W = 520, H = 172;
+  const W = 900, H = 200;
 
   const { portPts, spxPts, portAreaPath, lastPortPt, yourReturn, spxRet } = useMemo(() => {
     const n = 60;
@@ -536,83 +536,40 @@ export default function PortfolioPage() {
             display: "flex", flexDirection: "column", gap: 22,
           }}>
 
-            {/* ── HERO: editorial serif value + benchmark chart ── */}
-            <div className="portfolio-hero" style={{
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-xl)",
-              overflow: "hidden",
-              boxShadow: "var(--shadow-card)",
-            }}>
-              {/* Left: gradient background, serif hero number */}
-              <div style={{
-                padding: "26px 30px",
-                display: "flex", flexDirection: "column", justifyContent: "center", gap: 10,
-                background: "linear-gradient(118deg, var(--color-accent-light), var(--color-bg) 60%)",
-              }}>
-                <Eyebrow>Total account value</Eyebrow>
-                <div className="serif" style={{
-                  fontSize: "var(--text-hero)", fontWeight: 900,
-                  letterSpacing: "-0.025em", color: "var(--color-text)", lineHeight: 0.95,
-                }}>
-                  ${fmt0(totalAccountValue)}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 2 }}>
-                  {hasQuotes ? (
-                    <>
-                      <span className="mono" style={{
-                        fontSize: "var(--text-sm)", fontWeight: 700,
-                        color: totalDayChange >= 0 ? "var(--color-bull)" : "var(--color-bear)",
-                      }}>
-                        {totalDayChange >= 0 ? "▲" : "▼"}{" "}
-                        {totalDayChange >= 0 ? "+" : "−"}${fmt0(Math.abs(totalDayChange))}{"  "}
-                        {totalDayChangePct >= 0 ? "+" : ""}{fmt(totalDayChangePct, 2)}%
+            {/* ── HERO: open chart canvas — value sits on the page, chart beneath ── */}
+            <div className="portfolio-hero-open">
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <Eyebrow>Total account value</Eyebrow>
+                  <div className="serif" style={{
+                    fontSize: "var(--text-hero)", fontWeight: 900,
+                    letterSpacing: "-0.025em", color: "var(--color-text)", lineHeight: 0.95,
+                  }}>
+                    ${fmt0(totalAccountValue)}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {hasQuotes ? (
+                      <>
+                        <span className="mono" style={{
+                          fontSize: "var(--text-sm)", fontWeight: 700,
+                          color: totalDayChange >= 0 ? "var(--color-bull)" : "var(--color-bear)",
+                        }}>
+                          {totalDayChange >= 0 ? "▲" : "▼"}{" "}
+                          {totalDayChange >= 0 ? "+" : "−"}${fmt0(Math.abs(totalDayChange))}{"  "}
+                          {totalDayChangePct >= 0 ? "+" : ""}{fmt(totalDayChangePct, 2)}%
+                        </span>
+                        <span style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>today</span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>
+                        {holdings.length} positions · {cashBalance > 0 ? `$${fmt0(cashBalance)} cash` : "no cash"}
                       </span>
-                      <span style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>today</span>
-                    </>
-                  ) : (
-                    <span style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>
-                      {holdings.length} positions · {cashBalance > 0 ? `$${fmt0(cashBalance)} cash` : "no cash"}
-                    </span>
-                  )}
-                </div>
-                {/* All-time + Invested */}
-                <div style={{
-                  display: "flex", gap: 24, marginTop: 12,
-                  paddingTop: 14, borderTop: "1px solid var(--color-border)",
-                }}>
-                  <div>
-                    <Eyebrow>All-time</Eyebrow>
-                    <div className="mono" style={{
-                      fontSize: "var(--text-title)", fontWeight: 700, marginTop: 4,
-                      color: totalGain >= 0 ? "var(--color-bull)" : "var(--color-bear)",
-                    }}>
-                      {totalGain >= 0 ? "+" : "−"}${fmt0(Math.abs(totalGain))} · {totalGain >= 0 ? "+" : ""}{fmt(totalGainPct, 1)}%
-                    </div>
-                  </div>
-                  <div>
-                    <Eyebrow>Invested</Eyebrow>
-                    <div className="mono" style={{ fontSize: "var(--text-title)", fontWeight: 700, marginTop: 4, color: "var(--color-text)" }}>
-                      ${fmt0(totalCost)}
-                    </div>
+                    )}
                   </div>
                 </div>
+                <RangeToggle value={period} onChange={setPeriod} />
               </div>
-
-              {/* Right: benchmark chart */}
-              <div className="portfolio-hero-chart" style={{
-                padding: "20px 28px 18px",
-                background: "var(--color-bg)",
-                display: "flex", flexDirection: "column", justifyContent: "center",
-              }}>
-                <div style={{
-                  display: "flex", alignItems: "center",
-                  justifyContent: "space-between", marginBottom: 10, gap: 12,
-                }}>
-                  <Eyebrow>Growth vs S&amp;P 500</Eyebrow>
-                  <RangeToggle value={period} onChange={setPeriod} />
-                </div>
-                <BenchmarkChart totalGainPct={totalGainPct} period={period} seed={benchmarkSeed} />
-              </div>
+              <BenchmarkChart totalGainPct={totalGainPct} period={period} seed={benchmarkSeed} />
             </div>
 
             {/* ── KPI strip ── */}
