@@ -133,36 +133,6 @@ export default function ChatEngine() {
     return startedAt != null ? Date.now() - startedAt : undefined;
   }
 
-  async function runBacktest(text: string, convId: string, mode: ChatMode) {
-    try {
-      const portfolioTickers = ctxRef.current.holdings.map((h) => h.ticker);
-      const res = await authFetch("/api/backtest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: text, portfolioTickers }),
-        signal: streamAborters.get(convId)?.signal,
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const errMsg = apiErrorMessage(data, "Backtest failed");
-        s().addMessage(convId, { id: crypto.randomUUID(), role: "assistant", content: `**Backtest error:** ${errMsg}`, mode: "backtest", createdAt: new Date().toISOString() });
-        return;
-      }
-      s().addMessage(convId, {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: JSON.stringify(data),
-        mode: "backtest",
-        createdAt: new Date().toISOString(),
-      });
-      await saveMessage(convId, "assistant", JSON.stringify(data), mode);
-    } finally {
-      s().setStreaming(convId, false);
-      s().clearStreamingContent(convId);
-      streamAborters.delete(convId);
-    }
-  }
-
   async function runSimpleChat(text: string, portfolioContext: string, convId: string, mode: ChatMode, history: ChatMessage[], templateId?: string, pageContext?: PageContext | null) {
     const apiMessages = [
       ...history.filter((m) => m.mode === "simple" || m.mode === "auto"),
@@ -727,8 +697,6 @@ export default function ChatEngine() {
 
       if (mode === "auto") {
         await runAuto(text, portfolioContext, convId, prior, templateId, pageContext);
-      } else if (mode === "backtest") {
-        await runBacktest(text, convId, mode);
       } else if (mode === "simple") {
         await runSimpleChat(text, portfolioContext, convId, mode, prior, templateId, pageContext);
       } else if (mode === "discover") {

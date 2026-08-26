@@ -26,8 +26,7 @@ export const DEFAULT_PLAN: PlanName = "Free";
 export type Capability =
   | "plaidLinking" // connect a live brokerage via Plaid
   | "weeklyBriefings" // scheduled AI market briefings
-  | "priorityProcessing" // faster/priority model routing
-  | "quantSuite"; // hedge-fund routes: bot, alpaca/*, markov, strategies, backtest
+  | "priorityProcessing"; // faster/priority model routing
 
 export type BillingCadence = "monthly" | "annual";
 
@@ -78,7 +77,6 @@ export const PLANS: Record<PlanName, PlanConfig> = {
       plaidLinking: false,
       weeklyBriefings: false,
       priorityProcessing: false,
-      quantSuite: false,
     },
     watchlistLimit: 1,
     stripe: { purchasable: false },
@@ -95,7 +93,6 @@ export const PLANS: Record<PlanName, PlanConfig> = {
       plaidLinking: true,
       weeklyBriefings: true,
       priorityProcessing: false,
-      quantSuite: false,
     },
     watchlistLimit: Infinity,
     stripe: {
@@ -116,7 +113,6 @@ export const PLANS: Record<PlanName, PlanConfig> = {
       plaidLinking: true,
       weeklyBriefings: true,
       priorityProcessing: true,
-      quantSuite: false,
     },
     watchlistLimit: Infinity,
     stripe: {
@@ -137,7 +133,6 @@ export const PLANS: Record<PlanName, PlanConfig> = {
       plaidLinking: true,
       weeklyBriefings: true,
       priorityProcessing: true,
-      quantSuite: true,
     },
     watchlistLimit: Infinity,
     stripe: {

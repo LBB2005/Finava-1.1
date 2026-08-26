@@ -1042,7 +1042,6 @@ function planFeatures(plan: PlanName): string[] {
   if (c.capabilities.plaidLinking) feats.push("Live brokerage sync");
   if (c.capabilities.weeklyBriefings) feats.push("Weekly AI briefings");
   if (c.capabilities.priorityProcessing) feats.push("Priority processing");
-  if (c.capabilities.quantSuite) feats.push("Hedge-fund suite");
   feats.push(
     c.watchlistLimit === Infinity ? "Unlimited watchlists" : `${c.watchlistLimit} watchlist`
   );

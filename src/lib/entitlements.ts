@@ -138,10 +138,10 @@ export async function resolvePlan(userId: string): Promise<ResolvedEntitlement> 
 /**
  * Capability gate. Returns null when granted, or a 403 NextResponse when not.
  * FAILS CLOSED on a degraded read — a Firestore blip must never hand someone
- * real-money trading or brokerage access.
+ * brokerage access they have not paid for.
  *
  * Call right after requireAuth() in a gated route:
- *   const gate = await requireEntitlement(userId, "quantSuite");
+ *   const gate = await requireEntitlement(userId, "plaidLinking");
  *   if (gate) return gate;
  */
 export async function requireEntitlement(

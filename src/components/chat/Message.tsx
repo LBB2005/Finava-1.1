@@ -29,9 +29,7 @@ import { PoweredByStrip } from "@/components/ui/ModelBadge";
 import { rosterFromBrands } from "@/lib/models";
 import { AGENT_LABELS } from "@/types/chat";
 import type { ChatMessage, AgentStep } from "@/types/chat";
-import BacktestResult from "./BacktestResult";
 import { ResponseReceipt } from "./ResponseTiming";
-import type { BacktestResult as BacktestResultType } from "@/app/api/backtest/route";
 import DiscoverResult from "./DiscoverResult";
 import type { DiscoverMessageContent } from "@/lib/scoutTypes";
 import { contextPill, type ChatContext } from "@/lib/chatContext";
@@ -630,27 +628,6 @@ function MessageInner({
         />
       );
     }
-    return (
-      <div style={{ display: "flex", gap: 14 }}>
-        <FinavaAvatar />
-        <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
-          <Markdown>{message.content}</Markdown>
-        </div>
-      </div>
-    );
-  }
-
-  // Backtest mode: parse JSON result and render chart + stats
-  if (message.mode === "backtest") {
-    let backtestResult: BacktestResultType | null = null;
-    try {
-      backtestResult = JSON.parse(message.content) as BacktestResultType;
-    } catch { /* fall through to markdown */ }
-
-    if (backtestResult?.series) {
-      return <BacktestResult result={backtestResult} />;
-    }
-    // Render error message as plain text
     return (
       <div style={{ display: "flex", gap: 14 }}>
         <FinavaAvatar />

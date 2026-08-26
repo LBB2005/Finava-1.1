@@ -104,12 +104,12 @@ describe("requireEntitlement", () => {
   it("returns null when the plan grants the capability", async () => {
     fs.store.set("userSettings/u1", { plan: "Quant", subscriptionStatus: "active" });
     const { requireEntitlement } = await import("./entitlements");
-    expect(await requireEntitlement("u1", "quantSuite")).toBeNull();
+    expect(await requireEntitlement("u1", "plaidLinking")).toBeNull();
   });
 
   it("returns a 403 when the plan lacks the capability", async () => {
     const { requireEntitlement } = await import("./entitlements");
-    const res = await requireEntitlement("free-user", "quantSuite");
+    const res = await requireEntitlement("free-user", "plaidLinking");
     expect(res!.status).toBe(403);
     expect((await res!.json()).error).toBe("entitlement_required");
   });
@@ -119,17 +119,17 @@ describe("requireEntitlement", () => {
       throw new Error("down");
     });
     const { requireEntitlement } = await import("./entitlements");
-    const res = await requireEntitlement("u1", "quantSuite");
+    const res = await requireEntitlement("u1", "plaidLinking");
     expect(res!.status).toBe(503);
     spy.mockRestore();
   });
 });
 
 describe("capabilitiesFor", () => {
-  it("locks quantSuite on Free and unlocks it on Quant", async () => {
+  it("locks plaidLinking on Free and unlocks it on Quant", async () => {
     const { capabilitiesFor } = await import("./entitlements");
-    expect(capabilitiesFor("Free").quantSuite).toBe(false);
-    expect(capabilitiesFor("Quant").quantSuite).toBe(true);
+    expect(capabilitiesFor("Free").plaidLinking).toBe(false);
+    expect(capabilitiesFor("Quant").plaidLinking).toBe(true);
   });
 });
 

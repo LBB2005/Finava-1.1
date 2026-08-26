@@ -68,8 +68,6 @@ export type AgentKey =
   // Already-Haiku call-sites
   | "skeptic"
   | "chatFollowups"
-  | "backtestParse"
-  | "backtestSummary"
   | "screenParse" // Research · Screen lens — NL query → filter
   | "chatRouter" // Chat · Auto mode — classify intent (simple/agent/discover) + clarify gate
   | "titleConversation"; // Sidebar — clean 3–6 word auto-title for a chat
@@ -106,8 +104,6 @@ const ROUTED_MODELS: Record<AgentKey, string> = {
   signalsNarrate: GEMINI_FLASH_LITE,
   skeptic: HAIKU,
   chatFollowups: HAIKU,
-  backtestParse: HAIKU,
-  backtestSummary: HAIKU,
   screenParse: HAIKU,
   chatRouter: HAIKU, // fast, cheap intent router for Auto mode
   titleConversation: GEMINI_FLASH_LITE, // tiny narration job — cheapest model
@@ -118,8 +114,6 @@ const ROUTED_MODELS: Record<AgentKey, string> = {
 const HAIKU_AGENTS = new Set<AgentKey>([
   "skeptic",
   "chatFollowups",
-  "backtestParse",
-  "backtestSummary",
   "screenParse",
   "chatRouter",
   "titleConversation",

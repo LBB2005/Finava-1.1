@@ -91,20 +91,9 @@ const MODE_CONFIG: Record<ChatMode, { label: string; pill: string; description: 
       </svg>
     ),
   },
-  backtest: {
-    label: "Backtest",
-    pill: "Backtest",
-    description: "NL → strategy → chart vs SPY",
-    color: "var(--color-backtest)",
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-      </svg>
-    ),
-  },
 };
 
-const MODE_ORDER: ChatMode[] = ["auto", "agent", "discover", "deep_research", "backtest", "simple"];
+const MODE_ORDER: ChatMode[] = ["auto", "agent", "discover", "deep_research", "simple"];
 
 /** Tiny attachment-type glyphs (image / file-text / paperclip). */
 function AttachmentGlyph({ type }: { type: Attachment["type"] }) {
@@ -271,13 +260,11 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange, autoFo
     : mode === "deep_research" ? "Deep research — ask anything…"
     : mode === "agent" ? "Ask a research question…"
     : mode === "discover" ? "Describe the kind of stocks to find…"
-    : mode === "backtest" ? "Describe a strategy to backtest…"
     : "Ask about a stock or your portfolio…";
 
   const sendBgColor =
     mode === "deep_research" ? "var(--color-deep-research)"
     : mode === "discover" ? "var(--color-discover)"
-    : mode === "backtest" ? "var(--color-backtest)"
     : "var(--color-accent)";
 
   const cfg = MODE_CONFIG[mode];

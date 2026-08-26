@@ -17,7 +17,6 @@ export default function ChatHeader({ mode }: Props) {
   const subtitle =
     mode === "deep_research" ? "FINAVA AI · DEEP RESEARCH" :
     isAgentLike ? `FINAVA AI · ${AGENT_COUNT}-AGENT SYSTEM` :
-    mode === "backtest" ? "FINAVA AI · BACKTEST ENGINE" :
     "FINAVA AI · CONVERSATIONAL";
 
   return <PageHeader title="Chat" subtitle={subtitle} actions={<ChatHeaderMenu />} />;
