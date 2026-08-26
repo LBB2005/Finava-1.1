@@ -58,36 +58,11 @@ export interface InvestorDNA {
   traitRecord: TraitRecord[];
   /** Concentration + factor tilt reads. */
   tendencies: Tendency[];
-  /** 0–100 "how well I know you" — scales with holdings + convictions. */
+  /** 0–100 "how well I know you" — scales with holdings + sector spread. */
   knownness: number;
   holdingsCount: number;
   /** What fraction of the portfolio the DNA could read, and what it couldn't. */
   coverage: CoverageInfo;
-  updatedAt: string;
-}
-
-export type ConvictionDirection = "bull" | "bear" | "watching";
-export type ConvictionStatus = "forming" | "playing_out" | "broken" | "closed";
-export type ConvictionSource = "manual" | "holding" | "chat" | "confirmed";
-
-/** One entry in the Conviction Ledger — a thesis the user holds, with its falsifier. */
-export interface Conviction {
-  id: string;
-  ticker: string;
-  direction: ConvictionDirection;
-  /** Semantic "voice" of the thesis, e.g. "post-hype reset" (manual in v1, LLM-drafted in v2). */
-  thesisTrait: string;
-  /** Link back to the measurable skeleton. */
-  factorTags: FactorKey[];
-  reasoning: string;
-  /** What would prove the thesis wrong — the accountability hook. */
-  falsifier: string;
-  confidence: number;
-  status: ConvictionStatus;
-  source: ConvictionSource;
-  /** Realised/unrealised return (%) since the thesis formed; null until known. */
-  outcomePct: number | null;
-  createdAt: string;
   updatedAt: string;
 }
 

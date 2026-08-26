@@ -103,11 +103,11 @@ describe("computeInvestorDna", () => {
     expect(dna.dnaVector.mom).toBe(100);
   });
 
-  it("raises knownness with more holdings and convictions", () => {
+  it("raises knownness with more holdings and wider sector spread", () => {
     const univ = Array.from({ length: 12 }, (_, i) => stock(`T${i}`, 100, {}, `Sector${i % 6}`));
     const many: DnaHolding[] = univ.map((s) => ({ ticker: s.ticker, shares: 1, avgCost: 100 }));
-    const low = computeInvestorDna(many.slice(0, 2), univ, 0)!;
-    const high = computeInvestorDna(many, univ, 10)!;
+    const low = computeInvestorDna(many.slice(0, 2), univ)!;
+    const high = computeInvestorDna(many, univ)!;
     expect(high.knownness).toBeGreaterThan(low.knownness);
     expect(high.knownness).toBeLessThanOrEqual(100);
   });
@@ -122,12 +122,6 @@ describe("lensLineFor", () => {
     ],
     winUniv,
   )!;
-
-  it("surfaces a conviction thesis when one exists (even without DNA)", () => {
-    const res = lensLineFor(null, null, { thesisTrait: "post-hype reset", status: "playing_out", outcomePct: 11 });
-    expect(res?.line).toContain("Your thesis: post-hype reset");
-    expect(res?.tone).toBe("edge");
-  });
 
   it("calls a stock the user's sweet spot when it matches a winning trait", () => {
     const res = lensLineFor(winDna, stock("HOT", 100, { mom: 95 }));
@@ -150,7 +144,7 @@ describe("lensLineFor", () => {
   });
 
   it("returns null when there is nothing personal to say", () => {
-    expect(lensLineFor(null, null, null)).toBeNull();
+    expect(lensLineFor(null, null)).toBeNull();
   });
 });
 
@@ -179,7 +173,7 @@ describe("computeInvestorDna — coverage + ETFs", () => {
       { ticker: "AAPL", shares: 1, avgCost: 50 }, // real stock, +100%
       { ticker: "VOO", shares: 10, avgCost: 10 }, // ETF tilt only
     ];
-    const dna = computeInvestorDna(holdings, univ, 0, etf)!;
+    const dna = computeInvestorDna(holdings, univ, etf)!;
     expect(dna.coverage.analyzed).toBe(2);
     expect(dna.traitRecord.find((t) => t.factor === "growth")).toBeUndefined(); // ETF doesn't fabricate a bucket
     expect(dna.dnaVector.growth).toBeGreaterThan(50); // but it pulls the tilt vector up

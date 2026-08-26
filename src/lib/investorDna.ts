@@ -25,7 +25,6 @@ import type {
   Tendency,
   CoverageInfo,
   LensLine,
-  LensTone,
 } from "@/types/dna";
 
 const FACTOR_KEYS = FACTORS.map((f) => f.key);
@@ -118,7 +117,6 @@ function nearestPreset(vector: Record<FactorKey, number>): string {
 export function computeInvestorDna(
   holdings: DnaHolding[],
   universe: Stock[],
-  convictionsCount = 0,
   etfProfiles: Record<string, EtfTilt> = {},
 ): InvestorDNA | null {
   const byTicker = new Map(universe.map((s) => [normalizeTicker(s.ticker), s]));
@@ -230,9 +228,8 @@ export function computeInvestorDna(
   // 5 — knownness + coverage.
   const distinctSectors = sectorValue.size;
   const knownness = Math.round(100 * (
-    0.6 * Math.min(all.length / 12, 1) +
-    0.3 * Math.min(convictionsCount / 10, 1) +
-    0.1 * Math.min(distinctSectors / 6, 1)
+    0.85 * Math.min(all.length / 12, 1) +
+    0.15 * Math.min(distinctSectors / 6, 1)
   ));
   const coverage: CoverageInfo = { analyzed: all.length, total: holdings.length, uncovered };
 
@@ -274,41 +271,17 @@ function buildIdentityLine(
 
 // ── The Lens — one personalized line for a given stock ──
 
-const STATUS_LABEL: Record<string, string> = {
-  forming: "forming",
-  playing_out: "playing out",
-  broken: "thesis broken",
-  closed: "closed",
-};
-
-/** Minimal conviction shape the Lens needs (route maps a Firestore doc onto this). */
-export interface LensConviction {
-  thesisTrait: string;
-  status: string;
-  outcomePct: number | null;
-}
-
 /**
- * Build the Lens whisper for one stock, given the user's DNA. Conviction-aware:
- * an existing thesis wins; otherwise it compares the stock's dominant factor to
- * the user's record. Returns `null` when there's nothing personal worth saying.
+ * Build the Lens whisper for one stock, given the user's DNA: it compares the
+ * stock's dominant factor to the user's track record. Returns `null` when
+ * there's nothing personal worth saying.
  */
 export function lensLineFor(
   dna: InvestorDNA | null,
   stock: Stock | null,
-  conviction?: LensConviction | null,
 ): LensLine | null {
   const href = "/dna";
 
-  if (conviction) {
-    const outcome = conviction.outcomePct != null ? `, ${signed(conviction.outcomePct)}` : "";
-    const statusLabel = STATUS_LABEL[conviction.status] ?? conviction.status;
-    const tone: LensTone =
-      conviction.status === "broken" ? "caution" : conviction.status === "playing_out" ? "edge" : "neutral";
-    return { line: `Your thesis: ${conviction.thesisTrait} — ${statusLabel}${outcome}.`, tone, href };
-  }
-
-  // The factor branch needs both the user's DNA and the stock's profile.
   if (!dna || !stock) return null;
 
   const domFactor = [...FACTOR_KEYS].sort((a, b) => stock.f[b] - stock.f[a])[0];

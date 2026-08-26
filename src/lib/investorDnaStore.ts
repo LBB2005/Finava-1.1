@@ -25,11 +25,8 @@ export async function deriveAndCacheDna(userId: string): Promise<InvestorDNA | n
   if (holdingsSnap.empty) return null;
 
   const holdings = holdingsSnap.docs.map((d) => d.data() as DnaHolding);
-  const [convSnap, universe] = await Promise.all([
-    db.collection("users").doc(userId).collection("convictions").select().get(),
-    getFactorUniverse(),
-  ]);
-  const dna = computeInvestorDna(holdings, universe.stocks, convSnap.size, ETF_PROFILES);
+  const universe = await getFactorUniverse();
+  const dna = computeInvestorDna(holdings, universe.stocks, ETF_PROFILES);
   if (dna) {
     await dnaDoc(userId).set(dna).catch((e) => console.error("[investorDna] cache write", e));
   }

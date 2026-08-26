@@ -7,7 +7,6 @@ import PageHeader from "@/components/layout/PageHeader";
 import IdentityCard from "@/components/dna/IdentityCard";
 import TraitRecord from "@/components/dna/TraitRecord";
 import Tendencies from "@/components/dna/Tendencies";
-import ConvictionLedger from "@/components/dna/ConvictionLedger";
 import DnaEmptyState from "@/components/dna/DnaEmptyState";
 import type { InvestorDNA } from "@/types/dna";
 
@@ -74,7 +73,6 @@ export default function DnaPage() {
               )}
               <TraitRecord traits={dna.traitRecord} />
               <Tendencies tendencies={dna.tendencies} />
-              <ConvictionLedger />
             </>
           )}
         </div>
