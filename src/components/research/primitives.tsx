@@ -2,38 +2,6 @@
 import type { CSSProperties, ReactNode, ButtonHTMLAttributes } from "react";
 import { FACTORS, factorColor, gradeClass, type FactorScores } from "@/lib/research";
 
-/* ── Shared radar geometry + label styles ─────────────────────────────
-   One implementation of the hex-radar math (axis angle, point projection,
-   ring outlines) consumed by Radar, RadarOverlay and WeightRadar. */
-
-export const RADAR_LABEL_STYLE: CSSProperties = {
-  fontSize: 9,
-  fontWeight: 700,
-  letterSpacing: "0.06em",
-  fill: "var(--color-muted)",
-  fontFamily: "var(--font-mono)",
-};
-
-export const RADAR_VALUE_STYLE: CSSProperties = {
-  fontSize: "var(--text-meta)",
-  fontWeight: 700,
-  fontFamily: "var(--font-mono)",
-};
-
-export function radarGeometry(size: number, scale: number) {
-  const cx = size / 2;
-  const cy = size / 2;
-  const R = size * scale;
-  const ang = (i: number) => ((-90 + i * 60) * Math.PI) / 180;
-  const pt = (val: number, i: number): [number, number] => [
-    cx + R * (val / 100) * Math.cos(ang(i)),
-    cy + R * (val / 100) * Math.sin(ang(i)),
-  ];
-  const ringPath = (k: number) =>
-    FACTORS.map((_, i) => { const [x, y] = pt(100 * k, i); return `${x},${y}`; }).join(" ");
-  return { cx, cy, R, ang, pt, ringPath };
-}
-
 /* ── Lens panel — the house card with a surface header strip ────────── */
 
 /** `.card-head` header strip: mono title, optional meta beside it, optional far-right node. */
@@ -93,15 +61,6 @@ export function PrimaryCta({ children, style, className, ...rest }: ButtonHTMLAt
   );
 }
 
-/** Small arrow-right glyph for CTA labels (replaces the "→" character). */
-export function CtaArrow({ size = 12 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  );
-}
-
 /** Chevron glyph for expand/collapse controls (replaces ▴/▾). */
 export function Chevron({ up = false, size = 10 }: { up?: boolean; size?: number }) {
   return (
@@ -150,47 +109,6 @@ export function ShowMore({ expanded, onToggle, more }: { expanded: boolean; onTo
       {expanded ? "Show less" : `Show ${more} more`}
       <Chevron up={expanded} />
     </button>
-  );
-}
-
-/* ── States ─────────────────────────────────────────────────────────── */
-
-/** Quiet failure state for a research lens — muted copy plus a retry. */
-export function LensErrorState({
-  title = "This lens is unavailable right now.",
-  detail,
-  onRetry,
-  minHeight = 240,
-}: {
-  title?: string;
-  detail?: string;
-  onRetry?: () => void;
-  minHeight?: number;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center" style={{ minHeight, gap: 8, padding: 24, textAlign: "center" }}>
-      <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text)" }}>{title}</p>
-      {detail && <p style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)", maxWidth: 340, lineHeight: 1.5 }}>{detail}</p>}
-      {onRetry && <button className="tbtn" onClick={onRetry}>Retry</button>}
-    </div>
-  );
-}
-
-/** Quiet empty state for a research lens. */
-export function LensEmptyState({
-  title,
-  detail,
-  minHeight = 240,
-}: {
-  title: string;
-  detail?: string;
-  minHeight?: number;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center" style={{ minHeight, gap: 6, padding: 24, textAlign: "center" }}>
-      <p className="serif" style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--color-text)" }}>{title}</p>
-      {detail && <p style={{ fontSize: "var(--text-sm)", color: "var(--color-muted)", maxWidth: 340, lineHeight: 1.5 }}>{detail}</p>}
-    </div>
   );
 }
 
@@ -272,109 +190,5 @@ export function MiniBars({ f }: { f: FactorScores }) {
         </div>
       ))}
     </div>
-  );
-}
-
-/** Overlaid six-factor radar for comparing 2–5 stocks. Each series is one
- *  coloured polygon; the axis grid is shared. */
-export function RadarOverlay({
-  series,
-  size = 240,
-  scale = 0.42,
-}: {
-  series: { ticker: string; f: FactorScores; color: string }[];
-  size?: number;
-  scale?: number;
-}) {
-  const { cx, cy, pt, ringPath } = radarGeometry(size, scale);
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block" }}>
-      {[0.25, 0.5, 0.75, 1].map((k) => (
-        <polygon key={k} points={ringPath(k)} fill="none" stroke="var(--color-border)" strokeWidth="1" />
-      ))}
-      {FACTORS.map((fc, i) => {
-        const [x, y] = pt(100, i);
-        return <line key={fc.key} x1={cx} y1={cy} x2={x} y2={y} stroke="var(--color-border)" strokeWidth="1" />;
-      })}
-      {series.map((sr) => {
-        const valStr = FACTORS.map((fc, i) => { const [x, y] = pt(sr.f[fc.key], i); return `${x},${y}`; }).join(" ");
-        return (
-          <polygon
-            key={sr.ticker}
-            points={valStr}
-            fill={`color-mix(in oklab, ${sr.color} 12%, transparent)`}
-            stroke={sr.color}
-            strokeWidth="2"
-            strokeLinejoin="round"
-          />
-        );
-      })}
-      {FACTORS.map((fc, i) => {
-        const [x, y] = pt(124, i);
-        return (
-          <text key={fc.key} x={x} y={y + 3} textAnchor="middle" style={RADAR_LABEL_STYLE}>
-            {fc.short}
-          </text>
-        );
-      })}
-    </svg>
-  );
-}
-
-/** Hexagonal six-factor radar. */
-export function Radar({
-  f,
-  size = 200,
-  labels = true,
-  vals = true,
-  rings = [0.25, 0.5, 0.75, 1],
-  stroke,
-  fill,
-  scale = 0.4,
-}: {
-  f: FactorScores;
-  size?: number;
-  labels?: boolean;
-  vals?: boolean;
-  rings?: number[];
-  stroke?: string;
-  fill?: string;
-  scale?: number;
-}) {
-  const { cx, cy, pt, ringPath } = radarGeometry(size, scale);
-  const valPts = FACTORS.map((fc, i) => pt(f[fc.key], i));
-  const valStr = valPts.map(([x, y]) => `${x},${y}`).join(" ");
-  const st = stroke || "var(--color-accent)";
-  const fl = fill || "color-mix(in oklab, var(--color-accent) 18%, transparent)";
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block" }}>
-      {rings.map((k) => (
-        <polygon key={k} points={ringPath(k)} fill="none" stroke="var(--color-border)" strokeWidth="1" />
-      ))}
-      {FACTORS.map((fc, i) => {
-        const [x, y] = pt(100, i);
-        return <line key={fc.key} x1={cx} y1={cy} x2={x} y2={y} stroke="var(--color-border)" strokeWidth="1" />;
-      })}
-      <polygon points={valStr} fill={fl} stroke={st} strokeWidth="2" strokeLinejoin="round" />
-      {valPts.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r={size > 90 ? 3 : 2} fill={st} />
-      ))}
-      {labels &&
-        FACTORS.map((fc, i) => {
-          const [x, y] = pt(128, i);
-          return (
-            <g key={fc.key}>
-              <text x={x} y={y - 3} textAnchor="middle" style={RADAR_LABEL_STYLE}>
-                {fc.short}
-              </text>
-              {vals && (
-                <text x={x} y={y + 9} textAnchor="middle" style={{ ...RADAR_VALUE_STYLE, fill: factorColor(f[fc.key]) }}>
-                  {f[fc.key]}
-                </text>
-              )}
-            </g>
-          );
-        })}
-    </svg>
   );
 }

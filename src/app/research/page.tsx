@@ -8,31 +8,20 @@ import { buildResearchSnapshot } from "@/lib/pageContext";
 import VerdictHero from "@/components/research/VerdictHero";
 import BoardLeaderboard from "@/components/research/BoardLeaderboard";
 import MoversRail from "@/components/research/MoversRail";
-import TuneMode from "@/components/research/TuneMode";
-import CompareMode from "@/components/research/CompareMode";
 import ScreenMode from "@/components/research/ScreenMode";
-import ThemesMode from "@/components/research/ThemesMode";
-import SignalsMode from "@/components/research/SignalsMode";
+import ResearchSearch from "@/components/research/ResearchSearch";
 import ChatContextButton from "@/components/chat/ChatContextButton";
 import PageHeader from "@/components/layout/PageHeader";
 
-type Mode = "board" | "tune" | "compare" | "screen" | "themes" | "signals";
+type Mode = "board" | "screen";
 
 const MODES: { key: Mode; label: string }[] = [
   { key: "board", label: "BOARD" },
-  { key: "tune", label: "TUNE" },
-  { key: "compare", label: "COMPARE" },
   { key: "screen", label: "SCREEN" },
-  { key: "themes", label: "THEMES" },
-  { key: "signals", label: "SIGNALS" },
 ];
 
 const SECTION_RULE: Partial<Record<Mode, string>> = {
-  tune: "TUNE YOUR LENS · WEIGHT THE FACTORS, GET MATCHED",
-  compare: "COMPARE · FACTOR HEAD-TO-HEAD WITH AN AI VERDICT",
   screen: "SCREEN · ASK IN PLAIN ENGLISH, MATCHED ON REAL FACTORS",
-  themes: "THEMES · AI-BUILT BASKETS ACROSS THE S&P 500",
-  signals: "SIGNALS · WHAT'S MOVING, NARRATED",
 };
 
 function SectionRule({ label }: { label: string }) {
@@ -106,13 +95,15 @@ export default function ResearchPage() {
         }
         actions={
           <>
-            <div className="b-hzseg">
-              {HORIZONS.map((h) => (
-                <button key={h.key} className={"b-hzbtn" + (horizon === h.key ? " on" : "")} onClick={() => setHorizon(h.key)}>
-                  {h.tag}
-                </button>
-              ))}
-            </div>
+            {mode === "board" && (
+              <div className="b-hzseg">
+                {HORIZONS.map((h) => (
+                  <button key={h.key} className={"b-hzbtn" + (horizon === h.key ? " on" : "")} onClick={() => setHorizon(h.key)}>
+                    {h.tag}
+                  </button>
+                ))}
+              </div>
+            )}
             <span className="mono b-asof">{asOfLabel}</span>
             <ChatContextButton context="research" />
           </>
@@ -123,6 +114,9 @@ export default function ResearchPage() {
           flex column grows to its content height instead of shrink-clipping. */}
       <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarGutter: "stable both-edges" }}>
         <div style={{ padding: "var(--content-pad-top) var(--page-gutter) var(--content-pad-bottom)", display: "flex", flexDirection: "column", gap: 18 }}>
+          {/* Lookup first — the most common reason to open this page is one stock. */}
+          <ResearchSearch />
+
           {mode === "board" && (
             <>
               {feature && <VerdictHero feature={feature} horizon={horizon} />}
@@ -133,15 +127,12 @@ export default function ResearchPage() {
             </>
           )}
 
-          {mode !== "board" && SECTION_RULE[mode] && (
-            <div style={{ marginTop: 8 }}><SectionRule label={SECTION_RULE[mode]!} /></div>
+          {mode === "screen" && (
+            <>
+              <div style={{ marginTop: 8 }}><SectionRule label={SECTION_RULE.screen!} /></div>
+              <ScreenMode universe={universe} loading={isLoading} />
+            </>
           )}
-
-          {mode === "tune" && <TuneMode />}
-          {mode === "compare" && <CompareMode universe={universe} loading={isLoading} />}
-          {mode === "screen" && <ScreenMode universe={universe} loading={isLoading} />}
-          {mode === "themes" && <ThemesMode universe={universe} />}
-          {mode === "signals" && <SignalsMode universe={universe} loading={isLoading} />}
         </div>
       </div>
     </div>
