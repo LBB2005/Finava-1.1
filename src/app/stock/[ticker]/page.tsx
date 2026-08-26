@@ -233,7 +233,7 @@ function StockPageInner() {
         )}
         {tab === "Financials" && <FinancialsTab fundamentals={bundle.fundamentals} />}
         {tab === "Street & News" && (
-          <StreetNewsTab ticker={ticker} analysts={bundle.analysts} price={livePrice} news={bundle.news} sentiment={bundle.sentiment} />
+          <StreetNewsTab analysts={bundle.analysts} price={livePrice} news={bundle.news} sentiment={bundle.sentiment} />
         )}
         {tab === "Finava" && (
           <>

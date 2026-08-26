@@ -6,8 +6,6 @@ import { useQuotes } from "@/hooks/useQuotes";
 import { useNewsImages } from "@/hooks/useNewsImages";
 import { useFinava } from "@/hooks/useFinava";
 import { useVerdictCache } from "@/hooks/useVerdictCache";
-import { useToast } from "@/hooks/useToast";
-import { authFetch } from "@/lib/authFetch";
 import { FACTORS, factorColor, type FactorScores } from "@/lib/research";
 import type {
   StockProfile,
@@ -745,9 +743,9 @@ export function AnalystsTab({ analysts, price }: { analysts: AnalystRatings | nu
 }
 
 /* ── Sentiment strip (Street & News · spec §4a block 2) ──────────────────────
-   Three gauges on one bear→warn→bull scale: X Chatter (cached Grok), News tone
-   (headline-based aggregate), Street stance (derived from the ratings
-   distribution). Disagreement between the three is the story. */
+   Two gauges on one bear→warn→bull scale: News tone (headline-based aggregate)
+   and Street stance (derived from the ratings distribution). Disagreement
+   between the two is the story. */
 
 function toneColor(score: number): string {
   if (score >= 60) return "var(--color-bull)";
@@ -789,45 +787,13 @@ function GaugeCell({
   );
 }
 
-interface XSentimentPayload {
-  score: number;
-  confidence: number;
-  foundPosts: number;
-  detail: string;
-  updatedAt: string;
-}
-
 export function SentimentStrip({
-  ticker,
   sentiment,
   analysts,
 }: {
-  ticker: string;
   sentiment: SentimentRead | null;
   analysts: AnalystRatings | null;
 }) {
-  const toast = useToast();
-  const [analyzing, setAnalyzing] = useState(false);
-  const x = useSWR<XSentimentPayload>(
-    `/api/stock/${encodeURIComponent(ticker)}/x-sentiment`,
-    publicJson,
-    { revalidateOnFocus: false, shouldRetryOnError: false, dedupingInterval: 300_000 }
-  );
-
-  async function analyze() {
-    setAnalyzing(true);
-    try {
-      const res = await authFetch(`/api/stock/${encodeURIComponent(ticker)}/x-sentiment`, { method: "POST" });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
-      await x.mutate(body, { revalidate: false });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "X analysis failed.");
-    } finally {
-      setAnalyzing(false);
-    }
-  }
-
   // Street stance — deterministic weighted read of the ratings distribution.
   let street: { score: number; caption: string } | null = null;
   if (analysts) {
@@ -845,34 +811,8 @@ export function SentimentStrip({
   return (
     <div>
       <Rule>Sentiment</Rule>
-      <div className="sentiment-strip" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
-        <GaugeCell
-          label="X chatter · Grok"
-          score={x.data?.score ?? null}
-          note={
-            x.data ? (
-              <span title={x.data.detail} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>
-                {x.data.foundPosts} posts · {timeAgo(new Date(x.data.updatedAt).getTime() / 1000)}
-              </span>
-            ) : (
-              <span>No X read yet</span>
-            )
-          }
-          action={
-            !x.data && (
-              <button
-                className="tbtn"
-                style={{ height: 22, fontSize: "var(--text-micro)", padding: "0 8px" }}
-                disabled={analyzing}
-                onClick={analyze}
-                title="Searches X via Grok — uses credits"
-              >
-                {analyzing ? "ANALYSING…" : "ANALYZE"}
-              </button>
-            )
-          }
-        />
-        <div style={{ borderLeft: "1px solid var(--color-border)" }}>
+      <div className="sentiment-strip" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+        <div>
           <GaugeCell
             label="News tone · 30d"
             score={sentiment?.score ?? null}
@@ -893,13 +833,11 @@ export function SentimentStrip({
 
 /* ── Street & News (consolidated tab — spec §4a) ─────────────────────────── */
 export function StreetNewsTab({
-  ticker,
   analysts,
   price,
   news,
   sentiment,
 }: {
-  ticker: string;
   analysts: AnalystRatings | null;
   price: number | null;
   news: NewsItem[] | null;
@@ -909,7 +847,7 @@ export function StreetNewsTab({
     <div className="fade-in">
       <AnalystsTab analysts={analysts} price={price} />
       <div style={{ marginTop: 26 }}>
-        <SentimentStrip ticker={ticker} sentiment={sentiment} analysts={analysts} />
+        <SentimentStrip sentiment={sentiment} analysts={analysts} />
       </div>
       <div style={{ marginTop: 26 }}>
         <NewsTab news={news} />
