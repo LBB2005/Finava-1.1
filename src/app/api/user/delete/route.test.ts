@@ -5,6 +5,7 @@ const deps = vi.hoisted(() => ({
   requireAuth: vi.fn(),
   getUser: vi.fn(),
   deleteUser: vi.fn(),
+  revokeRefreshTokens: vi.fn(),
   itemRemove: vi.fn(),
   plaidConfigured: vi.fn(),
   stripeConfigured: vi.fn(),
@@ -37,6 +38,7 @@ vi.mock("@/lib/firebase-admin", () => ({
   adminAuth: {
     getUser: deps.getUser,
     deleteUser: deps.deleteUser,
+    revokeRefreshTokens: deps.revokeRefreshTokens,
   },
   db: {
     recursiveDelete: deps.recursiveDelete,
@@ -83,6 +85,7 @@ beforeEach(() => {
   deps.usageDelete.mockResolvedValue({});
   deps.waitlistDelete.mockResolvedValue({});
   deps.deleteUser.mockResolvedValue({});
+  deps.revokeRefreshTokens.mockResolvedValue(undefined);
 });
 
 describe("POST /api/user/delete", () => {
@@ -147,5 +150,30 @@ describe("POST /api/user/delete", () => {
 
     expect(res.status).toBe(500);
     await expect(res.json()).resolves.toEqual({ error: "Failed to delete account" });
+  });
+
+  it("revokes the caller's outstanding sessions before erasing their data", async () => {
+    const order: string[] = [];
+    deps.revokeRefreshTokens.mockImplementationOnce(async () => { order.push("revoke"); });
+    deps.recursiveDelete.mockImplementationOnce(async () => { order.push("wipe"); });
+    deps.deleteUser.mockImplementationOnce(async () => { order.push("deleteUser"); });
+
+    const res = await POST();
+
+    expect(res.status).toBe(200);
+    expect(deps.revokeRefreshTokens).toHaveBeenCalledWith("user_123");
+    // Revocation must land while the Auth record still exists AND before the
+    // data wipe — otherwise the caller's live ID token stays valid for its full
+    // ~1h and can POST holdings/conversations straight back after erasure.
+    expect(order).toEqual(["revoke", "wipe", "deleteUser"]);
+  });
+
+  it("still deletes the account when session revocation fails", async () => {
+    deps.revokeRefreshTokens.mockRejectedValueOnce(new Error("auth backend down"));
+
+    const res = await POST();
+
+    expect(res.status).toBe(200);
+    expect(deps.deleteUser).toHaveBeenCalledWith("user_123");
   });
 });

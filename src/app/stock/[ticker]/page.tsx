@@ -13,6 +13,8 @@ import { DcfTab } from "@/components/stock/DcfTab";
 import { FinavaTab } from "@/components/stock/FinavaTab";
 import { MoneyMapTab } from "@/components/stock/MoneyMapTab";
 import ChatContextButton from "@/components/chat/ChatContextButton";
+import PageHeader from "@/components/layout/PageHeader";
+import AddToWatchlistButton from "@/components/watchlist/AddToWatchlistButton";
 
 const TABS = ["Overview", "Financials", "Street & News", "Finava", "Money Map"] as const;
 type Tab = (typeof TABS)[number];
@@ -120,8 +122,10 @@ function StockPageInner() {
   /* ── Loading state ────────────────────────────────────────────────────── */
   if (loadingBundle) {
     return (
-      <div className="research-root h-full overflow-y-auto" style={{ background: "var(--color-bg)" }} aria-busy="true" aria-label={`Loading ${ticker}`}>
-        <div style={{ padding: "22px var(--page-gutter) 0", background: "linear-gradient(180deg, var(--color-accent-light), transparent 80%)" }}>
+      <div className="research-root h-full flex flex-col overflow-hidden" style={{ background: "var(--color-bg)" }} aria-busy="true" aria-label={`Loading ${ticker}`}>
+        <PageHeader title={ticker} />
+        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div style={{ padding: "18px var(--page-gutter) 0", background: "linear-gradient(180deg, var(--color-accent-light), transparent 80%)" }}>
           <div className="flex items-center gap-3.5">
             <div className="w-[44px] h-[44px] rounded-[var(--radius-sm)] skeleton" />
             <div className="flex flex-col gap-2">
@@ -152,6 +156,7 @@ function StockPageInner() {
             </div>
           )}
         </div>
+        </div>
       </div>
     );
   }
@@ -159,9 +164,20 @@ function StockPageInner() {
   /* ── Loaded ───────────────────────────────────────────────────────────── */
   const livePrice = quoteMap.get(ticker)?.price ?? bundle.quote?.price ?? null;
   const chg = quoteMap.get(ticker)?.changePct ?? null;
+  const subtitle = [
+    bundle.profile?.exchange ? `${bundle.profile.exchange}: ${ticker}` : ticker,
+    bundle.profile?.industry,
+  ].filter(Boolean).join(" · ");
 
   return (
-    <div className="research-root stock-page h-full overflow-y-auto" style={{ background: "var(--color-bg)", scrollbarGutter: "stable both-edges" }}>
+    <div className="research-root stock-page h-full flex flex-col overflow-hidden" style={{ background: "var(--color-bg)" }}>
+      {/* Standard masthead — same bar, title type, and gutters as every page. */}
+      <PageHeader
+        title={bundle.profile?.name ?? ticker}
+        subtitle={subtitle}
+        actions={<AddToWatchlistButton ticker={ticker} variant="button" />}
+      />
+      <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarGutter: "stable both-edges" }}>
       <StockHero
         ticker={ticker}
         profile={bundle.profile}
@@ -245,6 +261,7 @@ function StockPageInner() {
           </>
         )}
         {tab === "Money Map" && <MoneyMapTab ticker={ticker} />}
+      </div>
       </div>
     </div>
   );

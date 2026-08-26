@@ -6,8 +6,8 @@ import { CHART_RANGES, type ChartRange } from "@/lib/stockData";
 import type { StockProfile } from "@/lib/stockData";
 import type { CandleResponse, TickerSnapshot } from "@/lib/finnhub";
 import StockChart, { type ChartMode } from "./StockChart";
-import AddToWatchlistButton from "@/components/watchlist/AddToWatchlistButton";
 import IntelligenceRail from "./IntelligenceRail";
+import RangeToggle from "@/components/ui/RangeToggle";
 
 interface Props {
   ticker: string;
@@ -102,53 +102,30 @@ export default function StockHero({ ticker, profile, fallbackQuote, initialCandl
   const modes: ChartMode[] = ["area", "line", "candles"];
 
   return (
-    <div style={{ position: "relative", padding: "22px var(--page-gutter) 0", background: "linear-gradient(180deg, var(--color-accent-light), transparent 80%)" }}>
-      {/* Identity + actions */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+    <div style={{ position: "relative", padding: "18px var(--page-gutter) 0", background: "linear-gradient(180deg, var(--color-accent-light), transparent 80%)" }}>
+      {/* Big price (identity lives in the standard PageHeader above) + chart-type toggle */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap", rowGap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
           <LogoBadge logo={profile?.logo ?? null} ticker={ticker} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <h1 className="serif" style={{ margin: 0, fontSize: "var(--text-display)", fontWeight: 800, letterSpacing: "-0.015em", whiteSpace: "nowrap", color: "var(--color-text)" }}>
-                {profile?.name ?? ticker}
-              </h1>
-              <span className="ticker-chip" style={{ flexShrink: 0 }}>
-                {profile?.exchange ? `${profile.exchange}: ` : ""}{ticker}
-              </span>
+            <div className="serif" style={{ fontSize: "var(--text-hero)", fontWeight: 800, lineHeight: 1, letterSpacing: "-0.005em", color: "var(--color-text)" }}>
+              {hasPrice ? `$${fmt(price)}` : "—"}
             </div>
-            {profile?.industry && (
-              <p style={{ margin: "2px 0 0", fontSize: "var(--text-meta)", color: "var(--color-text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {profile.industry}
-              </p>
+            {hasPrice && (
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+                <span className="mono" style={{ fontSize: "var(--text-body)", fontWeight: 700, color: up ? "var(--color-bull)" : "var(--color-bear)" }}>
+                  {signed(change)} ({signed(changePct)}%) today
+                </span>
+              </div>
             )}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          <AddToWatchlistButton ticker={ticker} variant="button" />
-        </div>
-      </div>
-
-      {/* Big price + chart-type toggle */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, marginTop: 16, flexWrap: "wrap", rowGap: 12 }}>
-        <div style={{ minWidth: 0 }}>
-          <div className="serif" style={{ fontSize: "var(--text-hero)", fontWeight: 800, lineHeight: 1, letterSpacing: "-0.005em", color: "var(--color-text)" }}>
-            {hasPrice ? `$${fmt(price)}` : "—"}
-          </div>
-          {hasPrice && (
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
-              <span className="mono" style={{ fontSize: "var(--text-body)", fontWeight: 700, color: up ? "var(--color-bull)" : "var(--color-bear)" }}>
-                {signed(change)} ({signed(changePct)}%) today
-              </span>
-            </div>
-          )}
-        </div>
-        <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-          {modes.map((m) => (
-            <button key={m} className={"tbtn" + (mode === m ? " on" : "")} onClick={() => setMode(m)}>
-              {m.toUpperCase()}
-            </button>
-          ))}
-        </div>
+        <RangeToggle
+          options={modes}
+          value={mode}
+          onChange={setMode}
+          labels={{ area: "AREA", line: "LINE", candles: "CANDLES" }}
+        />
       </div>
 
       {/* Chart card — chart pane + intelligence rail behind one hairline (§1) */}
@@ -161,13 +138,7 @@ export default function StockHero({ ticker, profile, fallbackQuote, initialCandl
               {rangePct == null ? "" : signed(rangePct)}%{" "}
               <span style={{ color: "var(--color-muted)", fontWeight: 500 }}>· {RANGE_LABEL[range]}</span>
             </span>
-            <div style={{ display: "flex", gap: 5 }}>
-              {CHART_RANGES.map((r) => (
-                <button key={r} className={"tbtn" + (range === r ? " on" : "")} onClick={() => setRange(r)}>
-                  {r}
-                </button>
-              ))}
-            </div>
+            <RangeToggle options={CHART_RANGES} value={range} onChange={setRange} />
           </div>
         </div>
         <IntelligenceRail ticker={ticker} onOpenAnalysis={onOpenAnalysis} onOpenDcf={onOpenDcf} />

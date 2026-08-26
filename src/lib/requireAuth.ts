@@ -40,7 +40,14 @@ export async function requireAuth(): Promise<
   }
 
   try {
-    const decoded = await adminAuth.verifyIdToken(token);
+    // `checkRevoked: true` costs one Auth-backend round trip but is what makes
+    // sign-out, account disable, and account DELETION actually enforceable.
+    // Without it Firebase validates only the signature + expiry, so a token
+    // issued before the account was revoked or erased keeps authenticating for
+    // the rest of its ~1h life — long enough for a "deleted" user to POST their
+    // holdings straight back into Firestore. Throws (→ 401 below) for
+    // auth/id-token-revoked, auth/user-disabled, and auth/user-not-found.
+    const decoded = await adminAuth.verifyIdToken(token, true);
     if (betaBlocked(decoded.uid, decoded.email, decoded.email_verified)) {
       return { error: NextResponse.json({ error: "Private beta" }, { status: 403 }) };
     }

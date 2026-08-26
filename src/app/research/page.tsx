@@ -12,8 +12,13 @@ import ScreenMode from "@/components/research/ScreenMode";
 import ResearchSearch from "@/components/research/ResearchSearch";
 import ChatContextButton from "@/components/chat/ChatContextButton";
 import PageHeader from "@/components/layout/PageHeader";
+import RangeToggle from "@/components/ui/RangeToggle";
 
 type Mode = "board" | "screen";
+
+// Horizon options in the shape the shared RangeToggle wants.
+const HORIZON_KEYS = HORIZONS.map((h) => h.key);
+const HORIZON_LABELS = Object.fromEntries(HORIZONS.map((h) => [h.key, h.tag])) as Record<HorizonKey, string>;
 
 const MODES: { key: Mode; label: string }[] = [
   { key: "board", label: "BOARD" },
@@ -96,13 +101,7 @@ export default function ResearchPage() {
         actions={
           <>
             {mode === "board" && (
-              <div className="b-hzseg">
-                {HORIZONS.map((h) => (
-                  <button key={h.key} className={"b-hzbtn" + (horizon === h.key ? " on" : "")} onClick={() => setHorizon(h.key)}>
-                    {h.tag}
-                  </button>
-                ))}
-              </div>
+              <RangeToggle options={HORIZON_KEYS} value={horizon} onChange={setHorizon} labels={HORIZON_LABELS} />
             )}
             <span className="mono b-asof">{asOfLabel}</span>
             <ChatContextButton context="research" />

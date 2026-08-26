@@ -12,6 +12,7 @@ import ConnectBrokerageButton from "@/components/portfolio/ConnectBrokerageButto
 import ChatContextButton from "@/components/chat/ChatContextButton";
 import PageHeader from "@/components/layout/PageHeader";
 import Sparkline from "@/components/ui/Sparkline";
+import RangeToggle from "@/components/ui/RangeToggle";
 import ScorePill from "@/components/ui/ScorePill";
 import { scoreForTicker } from "@/lib/compositeScore";
 import { seedRng } from "@/lib/portfolioMock";
@@ -81,26 +82,6 @@ function KpiStat({ label, value, sub, accent }: {
   );
 }
 
-// Pill-style segmented range toggle
-function RangeToggle({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
-  return (
-    <div style={{ display: "flex", gap: 2, background: "var(--color-surface)", borderRadius: 999, padding: 3 }}>
-      {PERIODS.map((p) => (
-        <button
-          key={p}
-          onClick={() => onChange(p)}
-          style={{
-            fontSize: "var(--text-micro)", fontWeight: 600, letterSpacing: "0.02em",
-            padding: "4px 9px", borderRadius: 999, border: "none", cursor: "pointer",
-            color: value === p ? "var(--color-on-accent)" : "var(--color-text-secondary)",
-            background: value === p ? "var(--color-accent)" : "transparent",
-            transition: "background 140ms, color 140ms",
-          }}
-        >{p}</button>
-      ))}
-    </div>
-  );
-}
 
 const SPX_RETURNS: Record<Period, number> = {
   "1D": 0.12, "1W": 0.8, "1M": 2.1, "YTD": 6.8, "1Y": 24.2, "5Y": 80, "ALL": 150,
@@ -575,7 +556,7 @@ export default function PortfolioPage() {
                     )}
                   </div>
                 </div>
-                <RangeToggle value={period} onChange={setPeriod} />
+                <RangeToggle options={PERIODS} value={period} onChange={setPeriod} />
               </div>
               <BenchmarkChart totalGainPct={totalGainPct} period={period} seed={benchmarkSeed} />
             </div>

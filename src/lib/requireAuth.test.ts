@@ -74,7 +74,7 @@ describe("requireAuth", () => {
 
     expect(result.userId).toBeUndefined();
     expect(result.error?.status).toBe(401);
-    expect(deps.verifyIdToken).toHaveBeenCalledWith("dev-bypass");
+    expect(deps.verifyIdToken).toHaveBeenCalledWith("dev-bypass", true);
   });
 
   it("returns the verified uid for a valid token when beta lockdown is off", async () => {
@@ -82,7 +82,7 @@ describe("requireAuth", () => {
     deps.verifyIdToken.mockResolvedValueOnce({ uid: "user_abc" });
 
     await expect(requireAuth()).resolves.toEqual({ userId: "user_abc" });
-    expect(deps.verifyIdToken).toHaveBeenCalledWith("good-token");
+    expect(deps.verifyIdToken).toHaveBeenCalledWith("good-token", true);
   });
 
   it("401s when token verification throws", async () => {
@@ -115,5 +115,44 @@ describe("requireAuth", () => {
     deps.verifyIdToken.mockResolvedValueOnce({ uid: "admin_2" });
 
     await expect(requireAuth()).resolves.toEqual({ userId: "admin_2" });
+  });
+});
+
+describe("requireAuth session revocation", () => {
+  it("verifies the token with revocation checking enabled", async () => {
+    deps.authHeader = "Bearer good-token";
+    deps.verifyIdToken.mockResolvedValueOnce({ uid: "user_abc" });
+
+    await requireAuth();
+
+    // Without the second `checkRevoked` arg, Firebase validates only the
+    // signature + expiry — a revoked, disabled, or DELETED account's token keeps
+    // authenticating for the rest of its ~1h life.
+    expect(deps.verifyIdToken).toHaveBeenCalledWith("good-token", true);
+  });
+
+  it("401s a token whose session was revoked", async () => {
+    deps.authHeader = "Bearer revoked-token";
+    deps.verifyIdToken.mockRejectedValueOnce(
+      Object.assign(new Error("The Firebase ID token has been revoked."), {
+        code: "auth/id-token-revoked",
+      })
+    );
+
+    const result = await requireAuth();
+
+    expect(result.userId).toBeUndefined();
+    expect(result.error?.status).toBe(401);
+  });
+
+  it("401s a token belonging to a deleted account", async () => {
+    deps.authHeader = "Bearer orphan-token";
+    deps.verifyIdToken.mockRejectedValueOnce(
+      Object.assign(new Error("no user record"), { code: "auth/user-not-found" })
+    );
+
+    const result = await requireAuth();
+
+    expect(result.error?.status).toBe(401);
   });
 });

@@ -28,6 +28,20 @@ export async function POST() {
       .then((u) => u.email ?? null)
       .catch(() => null);
 
+    // 0. Kill outstanding sessions FIRST. An ID token already in the caller's
+    //    browser stays signature-valid for up to an hour, and `userId` is just a
+    //    string to every route — without this, a request racing the wipe (or a
+    //    stale tab retrying) writes holdings/conversations straight back under
+    //    users/{uid}, resurrecting a "deleted" account that no longer has an Auth
+    //    record to sign into. revokeRefreshTokens stamps tokensValidAfterTime, so
+    //    requireAuth's checkRevoked pass rejects those tokens immediately.
+    //    Best-effort: an Auth outage must not block the erasure itself.
+    try {
+      await adminAuth.revokeRefreshTokens(userId);
+    } catch (e) {
+      console.warn("[user delete] token revocation failed (continuing)", e);
+    }
+
     // 1. Revoke Plaid access tokens so they can't be reused (best-effort).
     if (plaidConfigured()) {
       const itemsSnap = await userRef.collection("plaidItems").get();

@@ -199,7 +199,7 @@ function Head({ title, description }: { title: string; description?: string }) {
   return (
     <div>
       <div className="mb-2">
-        <h2 className="text-[length:var(--text-xl)] font-bold tracking-[-0.01em]" style={{ color: "var(--color-text)" }}>
+        <h2 className="serif text-[length:var(--text-xl)] font-bold tracking-[-0.01em]" style={{ color: "var(--color-text)" }}>
           {title}
         </h2>
         {description && (
