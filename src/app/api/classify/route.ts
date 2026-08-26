@@ -3,7 +3,7 @@ import { generate } from "@/lib/llm";
 import { withAuthRaw } from "@/lib/withRoute";
 import { ClassifyRequestSchema } from "@/lib/schemas/chat";
 import { pageContextRouteHint } from "@/lib/pageContext";
-import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { checkUsageLimit, usageStore, makeRunContext } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
   // Default route — used on any model/parse failure so Auto never dead-ends.
   const fallback: ClassifyResult = { intent: "simple", needsClarify: false };
 
-  const result = await usageStore.run({ userId }, async () => {
+  const result = await usageStore.run(makeRunContext(userId), async () => {
     try {
       const historyBlock = (history ?? [])
         .slice(-6)

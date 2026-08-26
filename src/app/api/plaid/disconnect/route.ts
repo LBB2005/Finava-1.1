@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { plaidClient, plaidConfigured } from "@/lib/plaid";
 import { requireAuth } from "@/lib/requireAuth";
 import { db } from "@/lib/firebase-admin";
+import { decryptSecret } from "@/lib/crypto";
 
 /**
  * Disconnects all linked Plaid brokerages. Per the chosen policy, the
@@ -24,7 +25,7 @@ export async function POST() {
           const { accessToken } = d.data() as { accessToken?: string };
           if (!accessToken) return;
           try {
-            await plaidClient.itemRemove({ access_token: accessToken });
+            await plaidClient.itemRemove({ access_token: decryptSecret(accessToken) });
           } catch (e) {
             console.warn("[plaid disconnect] itemRemove failed (continuing)", e);
           }

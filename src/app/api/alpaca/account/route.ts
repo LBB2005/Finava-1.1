@@ -49,7 +49,8 @@ export async function GET(): Promise<NextResponse> {
 
     if (!acctRes.ok) {
       const text = await acctRes.text();
-      return NextResponse.json({ live: false, error: `Alpaca ${acctRes.status}: ${text}` });
+      console.error("[alpaca/account GET] upstream", acctRes.status, text);
+      return NextResponse.json({ live: false, error: "Failed to load account." });
     }
 
     const acct = await acctRes.json();
@@ -85,6 +86,7 @@ export async function GET(): Promise<NextResponse> {
       history,
     });
   } catch (err) {
-    return NextResponse.json({ live: false, error: String(err) });
+    console.error("[alpaca/account GET]", err);
+    return NextResponse.json({ live: false, error: "Failed to load account." });
   }
 }

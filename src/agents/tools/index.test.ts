@@ -53,7 +53,7 @@ describe("agent tool registry", () => {
     expect(scoutTool.name).toBe("scout_universe");
     // Discovery scout requires a query + tier so the CEO can't call it half-formed.
     expect(scoutTool.input_schema.required).toEqual(["query", "tier"]);
-    const tier = scoutTool.input_schema.properties?.tier as { enum?: string[] };
+    const tier = (scoutTool.input_schema.properties as Record<string, { enum?: string[] }> | undefined)?.tier;
     expect(tier?.enum).toEqual(["quick", "deep"]);
   });
 

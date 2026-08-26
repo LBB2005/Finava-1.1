@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/requireAuth";
 import { userRateLimit } from "@/lib/rateLimit";
-import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { checkUsageLimit, usageStore, makeRunContext } from "@/lib/usage";
 import { checkCache, saveCache } from "@/lib/agentMemory";
 import { getGrokSentiment } from "@/lib/sentiment/grok";
 import { getCompanyProfile } from "@/lib/finnhub";
@@ -64,7 +64,7 @@ export async function POST(
   if (throttled) return throttled;
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;
-  usageStore.enterWith({ userId });
+  usageStore.enterWith(makeRunContext(userId));
 
   const { ticker } = await params;
   const symbol = (ticker ?? "").trim().toUpperCase();

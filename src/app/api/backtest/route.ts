@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { generate } from "@/lib/llm";
 import { getCandles } from "@/lib/finnhub";
 import { requireEntitlement } from "@/lib/entitlements";
-import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { checkUsageLimit, usageStore, makeRunContext } from "@/lib/usage";
 import { userRateLimit } from "@/lib/rateLimit";
 import { db } from "@/lib/firebase-admin";
 import { apiError } from "@/lib/apiError";
@@ -45,7 +45,7 @@ export const POST = withRoute({ body: BacktestRequestSchema }, async ({ userId, 
   const limited = await checkUsageLimit(userId);
   if (limited) return limited;
 
-  return usageStore.run({ userId }, () => runBacktest(userId, body));
+  return usageStore.run(makeRunContext(userId), () => runBacktest(userId, body));
 });
 
 async function runBacktest(userId: string, body: BacktestRequestBody): Promise<Response> {

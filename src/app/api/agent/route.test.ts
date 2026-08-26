@@ -34,6 +34,7 @@ vi.mock("@/lib/usage", () => ({
   checkUsageLimit: deps.checkUsageLimit,
   checkDeepResearchAllowed: deps.checkDeepResearchAllowed,
   recordDeepResearchRun: deps.recordDeepResearchRun,
+  makeRunContext: (u: string) => ({ userId: u }),
   usageStore: { run: deps.usageRun },
 }));
 

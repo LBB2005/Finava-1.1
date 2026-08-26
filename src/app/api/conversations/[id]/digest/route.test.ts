@@ -19,6 +19,7 @@ vi.mock("@/lib/anthropic", () => ({
 vi.mock("@/lib/usage", () => ({
   checkUsageLimit: deps.checkUsageLimit,
   recordUsage: deps.recordUsage,
+  makeRunContext: (u: string) => ({ userId: u }),
   usageStore: { run: deps.usageRun },
 }));
 vi.mock("@/lib/firebase-admin", () => ({

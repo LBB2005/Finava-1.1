@@ -17,6 +17,7 @@ vi.mock("@/lib/entitlements", () => ({
 
 vi.mock("@/lib/usage", () => ({
   checkUsageLimit: deps.checkUsageLimit,
+  makeRunContext: (u: string) => ({ userId: u }),
   usageStore: {
     run: deps.usageRun,
     enterWith: deps.usageEnterWith,

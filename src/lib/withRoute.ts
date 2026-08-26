@@ -2,6 +2,19 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth } from "@/lib/requireAuth";
 import { apiError } from "@/lib/apiError";
+import { usageStore, makeRunContext } from "@/lib/runContext";
+import { logger } from "@/lib/logger";
+
+const log = logger("route");
+
+/** Pathname of a request URL, tolerant of a malformed URL. */
+function safePath(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url;
+  }
+}
 
 /**
  * Options shared by both route entrypoints.
@@ -111,12 +124,21 @@ export function withRoute<
     const core = await authParseValidate(req, options);
     if (core instanceof NextResponse) return core;
 
-    try {
-      return await handler({ req, userId: core.userId, body: core.body }, routeContext as C);
-    } catch (err) {
-      console.error("[withRoute]", err);
-      return apiError("internal", "Something went wrong", 500);
-    }
+    // Establish the run context for every JSON route: a correlation id for logs
+    // plus the userId that recordUsage() reads. Honor an inbound x-request-id.
+    const requestId = req.headers.get("x-request-id") ?? undefined;
+    return usageStore.run(makeRunContext(core.userId ?? "anon", requestId), async () => {
+      try {
+        return await handler({ req, userId: core.userId, body: core.body }, routeContext as C);
+      } catch (err) {
+        log.error("unhandled route error", {
+          method: req.method,
+          path: safePath(req.url),
+          err: err instanceof Error ? err.message : String(err),
+        });
+        return apiError("internal", "Something went wrong", 500);
+      }
+    });
   };
 }
 

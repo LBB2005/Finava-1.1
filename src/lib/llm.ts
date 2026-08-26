@@ -317,57 +317,84 @@ export async function generate(opts: GenerateOptions): Promise<string> {
   };
   if (reasoning != null) body.reasoning = { max_tokens: reasoning };
 
-  let response;
-  try {
-    response = await getClient().chat.completions.create(
-      body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming
-    );
-  } catch (err) {
-    const status =
-      err instanceof OpenAI.APIError && err.status ? ` (status ${err.status})` : "";
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    throw new Error(`[llm:${agent}] ${model} request failed${status}: ${msg}`);
-  }
+  // Ordered model fallback: if the resolved (possibly non-Anthropic) model errors
+  // or returns an empty completion, retry once on a broadly-capable Anthropic
+  // model via the same OpenRouter gateway. OpenRouter fronts every provider, so
+  // this is genuine cross-provider failover — a Grok/GPT/Gemini outage degrades to
+  // Sonnet instead of failing the whole crew. File/PDF calls are NOT re-routed
+  // (the guard above pins them to the primary Anthropic model).
+  const FALLBACK_MODEL = "anthropic/claude-sonnet-4.6";
+  const hasFile = opts.content?.some((p) => p.type === "file") ?? false;
+  const candidates =
+    model === FALLBACK_MODEL || hasFile ? [model] : [model, FALLBACK_MODEL];
 
-  const rawContent = response.choices?.[0]?.message?.content;
-  const text = typeof rawContent === "string" ? rawContent : "";
+  let text = "";
+  let lastError: Error | null = null;
 
-  const u = response.usage;
-  // Meter this call against the current user's allowance (userId comes from the
-  // route's AsyncLocalStorage context — see src/lib/usage.ts). Fire-and-forget.
-  // Skipped when `meter: false` (system-cost calls the user shouldn't pay for).
-  if (opts.meter !== false) {
-    void recordUsage({
-      agent,
-      model,
-      inputTokens: u?.prompt_tokens,
-      outputTokens: u?.completion_tokens,
-    });
-  }
+  for (const candidate of candidates) {
+    let response;
+    try {
+      response = await getClient().chat.completions.create(
+        { ...body, model: candidate } as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming
+      );
+    } catch (err) {
+      const status =
+        err instanceof OpenAI.APIError && err.status ? ` (status ${err.status})` : "";
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      lastError = new Error(`[llm:${agent}] ${candidate} request failed${status}: ${msg}`);
+      continue; // fall back to the next candidate
+    }
 
-  if (process.env.LLM_LOG === "on") {
-    console.log(
-      `[llm] ${JSON.stringify({
+    const rawContent = response.choices?.[0]?.message?.content;
+    const attemptText = typeof rawContent === "string" ? rawContent : "";
+    const u = response.usage;
+
+    // Meter every attempt that returned — an empty completion still burned tokens.
+    // (userId comes from the route's run context; fire-and-forget; skipped when
+    // meter:false for system-cost calls the user shouldn't pay for.)
+    if (opts.meter !== false) {
+      void recordUsage({
         agent,
-        model,
-        inputTokens: u?.prompt_tokens ?? null,
-        outputTokens: u?.completion_tokens ?? null,
-        ms: Date.now() - start,
-      })}`
-    );
-  }
+        model: candidate,
+        inputTokens: u?.prompt_tokens,
+        outputTokens: u?.completion_tokens,
+      });
+    }
+    if (process.env.LLM_LOG === "on") {
+      console.log(
+        `[llm] ${JSON.stringify({
+          agent,
+          model: candidate,
+          inputTokens: u?.prompt_tokens ?? null,
+          outputTokens: u?.completion_tokens ?? null,
+          ms: Date.now() - start,
+        })}`
+      );
+    }
 
-  // An empty/blank completion is a failure, not a valid result — throw it so each
-  // caller's existing try/catch isolates it (the CEO turns it into a non-empty
-  // is_error tool_result; routes surface an error) rather than silently returning
-  // "". A bare "" would poison the CEO tool_result loop (the Messages API rejects
-  // empty tool_result content, aborting the whole run) or persist an empty briefing.
-  if (!text.trim()) {
+    if (attemptText.trim()) {
+      text = attemptText;
+      lastError = null;
+      break;
+    }
+
+    // Empty/blank completion is a failure, not a valid result (a bare "" would
+    // poison the CEO tool_result loop). Retry on the fallback; if this was the
+    // last candidate, the error is surfaced below.
     const finish = response.choices?.[0]?.finish_reason ?? "unknown";
-    throw new Error(
-      `[llm:${agent}] ${model} returned empty content (finish_reason: ${finish}). ` +
+    lastError = new Error(
+      `[llm:${agent}] ${candidate} returned empty content (finish_reason: ${finish}). ` +
         `Likely truncated (raise max_tokens) or content-filtered.`
     );
+  }
+
+  if (!text) {
+    if (candidates.length > 1) {
+      console.warn(`[llm:${agent}] primary + fallback models both failed`);
+    }
+    // Surface the last failure so each caller's try/catch + the CEO's is_error
+    // tool_result path handle it exactly as before.
+    throw lastError ?? new Error(`[llm:${agent}] request failed: no response`);
   }
 
   return text;

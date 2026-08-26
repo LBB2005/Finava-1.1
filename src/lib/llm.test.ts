@@ -93,6 +93,22 @@ describe("generate()", () => {
     );
   });
 
+  it("falls back to the Anthropic model when the primary model errors", async () => {
+    create
+      .mockRejectedValueOnce(new Error("gpt upstream 503"))
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: "fallback answer" }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 8, completion_tokens: 4 },
+      });
+    const { generate } = await import("./llm");
+    const out = await generate({ agent: "dcf", prompt: "x", maxTokens: 100 });
+    expect(out).toBe("fallback answer");
+    expect(create).toHaveBeenCalledTimes(2);
+    // First attempt = primary (gpt-5.5), second = the Sonnet fallback.
+    expect(create.mock.calls[0][0].model).toBe("openai/gpt-5.5");
+    expect(create.mock.calls[1][0].model).toBe("anthropic/claude-sonnet-4.6");
+  });
+
   it("rejects PDF/file input routed to a non-Anthropic model", async () => {
     const { generate } = await import("./llm");
     // dcf routes to GPT-5.5 (non-Anthropic) → file part must be refused.

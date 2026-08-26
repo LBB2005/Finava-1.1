@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const generate = vi.fn(async () => "TREND ANALYSIS");
+const generate = vi.fn(async (_o?: unknown) => "TREND ANALYSIS");
 vi.mock("@/lib/llm", () => ({ generate: (o: unknown) => generate(o) }));
 vi.mock("@/agents/skills", () => ({ getSkillsPrompt: () => "skill prompt" }));
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase-admin";
 import { requireAuth } from "@/lib/requireAuth";
 import { anthropic, MODEL } from "@/lib/anthropic";
-import { checkUsageLimit, recordUsage, usageStore } from "@/lib/usage";
+import { checkUsageLimit, recordUsage, usageStore, makeRunContext } from "@/lib/usage";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -68,7 +68,7 @@ export async function POST(
       return NextResponse.json({ error: "Nothing to digest yet" }, { status: 400 });
     }
 
-    const digest = await usageStore.run({ userId }, async () => {
+    const digest = await usageStore.run(makeRunContext(userId), async () => {
       const msg = await anthropic.messages.create({
         model: MODEL,
         max_tokens: 1200,

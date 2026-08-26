@@ -48,6 +48,30 @@ describe("resolvePlan", () => {
     expect((await resolvePlan("u1")).source).toBe("subscription");
   });
 
+  it("keeps a past_due subscription within the grace window", async () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    fs.store.set("userSettings/u1", {
+      plan: "Quant",
+      subscriptionStatus: "past_due",
+      pastDueSince: twoDaysAgo,
+    });
+    const { resolvePlan } = await import("./entitlements");
+    expect((await resolvePlan("u1")).source).toBe("subscription");
+  });
+
+  it("drops a past_due subscription to Free after the grace window elapses", async () => {
+    const eightDaysAgo = new Date(Date.now() - 8 * 86_400_000).toISOString();
+    fs.store.set("userSettings/u1", {
+      plan: "Quant",
+      subscriptionStatus: "past_due",
+      pastDueSince: eightDaysAgo,
+    });
+    const { resolvePlan } = await import("./entitlements");
+    const ent = await resolvePlan("u1");
+    expect(ent.plan).toBe("Free");
+    expect(ent.source).toBe("free");
+  });
+
   it("resolves a running trial to the Pro trial plan", async () => {
     const future = new Date(Date.now() + 86_400_000).toISOString();
     fs.store.set("userSettings/u1", { trialEndsAt: future });

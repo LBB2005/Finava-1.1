@@ -45,6 +45,22 @@ export interface ResolvedEntitlement {
 /** Statuses that should still grant the paid plan (past_due = grace period). */
 const PAID_STATUSES = new Set(["active", "trialing", "past_due"]);
 
+/** How long a `past_due` (failing card) keeps paid access before dropping to Free. */
+const PAST_DUE_GRACE_DAYS = 7;
+
+/**
+ * True when a past_due grace window has elapsed. Lenient on a missing/invalid
+ * `pastDueSince`: we don't cut off a paying user just because the start wasn't
+ * recorded — the subscription reconciliation cron is the backstop for a
+ * genuinely-lapsed account.
+ */
+function pastDueGraceExpired(pastDueSince: string | null): boolean {
+  if (!pastDueSince) return false;
+  const started = Date.parse(pastDueSince);
+  if (Number.isNaN(started)) return false;
+  return Date.now() > started + PAST_DUE_GRACE_DAYS * 24 * 60 * 60 * 1000;
+}
+
 function entitlement(
   plan: PlanName,
   source: EntitlementSource,
@@ -94,12 +110,15 @@ export async function resolvePlan(userId: string): Promise<ResolvedEntitlement> 
   const storedPlan = (data?.plan as PlanName | undefined) ?? DEFAULT_PLAN;
   const subscriptionStatus = (data?.subscriptionStatus as string | undefined) ?? null;
   const trialEndsAt = (data?.trialEndsAt as string | undefined) ?? null;
+  const pastDueSince = (data?.pastDueSince as string | undefined) ?? null;
 
-  // 2. Active paid subscription.
+  // 2. Active paid subscription. A past_due (failing-card) subscription keeps
+  //    paid access only within the grace window — not indefinitely.
   if (
     storedPlan !== "Free" &&
     subscriptionStatus &&
-    PAID_STATUSES.has(subscriptionStatus)
+    PAID_STATUSES.has(subscriptionStatus) &&
+    !(subscriptionStatus === "past_due" && pastDueGraceExpired(pastDueSince))
   ) {
     return entitlement(storedPlan, "subscription", {
       subscriptionStatus,

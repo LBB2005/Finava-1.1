@@ -4,6 +4,7 @@ const deps = vi.hoisted(() => ({
   getEventDoc: vi.fn(),
   createEventDoc: vi.fn(),
   setUserSettings: vi.fn(),
+  getUserSettingsDoc: vi.fn(),
   getUserSettingsQuery: vi.fn(),
   whereUserSettings: vi.fn(),
   stripeConfigured: vi.fn(),
@@ -33,7 +34,11 @@ vi.mock("@/lib/firebase-admin", () => ({
       }
       if (name === "userSettings") {
         return {
-          doc: vi.fn((id: string) => ({ id, set: deps.setUserSettings })),
+          doc: vi.fn((id: string) => ({
+            id,
+            get: deps.getUserSettingsDoc,
+            set: deps.setUserSettings,
+          })),
           where: deps.whereUserSettings,
         };
       }
@@ -75,8 +80,13 @@ function subscription(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function event(type: string, object: Record<string, unknown>, id = `evt_${type}`) {
-  return { id, type, data: { object } };
+function event(
+  type: string,
+  object: Record<string, unknown>,
+  id = `evt_${type}`,
+  created = 1_700_000_000
+) {
+  return { id, type, created, data: { object } };
 }
 
 beforeEach(() => {
@@ -87,6 +97,7 @@ beforeEach(() => {
   deps.getEventDoc.mockResolvedValue({ exists: false });
   deps.createEventDoc.mockResolvedValue(undefined);
   deps.setUserSettings.mockResolvedValue(undefined);
+  deps.getUserSettingsDoc.mockResolvedValue({ data: () => ({}) });
   deps.mapSubscriptionToPlan.mockReturnValue({
     plan: "Pro",
     subscriptionStatus: "active",
@@ -196,6 +207,8 @@ describe("POST /api/stripe/webhook", () => {
         subscriptionStatus: "active",
         currentPeriodEnd: "2027-01-15T08:00:00.000Z",
         cancelAtPeriodEnd: false,
+        pastDueSince: deps.deleteField,
+        lastSubscriptionEventAt: 1_700_000_000,
       },
       { merge: true }
     );
@@ -216,6 +229,8 @@ describe("POST /api/stripe/webhook", () => {
         stripeSubscriptionId: deps.deleteField,
         currentPeriodEnd: deps.deleteField,
         cancelAtPeriodEnd: deps.deleteField,
+        pastDueSince: deps.deleteField,
+        lastSubscriptionEventAt: 1_700_000_000,
       },
       { merge: true }
     );
@@ -241,13 +256,14 @@ describe("POST /api/stripe/webhook", () => {
     expect(deps.setUserSettings).toHaveBeenCalledWith(
       {
         subscriptionStatus: "active",
+        pastDueSince: deps.deleteField,
         currentPeriodEnd: "2027-01-15T08:00:00.000Z",
       },
       { merge: true }
     );
   });
 
-  it("marks subscription past_due when an invoice payment fails", async () => {
+  it("marks subscription past_due and stamps pastDueSince from the first failure", async () => {
     deps.constructEvent.mockReturnValueOnce(
       event("invoice.payment_failed", { customer: "cus_123" })
     );
@@ -255,14 +271,56 @@ describe("POST /api/stripe/webhook", () => {
       empty: false,
       docs: [{ id: "user_by_customer" }],
     });
+    // No existing pastDueSince → the failure event's timestamp starts the clock.
+    deps.getUserSettingsDoc.mockResolvedValueOnce({ data: () => ({}) });
 
     const res = await POST(webhookRequest());
 
     expect(res.status).toBe(200);
     expect(deps.setUserSettings).toHaveBeenCalledWith(
-      { subscriptionStatus: "past_due" },
+      {
+        subscriptionStatus: "past_due",
+        pastDueSince: new Date(1_700_000_000 * 1000).toISOString(),
+      },
       { merge: true }
     );
+  });
+
+  it("preserves the original pastDueSince on a repeat payment failure", async () => {
+    deps.constructEvent.mockReturnValueOnce(
+      event("invoice.payment_failed", { customer: "cus_123" })
+    );
+    deps.getUserSettingsQuery.mockResolvedValueOnce({
+      empty: false,
+      docs: [{ id: "user_by_customer" }],
+    });
+    deps.getUserSettingsDoc.mockResolvedValueOnce({
+      data: () => ({ pastDueSince: "2024-01-01T00:00:00.000Z" }),
+    });
+
+    await POST(webhookRequest());
+
+    expect(deps.setUserSettings).toHaveBeenCalledWith(
+      { subscriptionStatus: "past_due", pastDueSince: "2024-01-01T00:00:00.000Z" },
+      { merge: true }
+    );
+  });
+
+  it("ignores a stale subscription event that predates the last applied one", async () => {
+    // A delayed OLDER `updated` (created 1.7e9) arriving after a newer event
+    // (lastSubscriptionEventAt 2.0e9) must NOT overwrite state / resurrect paid.
+    deps.getUserSettingsDoc.mockResolvedValueOnce({
+      data: () => ({ lastSubscriptionEventAt: 2_000_000_000 }),
+    });
+    // Default constructEvent = customer.subscription.updated, created 1_700_000_000.
+
+    const res = await POST(webhookRequest());
+
+    expect(res.status).toBe(200);
+    // No write applied…
+    expect(deps.setUserSettings).not.toHaveBeenCalled();
+    // …but the event is still recorded so Stripe stops retrying it.
+    expect(deps.createEventDoc).toHaveBeenCalled();
   });
 
   it("returns 500 so Stripe retries when handler logic fails, leaving no idempotency record", async () => {

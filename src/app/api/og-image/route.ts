@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import http from "node:http";
 import https from "node:https";
-import { lookup } from "node:dns/promises";
+import { resolvePinnedIp, pinnedLookup, type PinnedIp } from "@/lib/ssrfGuard";
 import { rateLimitGuard } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -39,9 +39,10 @@ interface OgResult {
 const cache = new Map<string, { result: OgResult; expires: number }>();
 
 // Reject non-http(s) schemes and obviously-internal hostnames up front. This is
-// only the first gate — the authoritative SSRF check is hostIsPublic() below,
-// which resolves DNS and validates the *resolved* IP (defeating a public name
-// that points at a private/loopback/metadata address).
+// only the first gate — the authoritative SSRF check is resolvePinnedIp() (from
+// @/lib/ssrfGuard), which resolves DNS, validates the *resolved* IP, and pins the
+// connection to it (defeating a public name that points at — or rebinds to — a
+// private/loopback/metadata address).
 function safeUrl(raw: string): URL | null {
   let u: URL;
   try {
@@ -53,51 +54,6 @@ function safeUrl(raw: string): URL | null {
   const host = u.hostname.toLowerCase();
   if (host === "localhost" || host.endsWith(".local")) return null;
   return u;
-}
-
-// True when `ip` falls in a private, loopback, link-local, CGNAT, or otherwise
-// non-public range. Covers IPv4, IPv6, and IPv4-mapped IPv6 (::ffff:a.b.c.d).
-function isPrivateIp(ip: string): boolean {
-  const addr = ip.toLowerCase();
-  // IPv4-mapped IPv6 — unwrap and test the embedded v4 address.
-  const mapped = addr.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isPrivateIp(mapped[1]);
-
-  if (addr.includes(":")) {
-    // IPv6: loopback, unspecified, unique-local (fc00::/7), link-local (fe80::/10).
-    if (addr === "::1" || addr === "::") return true;
-    if (/^f[cd]/.test(addr)) return true; // fc00::/7
-    if (/^fe[89ab]/.test(addr)) return true; // fe80::/10
-    return false;
-  }
-
-  const parts = addr.split(".").map((p) => Number(p));
-  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
-    return true; // unparseable → treat as unsafe
-  }
-  const [a, b] = parts;
-  return (
-    a === 0 || // 0.0.0.0/8
-    a === 10 || // 10.0.0.0/8
-    a === 127 || // loopback
-    (a === 169 && b === 254) || // link-local / cloud metadata (169.254.169.254)
-    (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12
-    (a === 192 && b === 168) || // 192.168.0.0/16
-    (a === 100 && b >= 64 && b <= 127) // 100.64.0.0/10 CGNAT
-  );
-}
-
-// Resolve the hostname and confirm EVERY address it maps to is public. Rejecting
-// when any resolved address is private blocks DNS-rebinding-style SSRF where an
-// attacker-controlled name resolves to an internal/metadata IP.
-async function hostIsPublic(hostname: string): Promise<boolean> {
-  try {
-    const results = await lookup(hostname, { all: true });
-    if (results.length === 0) return false;
-    return results.every((r) => !isPrivateIp(r.address));
-  } catch {
-    return false; // unresolvable → refuse
-  }
 }
 
 function hostLabel(u: URL): string {
@@ -130,7 +86,7 @@ function extractOg(html: string, base: URL): string | null {
 // One GET. Redirects return their Location without a body; HTML pages return the
 // <head> region only (capped). Never rejects on a slow/broken body — resolves
 // with whatever was read so a partial head can still yield og:image.
-function getOnce(u: URL): Promise<{ status: number; location: string | null; body: string }> {
+function getOnce(u: URL, pin: PinnedIp): Promise<{ status: number; location: string | null; body: string }> {
   return new Promise((resolve, reject) => {
     const lib = u.protocol === "https:" ? https : http;
     let settled = false;
@@ -149,6 +105,8 @@ function getOnce(u: URL): Promise<{ status: number; location: string | null; bod
         },
         maxHeaderSize: MAX_HEADER_SIZE,
         timeout: PER_FETCH_TIMEOUT,
+        // Pin the connection to the already-validated IP (see pinnedLookup).
+        lookup: pinnedLookup(pin),
       },
       (res) => {
         const status = res.statusCode ?? 0;
@@ -190,11 +148,13 @@ async function resolveUncached(startUrl: string): Promise<OgResult> {
     if (!u) return { image: null, domain: lastDomain };
     lastDomain = hostLabel(u);
     // Authoritative SSRF gate: resolve and reject if the host maps to any
-    // private/loopback/metadata IP. Re-checked on every redirect hop.
-    if (!(await hostIsPublic(u.hostname))) return { image: null, domain: lastDomain };
+    // private/loopback/metadata IP, then PIN the connection to the vetted IP.
+    // Re-checked (and re-pinned) on every redirect hop.
+    const pin = await resolvePinnedIp(u.hostname);
+    if (!pin) return { image: null, domain: lastDomain };
     let r: { status: number; location: string | null; body: string };
     try {
-      r = await getOnce(u);
+      r = await getOnce(u, pin);
     } catch {
       return { image: null, domain: lastDomain };
     }

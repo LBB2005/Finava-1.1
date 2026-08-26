@@ -31,8 +31,9 @@ export async function GET(): Promise<NextResponse> {
 
     return NextResponse.json({ live: true, data });
   } catch (err) {
+    console.error("[bot GET]", err);
     return NextResponse.json(
-      { live: false, error: String(err) },
+      { live: false, error: "Failed to read bot status." },
       { status: 500 },
     );
   }

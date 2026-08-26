@@ -18,7 +18,7 @@ function bundle(overrides: Partial<StockBundle> = {}): StockBundle {
     keyStats: { marketCap: 3_400_000, peTTM: 34.1, high52: 237, low52: 164, beta: 1.2, dividendYield: 0.45, epsTTM: 6.7 },
     candles: null,
     candleRange: "1Y",
-    analysts: { strongBuy: 12, buy: 8, hold: 5, sell: 1, strongSell: 0, period: "2026-07", targetMean: 250, targetHigh: 300, targetLow: 200 },
+    analysts: { strongBuy: 12, buy: 8, hold: 5, sell: 1, strongSell: 0, period: "2026-07", targetMean: 250, targetHigh: 300, targetLow: 200, targetMedian: 245, numberOfAnalysts: 26 },
     fundamentals: {
       revenue: [{ year: 2024, value: 391_000_000_000 }],
       netIncome: [{ year: 2024, value: 97_000_000_000 }],
@@ -58,7 +58,7 @@ describe("buildStockSnapshot", () => {
   });
 
   it("labels a sell-heavy spread as Sell", () => {
-    const s = buildStockSnapshot(bundle({ analysts: { strongBuy: 0, buy: 1, hold: 2, sell: 4, strongSell: 3, period: null, targetMean: null, targetHigh: null, targetLow: null } }));
+    const s = buildStockSnapshot(bundle({ analysts: { strongBuy: 0, buy: 1, hold: 2, sell: 4, strongSell: 3, period: null, targetMean: null, targetHigh: null, targetLow: null, targetMedian: null, numberOfAnalysts: null } }));
     expect(s).toContain("consensus Sell");
   });
 });

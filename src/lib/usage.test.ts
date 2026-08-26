@@ -114,19 +114,28 @@ describe("checkUsageLimit", () => {
     expect(body.error).toBe("limit_reached");
     expect(body.scope).toBe("daily");
   });
-  it("fails open when the Firestore read throws", async () => {
-    const throwingFs = makeFirestoreMock();
-    throwingFs.db.collection = () => {
-      throw new Error("firestore down");
-    };
-    // checkUsageLimit catches read errors internally → allow.
-    fs.store.set("userUsage/u1", { days: { [today]: 999 } });
-    // Force the read path to throw by stubbing the doc get.
+  it("fails OPEN for a paid user when the Firestore read throws", async () => {
+    // Default plan mock is a paid subscription — a Firestore blip must not lock
+    // out a payer, so the read-error path allows the request.
     const { checkUsageLimit } = await import("./usage");
     const spy = vi.spyOn(fs.db, "collection").mockImplementationOnce(() => {
       throw new Error("boom");
     });
     expect(await checkUsageLimit("u1")).toBeNull();
+    spy.mockRestore();
+  });
+
+  it("fails CLOSED (503) for a free/anon user when the Firestore read throws", async () => {
+    // Bounds COGS: an unmetered free user is soft-blocked rather than allowed
+    // unbounded spend during a read outage.
+    resolvePlan.mockResolvedValue(plan({ source: "free", plan: "Free" }));
+    const { checkUsageLimit } = await import("./usage");
+    const spy = vi.spyOn(fs.db, "collection").mockImplementationOnce(() => {
+      throw new Error("boom");
+    });
+    const res = await checkUsageLimit("u1");
+    expect(res!.status).toBe(503);
+    expect((await res!.json()).error).toBe("usage_unavailable");
     spy.mockRestore();
   });
 });

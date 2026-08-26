@@ -10,6 +10,7 @@ import {
   checkDeepResearchAllowed,
   recordDeepResearchRun,
   usageStore,
+  makeRunContext,
 } from "@/lib/usage";
 import type { AgentEvent } from "@/types/chat";
 import type { WaveRequest, SynthesizeRequest } from "@/lib/scoutTypes";
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
 
   // Run the whole crew inside the usage context so every sub-agent generate()
   // call and the CEO's direct Anthropic turns are metered to this user.
-  return usageStore.run({ userId }, () => {
+  return usageStore.run(makeRunContext(userId), () => {
     const readable = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();

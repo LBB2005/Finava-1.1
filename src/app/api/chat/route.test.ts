@@ -36,6 +36,7 @@ vi.mock("@/lib/templates.server", () => ({
 vi.mock("@/lib/usage", () => ({
   checkUsageLimit: deps.checkUsageLimit,
   recordUsage: deps.recordUsage,
+  makeRunContext: (u: string) => ({ userId: u }),
   usageStore: { run: deps.usageRun },
 }));
 

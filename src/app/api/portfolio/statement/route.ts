@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generate, type LlmContentPart } from "@/lib/llm";
 import { requireAuth } from "@/lib/requireAuth";
-import { checkUsageLimit, usageStore } from "@/lib/usage";
+import { checkUsageLimit, usageStore, makeRunContext } from "@/lib/usage";
 import { apiError } from "@/lib/apiError";
 import { userRateLimit } from "@/lib/rateLimit";
 import { DATA_ACCURACY_RULE_JSON } from "@/lib/dataAccuracy";
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       return apiError("unsupported_file_type", "Upload a PDF, PNG, JPEG, or WebP statement", 415);
     }
 
-    return await usageStore.run({ userId }, async () => {
+    return await usageStore.run(makeRunContext(userId), async () => {
       const bytes = await file.arrayBuffer();
       const base64 = Buffer.from(bytes).toString("base64");
       const isPdf = file.type === "application/pdf";

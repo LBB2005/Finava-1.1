@@ -1,7 +1,9 @@
 import { anthropic, MODEL } from "@/lib/anthropic";
 import { generate, AGENT_MODELS, type AgentKey } from "@/lib/llm";
 import { badgeBrands, type Brand } from "@/lib/models";
-import { recordUsage } from "@/lib/usage";
+import { recordUsage, currentRunCredits } from "@/lib/usage";
+import { resolvePlan } from "@/lib/entitlements";
+import { logger } from "@/lib/logger";
 import { allTools, scoutTool } from "./tools/index";
 import { runRiskAgent } from "./sub-agents/risk-agent";
 import { runNewsAgent } from "./sub-agents/news-agent";
@@ -27,6 +29,8 @@ import type { AgentEvent, AgentName } from "@/types/chat";
 import type { MessageParam, ToolResultBlockParam } from "@anthropic-ai/sdk/resources/messages";
 
 type EventEmitter = (event: AgentEvent) => void;
+
+const log = logger("ceo");
 
 // Deep agents run complex multi-step analysis or external APIs — they get a longer
 // wall-clock cap, but every agent is still capped so one stuck upstream can't hang
@@ -160,24 +164,37 @@ ${draft.slice(0, 3000)}${draft.length > 3000 ? "\n[truncated]" : ""}
 ${agentSummaryLines || "No sub-agent data collected."}
 
 ## Your Task
-Write a concise second-opinion critique (3–5 bullet points, max 150 words). Focus on:
-- Any claims that lack data support or are over-stated
-- **Fabricated / unsourced figures**: any number that does not appear in the sub-agent outputs above, or that you cannot trace to a named source. Flag each one.
-- **Silent gaps**: a field the report should cover but left blank instead of writing "Unavailable" when the data was missing. Flag these — a missing field must be marked, not dropped.
-- **Data masking**: did the report make confident price-based calls (trim/hold, position sizing, cost-basis comparisons) despite a sub-agent reporting no live price data? Call this out explicitly.
-- Contradictions between sub-agents (e.g. bullish sentiment vs negative technicals)
-- Key risks or bearish factors the main report downplayed
-- Data gaps that would change the conclusion
+First decide whether the report has any MATERIAL problems — fabricated or unsourced figures, confident price-based calls made despite missing live data, unreconciled contradictions between sub-agents, or a key field left silently blank instead of marked "Unavailable".
 
-Be direct and constructive. Start with "**Skeptic Review:**"`,
+- If there are NO material problems and the report is sound, respond with exactly \`VERDICT: OK\` on the first line and nothing else.
+- Otherwise respond with \`VERDICT: REVISE\` on the first line, then a concise second-opinion critique (3–5 bullet points, max 150 words) starting with "**Skeptic Review:**" and covering only the material issues:
+  - Any claims that lack data support or are over-stated
+  - **Fabricated / unsourced figures**: any number that does not appear in the sub-agent outputs above, or that you cannot trace to a named source. Flag each one.
+  - **Silent gaps**: a field the report should cover but left blank instead of writing "Unavailable" when the data was missing. Flag these — a missing field must be marked, not dropped.
+  - **Data masking**: did the report make confident price-based calls (trim/hold, position sizing, cost-basis comparisons) despite a sub-agent reporting no live price data? Call this out explicitly.
+  - Contradictions between sub-agents (e.g. bullish sentiment vs negative technicals)
+  - Key risks or bearish factors the main report downplayed
+  - Data gaps that would change the conclusion
+
+Be direct and constructive. Do not recommend a revision for merely cosmetic or stylistic nits.`,
     });
   } catch {
     critique = "";
   }
 
-  emit({ type: "skeptic_complete", critique });
+  // Only run the expensive full-report revision when the skeptic finds MATERIAL
+  // problems. It signs off with "VERDICT: OK" on sound reports; without this gate
+  // a second full synthesis (up to SYNTH_MAX_TOKENS) fired on essentially every
+  // crew query, ~2x-ing synthesis cost. Bias to revise unless the skeptic
+  // explicitly approves, so quality is preserved when the signal is ambiguous.
+  const signedOff = /VERDICT:\s*OK\b/i.test(critique);
+  const shouldRevise = critique.trim() !== "" && !signedOff;
+  // Strip the machine-readable verdict line from what the UI surfaces.
+  const displayCritique = critique.replace(/^[ \t]*VERDICT:[ \t]*(OK|REVISE)\b.*$/im, "").trim();
 
-  if (critique) {
+  emit({ type: "skeptic_complete", critique: shouldRevise ? displayCritique : "" });
+
+  if (shouldRevise) {
     emit({ type: "ceo_compiling" });
     // Accumulates the streamed revision text so a mid-stream failure can still
     // adopt what the user already saw rather than double-emitting the draft.
@@ -266,6 +283,24 @@ export interface CeoOptions {
   tier?: "quick" | "deep";
   /** Optional response-template id whose instructions/format shape the report. */
   templateId?: string;
+}
+
+// Credit ceiling used when a user's plan cap can't be resolved (degraded read /
+// error). Bounds a single run to ~$0.30 so the backstop holds even during an
+// entitlements outage, rather than failing open to unbounded spend.
+const FALLBACK_RUN_CAP = 300;
+
+/** The per-run credit ceiling for a user (Infinity = uncapped: admin/dev). */
+async function resolveRunCap(userId?: string): Promise<number> {
+  if (!userId) return Infinity; // internal/no-user context — don't block
+  try {
+    const ent = await resolvePlan(userId);
+    if (ent.source === "admin" || ent.source === "dev") return Infinity;
+    if (ent.degraded) return FALLBACK_RUN_CAP; // couldn't read the plan — bound it
+    return ent.config.deepResearchPerRunCap ?? FALLBACK_RUN_CAP;
+  } catch {
+    return FALLBACK_RUN_CAP; // never disable the backstop on an infra blip
+  }
 }
 
 export async function runCeoAgent(
@@ -365,7 +400,9 @@ Use charts liberally:
 - Peer comparison (P/E, margins) → bar chart
 - Always set a descriptive title and unit`;
 
-  console.log("[ceo] starting for prompt:", userPrompt.slice(0, 60));
+  // Log run metadata only — never the prompt text (privacy/GDPR). requestId is
+  // picked up from the run context so the whole crew's logs correlate.
+  log.info("run started", { promptChars: userPrompt.length });
 
   // ── Extract tickers + inject previous analysis memory ─────────────────────
   const mentionedTickers = [
@@ -377,7 +414,7 @@ Use charts liberally:
   ];
   // Independent Firestore reads — fetch in parallel.
   const [memoryBlock, userStyle, templateBlock] = await Promise.all([
-    getTickerMemory(mentionedTickers),
+    getTickerMemory(userId ?? "", mentionedTickers),
     userId ? getUserPreference(userId) : Promise.resolve(undefined),
     // Discovery output is tightly structured already — don't let a response
     // template fight the scout-only narrative rules.
@@ -450,8 +487,26 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
   // collect them here and flush before signalling "done".
   const pendingWrites: Promise<unknown>[] = [];
 
+  // Per-run cost ceiling. The crew aborts once accumulated spend crosses the
+  // user's plan cap, so one runaway run can't rack up unbounded COGS. The primary
+  // hard cap (checkUsageLimit) runs before the request; this is the in-run backstop.
+  const runCap = await resolveRunCap(userId);
+  let costAborted = false;
+
   while (iteration < MAX_ITERATIONS) {
     iteration++;
+
+    // Cost kill-switch — stop before the next expensive synthesis turn if this
+    // run has already blown its credit cap. Ships whatever was drafted so far.
+    if (currentRunCredits() > runCap) {
+      costAborted = true;
+      log.warn("run cost cap exceeded — aborting crew", {
+        spent: Math.round(currentRunCredits()),
+        cap: runCap,
+        iteration,
+      });
+      break;
+    }
 
     const draftStream = anthropic.messages.stream({
       model: MODEL,
@@ -579,8 +634,27 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
               : agentDispatch[block.name];
           if (!handler) throw new Error(`Unknown agent: ${block.name}`);
 
+          // run_risk_agent folds the caller's private holdings (priced value +
+          // position weights) into its output, so its cache entry MUST be scoped
+          // per user + holdings — never shared on ticker-set alone, or one user's
+          // portfolio figures would surface for another asking about the same
+          // tickers. Every other agent emits impersonal public-data output and
+          // keeps the shared cross-user cache. Holdings (not just userId) are in
+          // the key so a holdings change within the TTL invalidates the stale row.
+          const cacheInput =
+            block.name === "run_risk_agent"
+              ? {
+                  ...(block.input as Record<string, unknown>),
+                  _userId: userId ?? null,
+                  _holdings: holdings
+                    .map((h) => `${h.ticker}:${h.shares}`)
+                    .sort()
+                    .join(","),
+                }
+              : block.input;
+
           // ── Cache check ───────────────────────────────────────────────────
-          const cached = await checkCache(block.name, block.input);
+          const cached = await checkCache(block.name, cacheInput);
           if (cached) {
             agentOutputs.set(block.name, cached);
             emit({ type: "agent_complete", agent: agentName, result: cached, models: modelsForAgent(agentName) });
@@ -599,7 +673,7 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
 
           // ── Cache save (deferred, flushed before "done") ──────────────────
           pendingWrites.push(
-            saveCache(block.name, block.input, result).catch((e) =>
+            saveCache(block.name, cacheInput, result).catch((e) =>
               console.error("[cache] save error:", e)
             )
           );
@@ -646,16 +720,21 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
   if (!finalResponse) {
     emit({
       type: "final_response",
-      content:
-        "I gathered data from several agents but ran out of analysis steps before compiling a final answer. Please try a narrower question or fewer tickers.",
+      content: costAborted
+        ? "Analysis was stopped early to stay within your usage limit before a full answer could be compiled. Try a narrower question, or upgrade your plan for a higher limit."
+        : "I gathered data from several agents but ran out of analysis steps before compiling a final answer. Please try a narrower question or fewer tickers.",
     });
   } else {
     // ── Skeptic review → revision pass ──────────────────────────────────────
     // The skeptic critiques the DRAFT, then the CEO revises to address it before
     // we finalize. The critique is still surfaced to the user for transparency,
-    // but the report they read has already been corrected.
+    // but the report they read has already been corrected. Skip the (expensive)
+    // second full synthesis when the run is already over its cost cap.
     let streamed = false;
-    const canRevise = draftAssistantBlocks !== null && agentOutputs.size > 0;
+    const canRevise =
+      draftAssistantBlocks !== null &&
+      agentOutputs.size > 0 &&
+      currentRunCredits() <= runCap;
     if (canRevise) {
       const revised = await critiqueAndRevise({
         draft: finalResponse,
@@ -673,10 +752,14 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
     }
 
     const TRUNC_NOTE = "\n\n_⚠️ This response reached the length limit and may be cut off._";
+    const COST_NOTE =
+      "\n\n_⚠️ Analysis was stopped early to stay within your usage limit; some agents may not have run._";
+    if (costAborted) finalResponse += COST_NOTE;
     if (truncated) finalResponse += TRUNC_NOTE;
     if (streamed) {
       // The revision already streamed to the client as final_response deltas —
-      // only the truncation note (if any) still needs to land on screen.
+      // only the appended notes (if any) still need to land on screen.
+      if (costAborted) emit({ type: "final_response", content: COST_NOTE });
       if (truncated) emit({ type: "final_response", content: TRUNC_NOTE });
     } else {
       emit({ type: "final_response", content: finalResponse });
@@ -685,7 +768,7 @@ The scout has already scanned the whole S&P 500 — its picks ARE the answer. Do
     // Persist ticker memory + investing style from the FINAL (revised) report.
     if (mentionedTickers.length) {
       pendingWrites.push(
-        saveTickerMemory(mentionedTickers, finalResponse, anthropic).catch((e) =>
+        saveTickerMemory(userId ?? "", mentionedTickers, finalResponse, anthropic).catch((e) =>
           console.error("[memory] save error:", e)
         )
       );

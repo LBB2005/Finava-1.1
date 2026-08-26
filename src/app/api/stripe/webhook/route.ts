@@ -89,10 +89,18 @@ export async function POST(req: Request) {
           customerId: asId(sub.customer),
         });
         if (!uid) break;
-        await writeSettings(uid, {
+        const patch: Record<string, unknown> = {
           stripeSubscriptionId: sub.id,
           ...subscriptionPatch(sub),
-        });
+        };
+        // A healthy subscription clears any past-due grace clock.
+        if (patch.subscriptionStatus !== "past_due") {
+          patch.pastDueSince = FieldValue.delete();
+        }
+        const applied = await applySubscriptionEvent(uid, event.created, patch);
+        if (!applied) {
+          console.log(`[stripe/webhook] ignored stale ${event.type} for ${uid}`);
+        }
         break;
       }
 
@@ -103,13 +111,17 @@ export async function POST(req: Request) {
           customerId: asId(sub.customer),
         });
         if (!uid) break;
-        await writeSettings(uid, {
+        const applied = await applySubscriptionEvent(uid, event.created, {
           plan: "Free",
           subscriptionStatus: "canceled",
           stripeSubscriptionId: FieldValue.delete(),
           currentPeriodEnd: FieldValue.delete(),
           cancelAtPeriodEnd: FieldValue.delete(),
+          pastDueSince: FieldValue.delete(),
         });
+        if (!applied) {
+          console.log(`[stripe/webhook] ignored stale subscription.deleted for ${uid}`);
+        }
         break;
       }
 
@@ -117,7 +129,11 @@ export async function POST(req: Request) {
         const invoice = event.data.object as Stripe.Invoice;
         const uid = await resolveUid({ customerId: asId(invoice.customer) });
         if (!uid) break;
-        const patch: Record<string, unknown> = { subscriptionStatus: "active" };
+        const patch: Record<string, unknown> = {
+          subscriptionStatus: "active",
+          // Payment recovered → clear the past-due grace clock.
+          pastDueSince: FieldValue.delete(),
+        };
         const subId = invoiceSubscriptionId(invoice);
         if (subId) {
           const sub = await stripe.subscriptions.retrieve(subId);
@@ -131,7 +147,17 @@ export async function POST(req: Request) {
         const invoice = event.data.object as Stripe.Invoice;
         const uid = await resolveUid({ customerId: asId(invoice.customer) });
         if (!uid) break;
-        await writeSettings(uid, { subscriptionStatus: "past_due" });
+        // Start (or preserve) the past-due grace clock from the FIRST failure, so
+        // entitlements can bound how long a failing card keeps paid access.
+        const ref = db.collection("userSettings").doc(uid);
+        const existingSince = (await ref.get()).data()?.pastDueSince as string | undefined;
+        await ref.set(
+          {
+            subscriptionStatus: "past_due",
+            pastDueSince: existingSince ?? new Date(event.created * 1000).toISOString(),
+          },
+          { merge: true }
+        );
         break;
       }
 
@@ -204,6 +230,30 @@ async function writeSettings(
   patch: Record<string, unknown>
 ): Promise<void> {
   await db.collection("userSettings").doc(uid).set(patch, { merge: true });
+}
+
+/**
+ * Apply a subscription-lifecycle patch, but ONLY if this event is at least as
+ * recent as the last one applied. Stripe does not guarantee delivery order and
+ * retries for ~3 days, so a delayed OLDER `updated` could otherwise overwrite a
+ * newer `deleted` and resurrect paid access. We track the last applied
+ * `event.created` per user and ignore anything older. Returns false when skipped.
+ *
+ * (Read-then-set rather than a transaction: Stripe delivers a given
+ * subscription's events sequentially, so the out-of-order case this guards is
+ * time-separated retries, not concurrent writes.)
+ */
+async function applySubscriptionEvent(
+  uid: string,
+  eventCreated: number,
+  patch: Record<string, unknown>
+): Promise<boolean> {
+  const ref = db.collection("userSettings").doc(uid);
+  const last =
+    ((await ref.get()).data()?.lastSubscriptionEventAt as number | undefined) ?? 0;
+  if (eventCreated < last) return false;
+  await ref.set({ ...patch, lastSubscriptionEventAt: eventCreated }, { merge: true });
+  return true;
 }
 
 /**
