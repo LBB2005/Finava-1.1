@@ -138,8 +138,8 @@ export const PLANS: Record<PlanName, PlanConfig> = {
     stripe: {
       monthlyPriceEnv: "STRIPE_PRICE_QUANT_MONTHLY",
       annualPriceEnv: "STRIPE_PRICE_QUANT_ANNUAL",
-      // Created in Stripe (inactive) so the price ids exist, but checkout is
-      // blocked app-side until the hedge-fund suite ships (waitlist).
+      // Created in Stripe (inactive) so the price ids exist. Quant is the
+      // internal full-access level (admins resolve to it); it is not sold.
       purchasable: false,
     },
   },

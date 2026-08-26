@@ -1330,8 +1330,7 @@ function BillingSection({ userData, mutate }: { userData: UserData | undefined; 
             </div>
 
             <div className="mt-3 text-[length:var(--text-meta)]" style={{ color: "var(--color-muted)" }}>
-              Finava Quant · hedge-fund suite · coming soon.
-              {isSubscribed && " Plan changes are prorated to your billing cycle."}
+              {isSubscribed && "Plan changes are prorated to your billing cycle."}
             </div>
           </div>
         </div>

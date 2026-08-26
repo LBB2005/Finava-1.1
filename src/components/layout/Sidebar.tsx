@@ -748,11 +748,10 @@ export default function Sidebar({
   }, [handleMouseMove, handleMouseUp]);
 
   const isOnPortfolio = pathname === "/portfolio";
-  const isOnHedgeFund = pathname === "/hedge-fund";
   const isOnResearch = pathname === "/research";
   const isOnWatchlist = pathname === "/watchlist" || pathname.startsWith("/watchlist/");
   const isOnDna = pathname === "/dna";
-  const isOnChat = !isOnPortfolio && !isOnHedgeFund && !isOnResearch && !isOnWatchlist && !isOnDna;
+  const isOnChat = !isOnPortfolio && !isOnResearch && !isOnWatchlist && !isOnDna;
   // Fresh, unsent chat — highlight the "New chat" affordance so the click registers.
   const newChatActive = isOnChat && conversationId === null;
 
@@ -887,20 +886,6 @@ export default function Sidebar({
 
           {/* Watchlist (expandable) */}
           <WatchlistNavItem active={isOnWatchlist} live={liveContexts.has("watchlist")} onNavigate={onNavigate} />
-
-          {/* Hedge Fund — hidden for now, restore when feature is ready */}
-          {/* <NavLink
-            href="/hedge-fund"
-            active={isOnHedgeFund}
-            onNavigate={onNavigate}
-            icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-                <polyline points="16 7 22 7 22 13" />
-              </svg>
-            }
-            label="Hedge Fund"
-          /> */}
         </nav>
 
         {/* divider */}

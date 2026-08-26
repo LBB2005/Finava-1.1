@@ -1,6 +1,6 @@
 /**
  * The one sparkline. Replaces the near-identical copies that lived in
- * portfolio, watchlist, and hedge-fund. Colors by direction (bull/bear)
+ * portfolio and watchlist. Colors by direction (bull/bear)
  * unless an explicit stroke is given.
  */
 interface SparklineProps {
