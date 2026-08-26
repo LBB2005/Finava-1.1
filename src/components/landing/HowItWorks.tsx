@@ -23,7 +23,7 @@ const STEPS = [
     n: "4",
     title: "Dig deeper or act on it",
     body:
-      "Ask follow-ups, run a backtest, track the stock in your portfolio, or — if you're on Pro — route it to your paper trading account.",
+      "Ask follow-ups, add the stock to a watchlist, or track it in your portfolio and let Finava brief you on it every week.",
   },
 ];
 

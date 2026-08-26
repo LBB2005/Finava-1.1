@@ -13,8 +13,7 @@ const EMPTY_STEPS: AgentStep[] = [];
 export function buildPortfolioContext(
   holdings: ReturnType<typeof usePortfolio>["holdings"],
   cashBalance: number,
-  quoteMap?: Map<string, Quote>,
-  markovSignals?: Record<string, string>
+  quoteMap?: Map<string, Quote>
 ): string {
   const lines = holdings.map((h) => {
     const quote = quoteMap?.get(h.ticker);
@@ -24,7 +23,6 @@ export function buildPortfolioContext(
     const gainLoss = mv !== null ? mv - cost : null;
     const gainLossPct = gainLoss !== null && cost > 0 ? (gainLoss / cost) * 100 : null;
     const dayPct = quote?.changePct;
-    const regime = markovSignals?.[h.ticker];
 
     const parts = [
       `- ${h.ticker}${h.companyName ? ` (${h.companyName})` : ""}`,
@@ -35,7 +33,6 @@ export function buildPortfolioContext(
     if (dayPct !== undefined) parts.push(`${dayPct >= 0 ? "+" : ""}${dayPct.toFixed(2)}% today`);
     if (mv !== null) parts.push(`mkt value $${mv.toLocaleString("en-US", { maximumFractionDigits: 0 })}`);
     if (h.sector) parts.push(`sector: ${h.sector}`);
-    if (regime) parts.push(`Markov regime: ${regime}`);
 
     return parts.join(", ");
   });

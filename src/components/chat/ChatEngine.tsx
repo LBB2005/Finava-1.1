@@ -560,8 +560,7 @@ export default function ChatEngine() {
     streamAborters.set(convId, new AbortController());
     try {
       const { holdings, cashBalance, quoteMap } = ctxRef.current;
-      // Don't block the run on Markov (Python HMM per holding) — see processSend.
-      const portfolioContext = buildPortfolioContext(holdings, cashBalance, quoteMap, {});
+      const portfolioContext = buildPortfolioContext(holdings, cashBalance, quoteMap);
       await runDiscoverMode(query, portfolioContext, convId, "deep");
     } catch (err) {
       console.error("[discover deeper] error:", err);
@@ -718,11 +717,7 @@ export default function ChatEngine() {
       if (isNew) await createConversation(convId, context, pageContext);
 
       const { holdings, cashBalance, quoteMap } = ctxRef.current;
-      // Markov signals used to block the entire send — each holding spawns a
-      // Python HMM subprocess, adding tens of seconds before the crew could even
-      // start. They're an enhancement to the CEO's context, not a prerequisite
-      // for planning, so build the context without them and start the crew now.
-      const portfolioContext = buildPortfolioContext(holdings, cashBalance, quoteMap, {});
+      const portfolioContext = buildPortfolioContext(holdings, cashBalance, quoteMap);
 
       saveMessage(convId!, "user", text, mode, undefined, undefined, context).catch((e) => console.warn("[send] saveMessage failed:", e));
 

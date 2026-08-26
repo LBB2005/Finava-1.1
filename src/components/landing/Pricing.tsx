@@ -53,21 +53,6 @@ const TIERS: Tier[] = [
     cta: "Start with Pro",
     featured: true,
   },
-  {
-    name: "Quant",
-    price: "$100",
-    cadence: "/ month",
-    annual: "or $1,000/year",
-    blurb: "The systematic trading suite.",
-    features: [
-      "Everything in Pro, plus:",
-      "Trading bot & live execution",
-      "Backtesting & Markov regimes",
-      "Custom strategy configuration",
-    ],
-    cta: "Join waitlist",
-    comingSoon: true,
-  },
 ];
 
 function Check() {
@@ -88,7 +73,7 @@ export default function Pricing() {
         </h2>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 items-start">
+      <div className="grid gap-5 md:grid-cols-3 items-start">
         {TIERS.map((t) => (
           <div
             key={t.name}
