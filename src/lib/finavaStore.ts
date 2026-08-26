@@ -68,7 +68,7 @@ export function subscribe(ticker: string, fn: () => void): () => void {
   return () => set!.delete(fn);
 }
 
-/** Merge a streamed signal in, keeping the canonical 5-signal display order. */
+/** Merge a streamed signal in, keeping the canonical 6-signal display order. */
 function withSignal(analysis: FinavaAnalysis, signal: FinavaSignal): FinavaAnalysis {
   const next = analysis.signals.filter((s) => s.key !== signal.key).concat(signal);
   next.sort((a, b) => SIGNAL_ORDER.indexOf(a.key) - SIGNAL_ORDER.indexOf(b.key));

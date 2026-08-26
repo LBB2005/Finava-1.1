@@ -7,8 +7,9 @@ import { useWatchlistStore } from "@/stores/watchlistStore";
 import { useToast } from "@/hooks/useToast";
 import { useLiveBoard } from "@/hooks/useLiveBoard";
 import { useFactorUniverse } from "@/hooks/useFactorUniverse";
+import { compositeScore } from "@/lib/compositeScore";
 import {
-  WEIGHTS, NAME_BY_TICKER,
+  NAME_BY_TICKER,
   type FactorScores, type Stock,
 } from "@/lib/research";
 import ScorePill from "@/components/ui/ScorePill";
@@ -55,13 +56,6 @@ function scoreTierColor(s: number): string {
   if (s >= 70) return "color-mix(in oklab, var(--color-bull) 78%, var(--color-warn))";
   if (s >= 60) return "var(--color-warn)";
   return "var(--color-bear)";
-}
-
-function scoreFor(stock: Stock): number {
-  const w = WEIGHTS.month;
-  let s = 0;
-  for (const k in w) s += (w as Record<string, number>)[k] * (stock.f as Record<string, number>)[k];
-  return Math.round(s);
 }
 
 const SIGNAL_TONE = {
@@ -383,7 +377,7 @@ export default function WatchlistSplitRail() {
     const stock = universe?.find((s) => s.ticker === ticker) ?? null;
     const f = stock?.f ?? null;
     const changePct = live?.changePct ?? null;
-    const sc = stock ? scoreFor(stock) : 0;
+    const sc = stock ? compositeScore(stock) : 0;
     const signals = deriveSignals(changePct, f);
     return {
       ticker,

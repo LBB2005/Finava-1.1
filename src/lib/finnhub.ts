@@ -254,3 +254,36 @@ export async function getMarketSnapshot(): Promise<TickerSnapshot[]> {
   const etfs = ["SPY", "QQQ", "IWM", "XLK", "XLF", "XLV", "XLE", "XLY", "XLI", "XLP"];
   return getSnapshots(etfs);
 }
+
+// Median peer P/E and P/S for relative valuation. Fetches /peers then each peer's
+// metric (6h-cached via getBasicFinancials). Returns nulls when peers are unavailable.
+export async function getPeerMetrics(
+  ticker: string
+): Promise<{ peerPe: number | null; peerPs: number | null }> {
+  let peers: string[] = [];
+  try {
+    const raw = await getPeers(ticker);
+    peers = (Array.isArray(raw) ? raw : []).filter((p) => p && p !== ticker).slice(0, 8);
+  } catch {
+    return { peerPe: null, peerPs: null };
+  }
+  if (peers.length === 0) return { peerPe: null, peerPs: null };
+
+  const metrics = await Promise.all(
+    peers.map(async (p) => {
+      try {
+        const d = (await getBasicFinancials(p)) as { metric?: Record<string, number> };
+        return { pe: d.metric?.peTTM ?? null, ps: d.metric?.psTTM ?? null };
+      } catch {
+        return { pe: null, ps: null };
+      }
+    })
+  );
+  const median = (xs: (number | null)[]) => {
+    const v = xs.filter((x): x is number => x != null && x > 0).sort((a, b) => a - b);
+    if (!v.length) return null;
+    const mid = Math.floor(v.length / 2);
+    return v.length % 2 === 1 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+  };
+  return { peerPe: median(metrics.map((m) => m.pe)), peerPs: median(metrics.map((m) => m.ps)) };
+}

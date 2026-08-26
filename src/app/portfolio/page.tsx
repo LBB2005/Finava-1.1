@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useQuotes } from "@/hooks/useQuotes";
+import { useFactorUniverse } from "@/hooks/useFactorUniverse";
 import { useChatStore } from "@/stores/chatStore";
 import { buildPortfolioSnapshot } from "@/lib/pageContext";
 import { useToast } from "@/hooks/useToast";
@@ -12,7 +13,8 @@ import ChatContextButton from "@/components/chat/ChatContextButton";
 import PageHeader from "@/components/layout/PageHeader";
 import Sparkline from "@/components/ui/Sparkline";
 import ScorePill from "@/components/ui/ScorePill";
-import { seedRng, finavaScore } from "@/lib/finavaScore";
+import { scoreForTicker } from "@/lib/compositeScore";
+import { seedRng } from "@/lib/portfolioMock";
 
 type Period = "1D" | "1W" | "1M" | "YTD" | "1Y" | "5Y" | "ALL";
 const PERIODS: Period[] = ["1D", "1W", "1M", "YTD", "1Y", "5Y", "ALL"];
@@ -352,6 +354,9 @@ export default function PortfolioPage() {
   }
 
   const { quoteMap, error: quotesError, isLoading: quotesLoading } = useQuotes(holdings.map((h) => h.ticker));
+  // Real scored universe (S&P 500, live factors). A holding outside it has no
+  // score and renders "—" — we never fabricate one.
+  const { universe } = useFactorUniverse();
   const { setPendingMessage, reset } = useChatStore();
 
   useEffect(() => {
@@ -712,7 +717,7 @@ export default function PortfolioPage() {
                   </thead>
                   <tbody>
                     {rows.map((r, rowIdx) => {
-                      const score = finavaScore(r.holding.ticker);
+                      const score = scoreForTicker(universe, r.holding.ticker);
                       const dayPct = r.quote?.changePct ?? 0;
                       const isDayPos = dayPct >= 0;
                       const isPos = r.gainLoss >= 0;
@@ -739,9 +744,13 @@ export default function PortfolioPage() {
                               </span>
                             </div>
                           </td>
-                          {/* Finava score pill */}
+                          {/* Finava score pill — "—" until the factor universe covers this ticker */}
                           <td style={{ padding: "8px 12px" }}>
-                            <ScorePill score={score} />
+                            {score != null ? (
+                              <ScorePill score={score} />
+                            ) : (
+                              <span className="mono" style={{ fontSize: "var(--text-meta)", color: "var(--color-muted)" }}>—</span>
+                            )}
                           </td>
                           {/* Price */}
                           <td className="mono" style={{

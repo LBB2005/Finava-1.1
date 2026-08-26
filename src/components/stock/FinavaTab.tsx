@@ -105,17 +105,26 @@ function SignalBar({ signalKey, signal }: { signalKey: SignalKey; signal: Finava
     );
   }
   const color = stanceColor(signal.stance);
+  // A pillar the engine had to exclude carries no score. Show it dark and empty —
+  // painting the neutral 50 would read as a real "middling" verdict on the data.
+  const isNoData = signal.isNoData === true;
   return (
     <div className="fade-in" style={{ margin: "9px 0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: "var(--text-meta)", color: "var(--color-text-secondary)", width: 96, flexShrink: 0 }}>{label}</span>
+        <span style={{ fontSize: "var(--text-meta)", color: isNoData ? "var(--color-muted)" : "var(--color-text-secondary)", width: 96, flexShrink: 0 }}>{label}</span>
         <div style={{ flex: 1, height: 4, borderRadius: 99, background: "var(--color-surface-2)", overflow: "hidden" }}>
-          <div style={{ width: `${signal.score}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.5s ease" }} />
+          {!isNoData && (
+            <div style={{ width: `${signal.score}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.5s ease" }} />
+          )}
         </div>
-        <span className="mono" style={{ fontSize: "var(--text-micro)", fontWeight: 600, color: "var(--color-text)", width: 24, textAlign: "right" }}>{signal.score}</span>
+        <span className="mono" style={{ fontSize: "var(--text-micro)", fontWeight: 600, color: isNoData ? "var(--color-muted)" : "var(--color-text)", width: 24, textAlign: "right" }}>
+          {isNoData ? "—" : signal.score}
+        </span>
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "3px 0 0 106px" }}>
-        <p style={{ margin: 0, flex: 1, fontSize: "var(--text-meta)", color: "var(--color-muted)", lineHeight: 1.4 }}>{signal.headline}</p>
+        <p style={{ margin: 0, flex: 1, fontSize: "var(--text-meta)", color: "var(--color-muted)", lineHeight: 1.4, fontStyle: isNoData ? "italic" : undefined }}>
+          {isNoData ? "No data available" : signal.headline}
+        </p>
         {signal.model && <ModelBadge slug={signal.model} size={11} />}
       </div>
     </div>
@@ -167,16 +176,16 @@ export function FinavaTab({ ticker }: { ticker: string }) {
       <div className="fade-in finava-hero" style={{ display: "flex", gap: 26, alignItems: "flex-start" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="finava-hero-eyebrow mono eyebrow-label" style={{ color: "var(--color-accent)", display: "flex", alignItems: "center", gap: 6 }}>
-            Finava&apos;s Read · 5 agents
+            Finava&apos;s Read · 15 factors
           </div>
           <p className="serif" style={{ margin: "10px 0 6px", fontSize: "var(--text-display)", fontWeight: 800, lineHeight: 1.3, color: "var(--color-text)", letterSpacing: "-0.01em" }}>
             No verdict on {ticker.toUpperCase()} yet.
           </p>
           <p style={{ margin: "0 0 14px", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", maxWidth: 480, lineHeight: 1.6 }}>
-            Deploy the five specialist agents — fundamentals, momentum, sentiment, analyst,
-            insider — to score it and write the verdict.
+            Score it on 15 measured factors across six pillars — fundamentals, valuation,
+            momentum, sentiment, analyst and insider — and write the verdict.
           </p>
-          <button className="tbtn on" onClick={run}>RUN FINAVA&apos;S 5-AGENT ANALYSIS</button>
+          <button className="tbtn on" onClick={run}>RUN FINAVA&apos;S ANALYSIS</button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
           <ScoreOrb score={null} stance={null} color={ringColor} live={false} />
@@ -203,7 +212,7 @@ export function FinavaTab({ ticker }: { ticker: string }) {
       <div className="finava-hero" style={{ display: "flex", gap: 26, alignItems: "flex-start" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="finava-hero-eyebrow mono eyebrow-label" style={{ color: "var(--color-accent)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span>Finava&apos;s Read · 5 agents{!streaming && age ? ` · ${age}` : ""}</span>
+            <span>Finava&apos;s Read · 15 factors{!streaming && age ? ` · ${age}` : ""}</span>
             {streaming ? (
               <span className="shimmer-text" style={{ textTransform: "none", letterSpacing: 0 }}>streaming…</span>
             ) : (
@@ -230,7 +239,7 @@ export function FinavaTab({ ticker }: { ticker: string }) {
             </>
           ) : (
             <p className="shimmer-text serif" style={{ margin: "10px 0 0", fontSize: "var(--text-display)", fontWeight: 800 }}>
-              Reading {ticker.toUpperCase()} — five agents at work…
+              Scoring {ticker.toUpperCase()} — 15 factors across six pillars…
             </p>
           )}
 

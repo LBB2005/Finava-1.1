@@ -312,6 +312,62 @@ async function settled<T>(p: Promise<T>): Promise<T | null> {
   }
 }
 
+/**
+ * Run thunks with at most `limit` in flight. Each thunk's rejection is isolated
+ * to a `null` in the output (index-aligned), so one rate-limited Finnhub call
+ * can't blank the whole bundle. Used to keep the per-ticker fan-out under the
+ * 60/min free-tier ceiling that was intermittently 429-ing the analyst feed.
+ */
+export async function runPooled<T>(
+  tasks: Array<() => Promise<T>>,
+  limit: number
+): Promise<Array<T | null>> {
+  if (limit < 1) throw new RangeError(`runPooled: limit must be >= 1, got ${limit}`);
+  const out = new Array<T | null>(tasks.length).fill(null);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < tasks.length) {
+      const idx = cursor++;
+      try {
+        out[idx] = await tasks[idx]();
+      } catch {
+        out[idx] = null;
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+  return out;
+}
+
+/**
+ * Net insider flow as a signed magnitude in roughly [-1, 1].
+ * netShares / sharesOutstanding is a minuscule number for real companies, so we
+ * scale it by a sensitivity constant and clamp. The point is that *routine*
+ * scheduled selling (a sliver of float) sits near 0 (neutral), while only an
+ * unusually large net buy or sell pushes toward the extremes. Returns null when
+ * there's nothing to judge — the caller then EXCLUDES the insider factor rather
+ * than scoring a misleading 50.
+ */
+export function insiderNetFlow(
+  trades: Array<{ shares: number }> | null,
+  sharesOutstanding: number | null
+): number | null {
+  if (!trades || trades.length === 0) return null;
+  let net = 0;
+  let hasFinite = false;
+  for (const t of trades) {
+    if (Number.isFinite(t.shares)) { net += t.shares; hasFinite = true; }
+  }
+  if (!hasFinite) return null;
+  if (net === 0) return 0;
+  if (!sharesOutstanding || sharesOutstanding <= 0) {
+    return Math.sign(net) * 0.1;
+  }
+  const SENSITIVITY = 800; // ~0.1% of float net ≈ 0.8 magnitude before clamp
+  const raw = (net / sharesOutstanding) * SENSITIVITY;
+  return Math.max(-1, Math.min(1, raw));
+}
+
 const DEFAULT_RANGE: ChartRange = "1M";
 
 // News window: last ~30 days.
@@ -328,18 +384,23 @@ export async function getStockBundle(rawTicker: string): Promise<StockBundle> {
   const { from, to } = newsWindow();
   const { resolution, from: cFrom, to: cTo } = rangeToCandleParams(DEFAULT_RANGE);
 
-  const [profileRaw, quote, statsRaw, candles, trendsRaw, targetRaw, insiderRaw, newsRaw, fundamentals] =
-    await Promise.all([
-      settled(getCompanyProfile(ticker)),
-      settled(getQuote(ticker)),
-      settled(getBasicFinancials(ticker)),
-      settled(getCandles(ticker, resolution, cFrom, cTo)),
-      settled(getRecommendationTrends(ticker)),
-      settled(getPriceTarget(ticker)),
-      settled(getInsiderTransactions(ticker)),
-      settled(getCompanyNews(ticker, from, to)),
-      settled(fetchFundamentals(ticker)),
-    ]);
+  // Finnhub free tier is 60/min and shared with the research scan; cap the
+  // per-ticker Finnhub fan-out at 4 in flight so the analyst feed stops 429-ing.
+  const [profileRaw, quote, statsRaw, candles, trendsRaw, targetRaw, insiderRaw, newsRaw] =
+    await runPooled(
+      [
+        () => getCompanyProfile(ticker),
+        () => getQuote(ticker),
+        () => getBasicFinancials(ticker),
+        () => getCandles(ticker, resolution, cFrom, cTo),
+        () => getRecommendationTrends(ticker),
+        () => getPriceTarget(ticker),
+        () => getInsiderTransactions(ticker),
+        () => getCompanyNews(ticker, from, to),
+      ],
+      4
+    );
+  const fundamentals = await settled(fetchFundamentals(ticker)); // EDGAR, separate host
 
   const news = extractNews(newsRaw);
 

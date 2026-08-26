@@ -23,6 +23,7 @@ const VERDICT: FinavaVerdict = {
   confidence: "High",
   fairValue: 237,
   upsidePct: 19,
+  peerPremiumPct: 12,
   take: "The debate is sizing, not direction.",
   catalysts: ["Backlog"],
   risks: ["Concentration"],

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
+import type { ScoreInputs } from "@/lib/finavaScore";
 
 const deps = vi.hoisted(() => ({
   requireAuth: vi.fn(),
@@ -8,13 +9,7 @@ const deps = vi.hoisted(() => ({
   usageEnterWith: vi.fn(),
   generate: vi.fn(),
   getStockBundle: vi.fn(),
-  getCikByTicker: vi.fn(),
-  getCompanyFacts: vi.fn(),
-  extractFinancialMetrics: vi.fn(),
-  extractFundamentalTimeSeries: vi.fn(),
-  getBasicFinancials: vi.fn(),
-  suggestedWaccFromBeta: vi.fn(),
-  defaultFairValue: vi.fn(),
+  assembleScoreInputs: vi.fn(),
   saveVerdict: vi.fn(),
 }));
 
@@ -26,185 +21,178 @@ vi.mock("@/lib/usage", () => ({
   usageStore: { enterWith: deps.usageEnterWith },
 }));
 vi.mock("@/lib/llm", () => ({
-  AGENT_MODELS: {
-    fundamentals: "fund-model",
-    technical: "tech-model",
-    sentiment: "sent-model",
-    analyst: "analyst-model",
-    insider: "insider-model",
-    finavaSynthesis: "synth-model",
-  },
+  AGENT_MODELS: { finavaSynthesis: "synth-model" },
   generate: deps.generate,
 }));
 vi.mock("@/lib/stockData", () => ({ getStockBundle: deps.getStockBundle }));
-vi.mock("@/lib/edgar", () => ({
-  getCikByTicker: deps.getCikByTicker,
-  getCompanyFacts: deps.getCompanyFacts,
-  extractFinancialMetrics: deps.extractFinancialMetrics,
-  extractFundamentalTimeSeries: deps.extractFundamentalTimeSeries,
-}));
-vi.mock("@/lib/finnhub", () => ({ getBasicFinancials: deps.getBasicFinancials }));
-vi.mock("@/lib/dcf", () => ({
-  suggestedWaccFromBeta: deps.suggestedWaccFromBeta,
-  defaultFairValue: deps.defaultFairValue,
-}));
+vi.mock("@/lib/finavaInputs", () => ({ assembleScoreInputs: deps.assembleScoreInputs }));
 vi.mock("@/lib/verdictStore", () => ({ saveVerdict: deps.saveVerdict }));
 
+// The scoring engine itself is NOT mocked — these tests assert that the route
+// ships the engine's number, so stubbing it would defeat the point.
 import { POST } from "./route";
 
 function ctx(ticker: string) {
   return { params: Promise.resolve({ ticker }) };
 }
 
-async function sse(res: Response) {
-  return res.text();
+/** A fully-populated input set, so every pillar has data unless a test blanks it. */
+function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
+  return {
+    revenueYoY: 0.11, epsYoY: 0.14, revenueCagr3y: 0.09,
+    grossMargin: 45, operatingMargin: 30, netMargin: 25,
+    roe: 28, roa: 18, roic: 22,
+    debtToEquity: 1.1, currentRatio: 1.3, fcfConversion: 1.05,
+    price: 200, dcfFair: 215, peTTM: 30, peerPe: 26, psTTM: 7, peerPs: 6,
+    ratingSkew: 0.6, targetUpsidePct: null, estimateRevisionPct: null,
+    earningsSurprisePct: 0.04,
+    trendVs200: 0.08, ret3m: 0.06, relStrength6m: 0.04,
+    newsSentiment: 62, xSentiment: 58,
+    insiderFlow: 0.2,
+    beta: 1.2, annualizedVol: 0.24,
+    ...overrides,
+  };
+}
+
+/** Parse the SSE body back into the events the client would receive. */
+async function events(res: Response) {
+  const body = await res.text();
+  return body
+    .split("\n\n")
+    .filter((chunk) => chunk.startsWith("data: "))
+    .map((chunk) => JSON.parse(chunk.slice(6)));
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  process.env.OPENROUTER_API_KEY = "or_key";
   deps.requireAuth.mockResolvedValue({ userId: "user_123" });
-  deps.userRateLimit.mockReturnValue(null);
+  deps.userRateLimit.mockResolvedValue(null);
   deps.checkUsageLimit.mockResolvedValue(null);
   deps.getStockBundle.mockResolvedValue({
     ticker: "AAPL",
     profile: { name: "Apple Inc.", currency: "USD" },
     quote: { price: 200, changePct: 1.25 },
-    keyStats: { high52: 240, low52: 160, beta: 1.2, peTTM: 30 },
-    analysts: {
-      strongBuy: 10,
-      buy: 15,
-      hold: 5,
-      sell: 1,
-      strongSell: 0,
-      period: "2026-06-01",
-      targetMean: 225,
-      targetLow: 180,
-      targetHigh: 260,
-    },
-    fundamentals: {
-      revenue: [{ year: 2023, value: 380_000_000_000 }, { year: 2024, value: 400_000_000_000 }],
-      netIncome: [{ year: 2024, value: 95_000_000_000 }],
-      operatingCashFlow: [{ year: 2024, value: 110_000_000_000 }],
-      totalDebt: [{ year: 2024, value: 80_000_000_000 }],
-    },
-    news: [{ headline: "Apple beats expectations" }],
-    insider: [{ direction: "buy", shares: 1000, transactionDate: "2026-06-01", filingDate: "2026-06-02" }],
+    analysts: { targetMean: 225 },
+    sentiment: { score: 62 },
+    insider: [{ direction: "buy", shares: 1000 }],
   });
-  deps.getCikByTicker.mockResolvedValue("0000320193");
-  deps.getCompanyFacts.mockResolvedValue({ facts: {} });
-  deps.extractFinancialMetrics.mockReturnValue({
-    operatingCashFlow: 120_000_000_000,
-    capex: 10_000_000_000,
-    sharesOutstanding: 15_000_000_000,
-    totalDebt: 100_000_000_000,
-    cash: 30_000_000_000,
-  });
-  deps.extractFundamentalTimeSeries.mockReturnValue({
-    revenue: [{ year: 2022, value: 300 }, { year: 2024, value: 363 }],
-  });
-  deps.getBasicFinancials.mockResolvedValue({ metric: { beta: 1.2 } });
-  deps.suggestedWaccFromBeta.mockReturnValue(0.095);
-  deps.defaultFairValue.mockReturnValue(215);
-  deps.generate.mockImplementation(async ({ agent }) => {
-    if (agent === "finavaSynthesis") {
-      return JSON.stringify({
-        score: 82.2,
-        fairValue: 230,
-        confidence: "High",
-        take: "AAPL has strong fundamentals with moderate valuation risk.",
-        catalysts: ["Services growth", "Buybacks"],
-        risks: ["Multiple compression", ""],
-      });
-    }
-    return JSON.stringify({
-      score: 77,
-      headline: `${agent} constructive`,
-      detail: "The signal is supported by the provided numbers.",
-    });
-  });
+  deps.assembleScoreInputs.mockResolvedValue(inputs());
+  deps.generate.mockResolvedValue(
+    JSON.stringify({
+      take: "Fundamentals carry the score; valuation is the drag.",
+      catalysts: ["Services growth", "Buybacks"],
+      risks: ["Multiple compression", ""],
+    })
+  );
 });
 
 describe("POST /api/stock/[ticker]/finava-analysis", () => {
-  it("short-circuits auth, rate-limit, usage, ticker, config, and missing stock checks", async () => {
+  it("short-circuits auth, rate-limit, usage, ticker, and missing-stock checks", async () => {
     deps.requireAuth.mockResolvedValueOnce({
       error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
     });
     expect((await POST(new Request("http://test.local"), ctx("AAPL"))).status).toBe(401);
 
     deps.requireAuth.mockResolvedValueOnce({ userId: "user_123" });
-    deps.userRateLimit.mockReturnValueOnce(NextResponse.json({ error: "slow" }, { status: 429 }));
+    deps.userRateLimit.mockResolvedValueOnce(NextResponse.json({ error: "slow" }, { status: 429 }));
     expect((await POST(new Request("http://test.local"), ctx("AAPL"))).status).toBe(429);
 
-    deps.userRateLimit.mockReturnValueOnce(null);
+    deps.userRateLimit.mockResolvedValueOnce(null);
     deps.checkUsageLimit.mockResolvedValueOnce(NextResponse.json({ error: "quota" }, { status: 429 }));
     expect((await POST(new Request("http://test.local"), ctx("AAPL"))).status).toBe(429);
 
     expect((await POST(new Request("http://test.local"), ctx("   "))).status).toBe(400);
 
-    delete process.env.OPENROUTER_API_KEY;
-    expect((await POST(new Request("http://test.local"), ctx("AAPL"))).status).toBe(503);
-
-    process.env.OPENROUTER_API_KEY = "or_key";
     deps.getStockBundle.mockResolvedValueOnce({ quote: null, profile: null });
     expect((await POST(new Request("http://test.local"), ctx("NOPE"))).status).toBe(404);
   });
 
-  it("streams five signal cards and a synthesized verdict with DCF comparison", async () => {
+  it("streams all six computed pillars and a deterministic verdict", async () => {
     const res = await POST(new Request("http://test.local"), ctx("aapl"));
 
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toContain("text/event-stream");
     expect(deps.usageEnterWith).toHaveBeenCalledWith({ userId: "user_123" });
-    expect(deps.defaultFairValue).toHaveBeenCalledWith(expect.objectContaining({
-      baseFcf: 110_000_000_000,
-      sharesOutstanding: 15_000_000_000,
-      netDebt: 70_000_000_000,
-      suggestedWacc: 0.095,
-      currentPrice: 200,
-    }));
 
-    const body = await sse(res);
-    expect(body.match(/"type":"signal"/g)).toHaveLength(5);
-    expect(body).toContain('"key":"fundamentals"');
-    expect(body).toContain('"key":"momentum"');
-    expect(body).toContain('"key":"sentiment"');
-    expect(body).toContain('"key":"analyst"');
-    expect(body).toContain('"key":"insider"');
-    expect(body).toContain('"type":"verdict"');
-    expect(body).toContain('"score":82');
-    expect(body).toContain('"fairValue":230');
-    expect(body).toContain('"upsidePct":15');
-    expect(body).toContain('"comparison":{"finava":230,"street":225,"dcf":215}');
+    const evs = await events(res);
+    const signals = evs.filter((e) => e.type === "signal").map((e) => e.signal);
+    expect(signals.map((s) => s.key)).toEqual([
+      "fundamentals", "valuation", "analyst", "momentum", "sentiment", "insider",
+    ]);
+    // Every pillar carries its factor breakdown for the expandable rows.
+    expect(signals[0].factors.length).toBeGreaterThan(0);
 
-    // Completed run is persisted for the cached-first stock page.
-    expect(deps.saveVerdict).toHaveBeenCalledTimes(1);
+    const verdict = evs.find((e) => e.type === "verdict")!.verdict;
+    // Fair value blends the DCF with the Street target; upside is measured off it.
+    expect(verdict.fairValue).toBe(220); // (215 + 225) / 2
+    expect(verdict.upsidePct).toBeCloseTo(10, 5);
+    expect(verdict.comparison).toEqual({ finava: 220, street: 225, dcf: 215 });
+    // Peer premium: P/E 30 vs 26 (+15.4%) and P/S 7 vs 6 (+16.7%), averaged.
+    expect(verdict.peerPremiumPct).toBeCloseTo(16.03, 1);
+    expect(verdict.take).toContain("Fundamentals carry the score");
+    expect(verdict.catalysts).toEqual(["Services growth", "Buybacks"]);
+    expect(verdict.risks).toEqual(["Multiple compression"]); // blanks dropped
+    expect(verdict.model).toBe("synth-model");
+
+    // Persisted for the cached-first stock page.
     expect(deps.saveVerdict).toHaveBeenCalledWith(
       "user_123",
       "AAPL",
-      expect.objectContaining({ score: 82, fairValue: 230, confidence: "High" }),
-      expect.arrayContaining([expect.objectContaining({ key: "fundamentals" })])
+      expect.objectContaining({ score: verdict.score }),
+      expect.arrayContaining([expect.objectContaining({ key: "valuation" })])
     );
   });
 
-  it("degrades failed signal agents to neutral and emits an error on synthesis failure", async () => {
-    deps.getCikByTicker.mockRejectedValueOnce(new Error("SEC down"));
-    deps.generate.mockImplementation(async ({ agent }) => {
-      if (agent === "technical") throw new Error("technical down");
-      if (agent === "finavaSynthesis") return "not json";
-      return JSON.stringify({ score: 120, headline: "", detail: "" });
-    });
+  it("ignores any score the narrative model tries to invent", async () => {
+    const res = await POST(new Request("http://test.local"), ctx("AAPL"));
+    const baseline = (await events(res)).find((e) => e.type === "verdict")!.verdict.score;
+
+    // Same inputs, but the model now claims a wildly different score.
+    deps.generate.mockResolvedValueOnce(
+      JSON.stringify({ score: 3, take: "Bearish.", catalysts: [], risks: [] })
+    );
+    const res2 = await POST(new Request("http://test.local"), ctx("AAPL"));
+    const verdict = (await events(res2)).find((e) => e.type === "verdict")!.verdict;
+
+    expect(verdict.score).toBe(baseline); // the engine decides, the LLM narrates
+    expect(verdict.take).toBe("Bearish.");
+  });
+
+  it("marks a pillar with no data instead of scoring it a neutral 50", async () => {
+    deps.assembleScoreInputs.mockResolvedValueOnce(
+      inputs({ ratingSkew: null, targetUpsidePct: null, estimateRevisionPct: null, earningsSurprisePct: null })
+    );
 
     const res = await POST(new Request("http://test.local"), ctx("AAPL"));
-    const body = await sse(res);
+    const analyst = (await events(res))
+      .filter((e) => e.type === "signal")
+      .map((e) => e.signal)
+      .find((s) => s.key === "analyst");
 
-    expect(body.match(/"type":"signal"/g)).toHaveLength(5);
-    expect(body).toContain('"headline":"Signal unavailable"');
-    expect(body).toContain('"score":100');
-    expect(body).toContain('"type":"error","message":"Failed to synthesise the verdict."');
+    expect(analyst.isNoData).toBe(true);
+    expect(analyst.headline).toBe("No data yet");
+  });
 
-    // Nothing is persisted when synthesis fails — the cache only ever holds
-    // completed verdicts.
+  it("still ships the deterministic verdict when the narrative model fails", async () => {
+    deps.generate.mockRejectedValueOnce(new Error("provider down"));
+
+    const res = await POST(new Request("http://test.local"), ctx("AAPL"));
+    const evs = await events(res);
+    const verdict = evs.find((e) => e.type === "verdict")!.verdict;
+
+    expect(evs.filter((e) => e.type === "signal")).toHaveLength(6);
+    expect(verdict.score).toBeGreaterThan(0);
+    expect(verdict.take).toContain("Finava scores");
+    expect(deps.saveVerdict).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits an error and persists nothing when input assembly fails", async () => {
+    deps.assembleScoreInputs.mockRejectedValueOnce(new Error("SEC down"));
+
+    const res = await POST(new Request("http://test.local"), ctx("AAPL"));
+    const evs = await events(res);
+
+    expect(evs).toContainEqual({ type: "error", message: "Failed to compute the Finava Score." });
     expect(deps.saveVerdict).not.toHaveBeenCalled();
   });
 });
