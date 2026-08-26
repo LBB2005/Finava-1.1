@@ -32,14 +32,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isLogin = pathname === "/login";
   const isLanding = pathname === "/";
   const isSettings = pathname === "/settings";
-  // Public share pages are standalone for logged-out visitors.
-  const isShare = pathname.startsWith("/share/");
   // Legal pages are public marketing-style pages — no app chrome.
   const isLegal = pathname === "/privacy" || pathname === "/terms";
 
   // Marketing landing is always full-bleed, even mid auth-resolution, so the
   // sidebar never flashes for an authed user before the /chat redirect lands.
-  if (isLanding || isShare || isLegal) {
+  if (isLanding || isLegal) {
     return <main className="h-full w-full overflow-y-auto">{children}</main>;
   }
 

@@ -43,9 +43,8 @@ const AuthContext = createContext<AuthContextValue>({
 // Routes a logged-out visitor is allowed to see (no redirect to /login).
 const PUBLIC_ROUTES = ["/", "/login", "/privacy", "/terms"];
 
-// Public shared-conversation pages are prefix-matched (/share/{id}).
 function isPublicRoute(pathname: string): boolean {
-  return PUBLIC_ROUTES.includes(pathname) || pathname.startsWith("/share/");
+  return PUBLIC_ROUTES.includes(pathname);
 }
 
 // Dev-only auth bypass: never available in a production build.

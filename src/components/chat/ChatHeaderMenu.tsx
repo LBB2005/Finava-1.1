@@ -5,7 +5,6 @@ import { useChatStore } from "@/stores/chatStore";
 import { useToast } from "@/hooks/useToast";
 import { authFetch } from "@/lib/authFetch";
 import Modal from "@/components/ui/Modal";
-import Markdown from "./Markdown";
 import type { ChatMessage } from "@/types/chat";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
@@ -27,9 +26,8 @@ interface MenuItem {
 }
 
 /**
- * The chat header's ⋯ menu: Share / Export · Digest / Save as Playbook ·
- * Rename / Archive. Grouped per the approved design — AI actions in accent
- * blue, Archive in red.
+ * The chat header's ⋯ menu: Save as Template · Rename / Archive. Grouped per
+ * the approved design — AI actions in accent blue, Archive in red.
  */
 export default function ChatHeaderMenu() {
   const toast = useToast();
@@ -38,12 +36,8 @@ export default function ChatHeaderMenu() {
   const messages = useChatStore((s) => (s.conversationId ? s.messagesByConv[s.conversationId] : undefined)) ?? EMPTY_MESSAGES;
 
   const [open, setOpen] = useState(false);
-  const [digest, setDigest] = useState<string | null>(null);
-  const [digestBusy, setDigestBusy] = useState(false);
-  const [shareBusy, setShareBusy] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
-  const [digestCopied, setDigestCopied] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const enabled = !!conversationId && messages.length > 0;
@@ -64,59 +58,6 @@ export default function ChatHeaderMenu() {
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
-
-  async function onShare() {
-    if (shareBusy) return;
-    setShareBusy(true);
-    try {
-      const res = await authFetch(`/api/conversations/${conversationId}/share`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? `${res.status}`);
-      const url = `${window.location.origin}${data.url}`;
-      setOpen(false);
-      // Only touch devices get the native share sheet — desktop Safari also
-      // implements navigator.share, but its macOS popover looks foreign here,
-      // so desktop always copies the link instead.
-      const isTouch = window.matchMedia("(pointer: coarse)").matches;
-      if (isTouch && navigator.share) {
-        try {
-          await navigator.share({ title: `Finava — ${title}`, url });
-          return;
-        } catch (err) {
-          if (err instanceof DOMException && err.name === "AbortError") return;
-        }
-      }
-      await navigator.clipboard.writeText(url);
-      toast.success("Share link copied — anyone can view it");
-    } catch {
-      toast.error("Couldn't create a share link");
-    } finally {
-      setShareBusy(false);
-    }
-  }
-
-  function onExport() {
-    setOpen(false);
-    // Print styles in globals.css isolate .print-transcript, so the system
-    // print dialog's "Save as PDF" produces just the conversation.
-    window.print();
-  }
-
-  async function onDigest() {
-    if (digestBusy) return;
-    setDigestBusy(true);
-    try {
-      const res = await authFetch(`/api/conversations/${conversationId}/digest`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? `${res.status}`);
-      setDigest(data.digest);
-      setOpen(false);
-    } catch (err) {
-      toast.error(err instanceof Error && err.message.length < 80 ? err.message : "Couldn't generate a digest");
-    } finally {
-      setDigestBusy(false);
-    }
-  }
 
   async function onSavePlaybook() {
     setOpen(false);
@@ -177,34 +118,6 @@ export default function ChatHeaderMenu() {
 
   const groups: MenuItem[][] = [
     [
-      {
-        key: "share", label: shareBusy ? "Creating link…" : "Share", busy: shareBusy, onSelect: onShare,
-        icon: (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
-            <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
-          </svg>
-        ),
-      },
-      {
-        key: "export", label: "Export PDF", onSelect: onExport,
-        icon: (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3v12m0 0l-4-4m4 4l4-4" /><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-          </svg>
-        ),
-      },
-    ],
-    [
-      {
-        key: "digest", label: digestBusy ? "Digesting…" : "Digest", tone: "ai", busy: digestBusy, onSelect: onDigest,
-        icon: (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3z" />
-            <path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14z" />
-          </svg>
-        ),
-      },
       {
         key: "playbook", label: "Save as Template", tone: "ai", onSelect: onSavePlaybook,
         icon: (
@@ -320,40 +233,6 @@ export default function ChatHeaderMenu() {
         </Modal>
       )}
 
-      {/* Digest modal */}
-      {digest !== null && (
-        <Modal
-          onClose={() => setDigest(null)}
-          label="Conversation digest"
-          className="bg-[var(--color-bg)] rounded-[var(--radius-xl)] shadow-[var(--shadow-pop)] w-full max-w-lg mx-4 flex flex-col"
-        >
-          <div className="flex items-center justify-between px-6 pt-5 pb-3" style={{ borderBottom: "1px solid var(--color-border)" }}>
-            <h2 className="text-[length:var(--text-title)] font-semibold" style={{ color: "var(--color-text)" }}>Digest</h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(digest);
-                  setDigestCopied(true);
-                  setTimeout(() => setDigestCopied(false), 1800);
-                }}
-                className="btn"
-              >
-                {digestCopied ? "Copied!" : "Copy"}
-              </button>
-              <button onClick={() => setDigest(null)} aria-label="Close"
-                className="w-6 h-6 rounded-[var(--radius-sm)] flex items-center justify-center hover:bg-[var(--color-surface-2)]"
-                style={{ color: "var(--color-muted)" }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div className="px-6 py-4 overflow-y-auto" style={{ maxHeight: "60vh" }}>
-            <Markdown>{digest}</Markdown>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }
