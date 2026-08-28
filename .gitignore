@@ -53,3 +53,6 @@ next-env.d.ts
 
 # Superpowers brainstorm mockups
 .superpowers/
+
+# Local-only: financial model kept out of the public repo
+finava-financial-model.xlsx
