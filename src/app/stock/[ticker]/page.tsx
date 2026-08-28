@@ -57,6 +57,9 @@ function StockPageInner() {
   // the page is mounted. runFinava self-dedupes, so a re-render can't double-fire.
   useEffect(() => {
     if (ticker && searchParams.get("run") === "1") {
+      // Deep-link intent: this fires once per ticker to land the user on the tab
+      // they asked for, so the extra render is the point, not a cascade.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTab("Finava");
       void runFinava(ticker, { force: true });
     }

@@ -40,15 +40,28 @@ jobs:
         run: npm run test:cov
 
       # `next build` evaluates modules that validate env at import (src/lib/env.ts
-      # via the Firebase clients). Real secrets are NOT needed to compile — these
-      # placeholders only satisfy the required-var checks so the build runs in CI.
-      # The real project env is used by Vercel's deploy build.
+      # via the Firebase clients), and firebase-admin parses the private key at
+      # module load — so the build needs a *syntactically valid* PEM, not just a
+      # non-empty string. We mint a throwaway keypair here rather than committing
+      # one: it satisfies the parser, authenticates against nothing, and keeps the
+      # repo free of anything that looks like a real credential.
+      - name: Mint throwaway build credentials
+        run: |
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+            -out "${RUNNER_TEMP}/ci-build-key.pem"
+          {
+            echo "FIREBASE_PRIVATE_KEY<<CI_PEM_EOF"
+            cat "${RUNNER_TEMP}/ci-build-key.pem"
+            echo "CI_PEM_EOF"
+          } >> "$GITHUB_ENV"
+
+      # The real project env is used by Vercel's deploy build; these placeholders
+      # only need to satisfy the required-var checks so compilation can proceed.
       - name: Build
         run: npm run build
         env:
           FIREBASE_PROJECT_ID: ci-placeholder
           FIREBASE_CLIENT_EMAIL: ci@ci-placeholder.iam.gserviceaccount.com
-          FIREBASE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nci\n-----END PRIVATE KEY-----\n"
           NEXT_PUBLIC_FIREBASE_API_KEY: ci-placeholder
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
