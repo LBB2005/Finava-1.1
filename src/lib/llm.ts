@@ -17,6 +17,7 @@
  */
 import OpenAI from "openai";
 import { recordUsage } from "@/lib/usage";
+import { observeLlmClient, traceIdentity } from "@/lib/observability";
 
 // ── Routing flag ────────────────────────────────────────────────────────────
 // Default "on". Any value other than "off" (incl. unset) enables routing.
@@ -355,11 +356,24 @@ export async function generate(opts: GenerateOptions): Promise<string> {
 
   let text = "";
   let lastError: Error | null = null;
+  // Read once: the run context cannot change mid-call, and every attempt in the
+  // loop below belongs to the same user and the same crew run.
+  const identity = traceIdentity();
 
   for (const candidate of candidates) {
     let response;
     try {
-      response = await getClient().chat.completions.create(
+      // Traced per attempt, not per call: when the primary model fails and the
+      // Anthropic fallback answers, that shows in Langfuse as two generations
+      // under one agent — which is the only way to see how often failover fires.
+      const client = observeLlmClient(getClient(), {
+        agent,
+        userId: identity.userId,
+        sessionId: identity.sessionId,
+        tags: [candidate === model ? "primary" : "fallback", LLM_ROUTING_ON ? "routing-on" : "routing-off"],
+        metadata: { routedModel: model, attemptedModel: candidate, maxTokens, reasoning },
+      });
+      response = await client.chat.completions.create(
         { ...body, model: candidate } as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming
       );
     } catch (err) {
