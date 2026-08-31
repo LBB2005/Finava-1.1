@@ -16,6 +16,8 @@ import { runDiscoverySynthesis } from "@/agents/discovery";
 import { collector, renderTranscript } from "@/lib/live/collect";
 import { getStepResult } from "@/lib/live/runState";
 import { mergeWaves } from "@/lib/discoveryRun";
+import { extractStructured } from "@/lib/live/extractDecision";
+import { RankedCandidatesSchema, RANKED_CONTRACT, MAX_DEBATE_SUBJECTS } from "@/lib/live/ranking";
 import { apiError } from "@/lib/apiError";
 import type { ScoutPick, WaveEvidence } from "@/lib/scoutTypes";
 
@@ -61,11 +63,37 @@ export const POST = withHarness(async (req) => {
       emit
     );
 
+    const transcript = renderTranscript(collected.events);
+
+    // Pull the ranking out as data so the runner can loop debates over it.
+    // Extracted from the synthesis the crew already wrote rather than asking a
+    // model to rank again — a second ranking pass would be a decision the
+    // published transcript does not account for.
+    const ranked = await extractStructured({
+      schema: RankedCandidatesSchema,
+      report: transcript,
+      target: "the ranked candidate list the synthesis produced",
+      contract: RANKED_CONTRACT,
+      guidance:
+        `Rank at most ${MAX_DEBATE_SUBJECTS} names, best first, using only tickers ` +
+        `that appear in the report. Do not add names the synthesis did not discuss.`,
+    });
+
+    // Only names the scout actually shortlisted may proceed. An extraction that
+    // hallucinated a ticker must not put an unresearched name into a debate.
+    const shortlisted = new Set(scout.picks.map((p) => p.ticker.toUpperCase()));
+    const subjects = (ranked.ok ? ranked.value.ranked : [])
+      .map((r) => r.ticker.toUpperCase())
+      .filter((t) => shortlisted.has(t))
+      .slice(0, MAX_DEBATE_SUBJECTS);
+
     return {
       runId,
       tradingDay,
-      transcript: renderTranscript(collected.events),
+      transcript,
       events: collected.events.length,
+      subjects,
+      rankingIssues: ranked.ok ? [] : ranked.issues,
     };
   });
 
