@@ -34,6 +34,17 @@ export const BookSnapshotSchema = z.object({
   equity: z.number(),
   cash: z.number(),
   cashPct: z.number(),
+  /**
+   * The equity the book actually started with, read from the broker on the first
+   * run and carried forward unchanged.
+   *
+   * NOT the mandate's declared startingEquity. Deriving the return from a
+   * declared constant means that if the funded account ever differs from the
+   * declaration — which it did, on the very first real run: a $100k paper
+   * account against a $10k mandate — the published return is computed against a
+   * number that was never true, and reports a 900% gain on day one.
+   */
+  inceptionEquity: z.number().positive(),
   /** Percent from inception — the reporting unit, so paper and live concatenate. */
   cumulativeReturnPct: z.number(),
   benchmarkCumulativeReturnPct: z.number().nullable(),

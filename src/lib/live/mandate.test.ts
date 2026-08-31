@@ -6,6 +6,7 @@ import {
   checkShortConstraints,
   positionsNeedingTrim,
   evaluateDrawdown,
+  checkInceptionEquity,
   type BookState,
   type CandidateFacts,
 } from "./mandate";
@@ -322,5 +323,40 @@ describe("evaluateDrawdown", () => {
     const d = evaluateDrawdown(M, 0, 0, 0);
     expect(d.drawdownPct).toBe(0);
     expect(d.frozen).toBe(false);
+  });
+});
+
+describe("checkInceptionEquity", () => {
+  const m = { ...MANDATE_V1, startingEquity: 10_000 };
+
+  it("accepts an exactly funded account", () => {
+    expect(checkInceptionEquity(m, 10_000).matches).toBe(true);
+  });
+
+  it("tolerates trivial interest accrual", () => {
+    // Failing a launch over $3 would be theatre.
+    expect(checkInceptionEquity(m, 10_050).matches).toBe(true);
+  });
+
+  it("refuses the real mismatch this was written for", () => {
+    // A $100k Alpaca paper account against a $10k declared mandate — caught on
+    // the first real run, where it also reported a 900% return on day one.
+    const r = checkInceptionEquity(m, 100_000);
+    expect(r.matches).toBe(false);
+    expect(Math.round(r.driftPct)).toBe(900);
+  });
+
+  it("refuses an underfunded account too", () => {
+    expect(checkInceptionEquity(m, 5_000).matches).toBe(false);
+  });
+
+  it("refuses just outside the tolerance", () => {
+    expect(checkInceptionEquity(m, 10_101).matches).toBe(false);
+  });
+
+  it("reports both figures so the operator can see which to change", () => {
+    const r = checkInceptionEquity(m, 100_000);
+    expect(r.declared).toBe(10_000);
+    expect(r.actual).toBe(100_000);
   });
 });

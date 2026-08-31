@@ -14,7 +14,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withHarness, runStep, easternDay } from "@/lib/live/harness";
 import { getAccount, getPositions, alpacaTradingConfigured } from "@/lib/alpacaTrading";
-import { evaluateDrawdown } from "@/lib/live/mandate";
+import { evaluateDrawdown, checkInceptionEquity } from "@/lib/live/mandate";
 import { MANDATE_V1, type LivePosition, type BookSnapshot } from "@/lib/schemas/live/snapshot";
 import { appendSnapshot, appendEvent, LedgerConflictError } from "@/lib/live/ledger";
 import { getPriorSnapshot, getOpeningDecisions, countEntriesToday } from "@/lib/live/ledgerRead";
@@ -45,10 +45,35 @@ export const POST = withHarness(async (req) => {
     ]);
 
     const equity = account.equity;
+
+    // Inception equity comes from the BROKER on the first run, and is carried
+    // forward untouched after that. See the schema comment: computing returns
+    // against the mandate's declared figure silently reports a fictional gain
+    // whenever the funded account differs from the declaration.
+    const inceptionEquity = prior?.inceptionEquity ?? equity;
+
+    // At inception ONLY, refuse a book whose funding does not match the mandate
+    // it will be judged against. The mandate is frozen at launch and published
+    // with every day, so a book running under different capital than it declares
+    // makes every sizing rail in that document a misstatement. This has to be
+    // settled before day one, not reconciled afterwards.
+    if (!prior) {
+      const inception = checkInceptionEquity(MANDATE_V1, equity);
+      if (!inception.matches) {
+        throw new Error(
+          `Inception equity mismatch: the broker account holds ${inception.actual.toFixed(2)} ` +
+            `but MANDATE_V1.startingEquity declares ${inception.declared.toFixed(2)} ` +
+            `(${inception.driftPct.toFixed(0)}% apart). Either fund the paper account to match ` +
+            `the mandate or amend the mandate BEFORE the first live day — the mandate is frozen ` +
+            `at launch and published with every decision, so a book running under different ` +
+            `capital than it declares makes its own sizing rails a misstatement.`
+        );
+      }
+    }
     const drawdown = evaluateDrawdown(
       MANDATE_V1,
       equity,
-      prior?.highWaterMark ?? MANDATE_V1.startingEquity,
+      prior?.highWaterMark ?? equity,
       prior?.freezeDaysRemaining ?? 0
     );
 
@@ -88,8 +113,8 @@ export const POST = withHarness(async (req) => {
       equity,
       cash: account.cash,
       cashPct: equity > 0 ? (account.cash / equity) * 100 : 0,
-      cumulativeReturnPct:
-        ((equity - MANDATE_V1.startingEquity) / MANDATE_V1.startingEquity) * 100,
+      inceptionEquity,
+      cumulativeReturnPct: ((equity - inceptionEquity) / inceptionEquity) * 100,
       // Filled by the export step against the benchmark series; null here rather
       // than 0, because 0 is a claim and null is the absence of one.
       benchmarkCumulativeReturnPct: null,

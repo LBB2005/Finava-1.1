@@ -174,6 +174,7 @@ describe("append", () => {
       equity: 10_000,
       cash: 2_000,
       cashPct: 20,
+      inceptionEquity: 10_000,
       cumulativeReturnPct: 0,
       benchmarkCumulativeReturnPct: null,
       highWaterMark: 10_000,

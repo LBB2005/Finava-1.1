@@ -290,3 +290,25 @@ export function evaluateDrawdown(
     tripped,
   };
 }
+
+/**
+ * Reconcile the funded account against the mandate it will be judged under.
+ *
+ * Called at INCEPTION only. The mandate is frozen at launch and republished with
+ * every decision, so a book running under different capital than it declares
+ * makes its own sizing rails a misstatement — a 3% floor and a 12% cap describe
+ * different dollar amounts than the reader is being shown. Caught on the first
+ * real run: a $100k Alpaca paper account against a $10k declared mandate, which
+ * also reported a 900% return on day one.
+ *
+ * Tolerance is 1%, not zero: a paper account can carry trivial interest accrual,
+ * and failing a launch over $3 would be theatre.
+ */
+export function checkInceptionEquity(
+  m: Mandate,
+  brokerEquity: number
+): { matches: boolean; driftPct: number; declared: number; actual: number } {
+  const declared = m.startingEquity;
+  const driftPct = declared > 0 ? Math.abs((brokerEquity - declared) / declared) * 100 : Infinity;
+  return { matches: driftPct <= 1, driftPct, declared, actual: brokerEquity };
+}
