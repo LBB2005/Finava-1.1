@@ -43,9 +43,10 @@ export async function candidateFacts(ticker: string): Promise<CandidateFactsWith
     return false;
   }
 
-  const fin = (financials.status === "fulfilled"
-    ? (financials.value as { metric?: Record<string, unknown> })?.metric
-    : null) ?? null;
+  const fin: Record<string, unknown> | null =
+    (financials.status === "fulfilled"
+      ? (financials.value as { metric?: Record<string, unknown> })?.metric
+      : null) ?? null;
   gap("marketCapUsd", "finnhub_basic_financials", financials);
 
   const marketCapUsd = numOrNull(fin?.marketCapitalization);
@@ -58,9 +59,21 @@ export async function candidateFacts(ticker: string): Promise<CandidateFactsWith
   const price = quote.status === "fulfilled" ? numOrNull(quote.value.price) : null;
   gap("price", "alpaca_snapshot", quote);
 
-  const avgVolume = numOrNull(fin?.avgVolume10Day);
+  // Finnhub's key is "10DayAverageTradingVolume", reported in MILLIONS of
+  // shares — not "avgVolume10Day", which does not exist and silently returned
+  // undefined. That made dollar volume null for every candidate, so the ADV rail
+  // could never be verified and NVDA was rejected for insufficient liquidity.
+  // A rail that refuses everything looks exactly like a rail that is working.
+  const avgVolumeShares = numOrNull(fin?.["10DayAverageTradingVolume"]);
   const avgDollarVolumeUsd =
-    avgVolume !== null && price !== null ? avgVolume * price : null;
+    avgVolumeShares !== null && price !== null ? avgVolumeShares * 1e6 * price : null;
+  if (avgDollarVolumeUsd === null && financials.status === "fulfilled") {
+    dataGaps.push({
+      field: "avgDollarVolumeUsd",
+      status: "unavailable",
+      source: "finnhub_basic_financials",
+    });
+  }
 
   const daysToNextEarnings =
     earnings.status === "fulfilled" ? daysUntilNextReport(earnings.value) : null;
@@ -86,6 +99,12 @@ export async function candidateFacts(ticker: string): Promise<CandidateFactsWith
     sector,
     marketCapUsd: marketCap,
     avgDollarVolumeUsd,
+    // Finnhub's basic-financials payload carries NO short-interest field. Left
+    // null deliberately rather than faked: the short rails then refuse every
+    // short entry, which is the correct behaviour for a book that cannot verify
+    // the constraint it declared. Shorts stay effectively disabled until a real
+    // short-interest source is wired in — stated here so that is a known
+    // position rather than a silent one.
     shortInterestPct: numOrNull(fin?.shortInterestPct),
     daysToNextEarnings,
     // The scout universe is US-listed by construction, so this is true unless a

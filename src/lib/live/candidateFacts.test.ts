@@ -16,7 +16,14 @@ beforeEach(() => {
   getQuote.mockReset().mockResolvedValue({ ticker: "NVDA", price: 100 });
   getBasicFinancials
     .mockReset()
-    .mockResolvedValue({ metric: { marketCapitalization: 3_000_000, avgVolume10Day: 50, shortInterestPct: 1.2 } });
+    .mockResolvedValue({
+      metric: {
+        marketCapitalization: 3_000_000,
+        // Finnhub's real key, in MILLIONS of shares.
+        "10DayAverageTradingVolume": 50,
+        shortInterestPct: 1.2,
+      },
+    });
   getEarningsCalendar.mockReset().mockResolvedValue({ earningsCalendar: [] });
   getFactorUniverse.mockReset().mockResolvedValue({
     stocks: [
@@ -33,9 +40,34 @@ describe("candidateFacts", () => {
     expect(f.ticker).toBe("NVDA");
   });
 
-  it("derives dollar volume from average shares and price", async () => {
+  it("derives dollar volume from average shares and price, in millions", async () => {
+    // 50 million shares at $100 = $5bn/day. Reading the wrong key here made this
+    // null for every candidate, so the ADV rail rejected NVDA for illiquidity —
+    // a rail that refuses everything looks exactly like a rail that works.
     const f = await candidateFacts("NVDA");
-    expect(f.avgDollarVolumeUsd).toBe(50 * 100);
+    expect(f.avgDollarVolumeUsd).toBe(50 * 1e6 * 100);
+  });
+
+  it("records a gap when the volume field is absent, rather than reporting zero", async () => {
+    getBasicFinancials.mockResolvedValue({ metric: { marketCapitalization: 3_000_000 } });
+    const f = await candidateFacts("NVDA");
+    expect(f.avgDollarVolumeUsd).toBeNull();
+    expect(f.dataGaps).toContainEqual({
+      field: "avgDollarVolumeUsd",
+      status: "unavailable",
+      source: "finnhub_basic_financials",
+    });
+  });
+
+  it("clears the real-world liquidity floor for a mega-cap", async () => {
+    // Regression against the actual production values: NVDA trades ~141m shares
+    // a day, which must pass a $10m ADV floor by four orders of magnitude.
+    getBasicFinancials.mockResolvedValue({
+      metric: { marketCapitalization: 5_422_978, "10DayAverageTradingVolume": 141.635 },
+    });
+    getQuote.mockResolvedValue({ ticker: "NVDA", price: 180 });
+    const f = await candidateFacts("NVDA");
+    expect(f.avgDollarVolumeUsd).toBeGreaterThan(10_000_000);
   });
 
   it("reports a missing market cap as null, never zero", async () => {
