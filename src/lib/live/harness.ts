@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 import { secretMatches } from "@/lib/secretMatches";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { apiError } from "@/lib/apiError";
-import { usageStore, makeRunContext } from "@/lib/runContext";
+import { makeRunContext } from "@/lib/runContext";
 import { db } from "@/lib/firebase-admin";
 import { logger } from "@/lib/logger";
 import { chargeStep, BudgetExceededError } from "./budget";
