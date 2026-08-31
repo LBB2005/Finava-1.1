@@ -17,6 +17,7 @@ import { getDecisionsForDay, getSnapshot } from "@/lib/live/ledgerRead";
 import { MANDATE_V1 } from "@/lib/schemas/live/snapshot";
 import { executionMode } from "@/lib/live/version";
 import { provenance } from "@/lib/live/promptHash";
+import { scoringRegistration } from "@/lib/live/scoring";
 import { apiError } from "@/lib/apiError";
 import { createHash } from "node:crypto";
 
@@ -63,6 +64,9 @@ export const GET = withHarness(async (req) => {
     // reader check out the exact prompts this day's decisions were made under.
     ...provenance(),
     mandate: MANDATE_V1,
+    // The method this day is scored under, pinned by hash to the version
+    // registered before any decision existed.
+    scoring: scoringRegistration(),
     snapshot,
     decisions,
     // Entries AND rejections, counted separately and in the open — the rejected
