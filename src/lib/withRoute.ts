@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth } from "@/lib/requireAuth";
 import { apiError } from "@/lib/apiError";
-import { usageStore, makeRunContext } from "@/lib/runContext";
+import { makeRunContext } from "@/lib/runContext";
+import { runTraced } from "@/lib/observability";
 import { logger } from "@/lib/logger";
 
 const log = logger("route");
@@ -127,7 +128,7 @@ export function withRoute<
     // Establish the run context for every JSON route: a correlation id for logs
     // plus the userId that recordUsage() reads. Honor an inbound x-request-id.
     const requestId = req.headers.get("x-request-id") ?? undefined;
-    return usageStore.run(makeRunContext(core.userId ?? "anon", requestId), async () => {
+    return runTraced(makeRunContext(core.userId ?? "anon", requestId), async () => {
       try {
         return await handler({ req, userId: core.userId, body: core.body }, routeContext as C);
       } catch (err) {

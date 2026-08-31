@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   langfuseConfigured,
+  runTraced,
+  withTraceIdentity,
   captureIo,
   traceIdentity,
   observeLlmClient,
@@ -104,6 +106,55 @@ describe("traceIdentity", () => {
       const b = traceIdentity();
       expect(a.sessionId).toBe(b.sessionId);
     });
+  });
+});
+
+describe("runTraced / withTraceIdentity", () => {
+  it("still runs the body when unconfigured", () => {
+    delete process.env.LANGFUSE_PUBLIC_KEY;
+    delete process.env.LANGFUSE_SECRET_KEY;
+    expect(runTraced(makeRunContext("u1", "r1"), () => "ran")).toBe("ran");
+  });
+
+  it("establishes the run context the body reads", () => {
+    delete process.env.LANGFUSE_PUBLIC_KEY;
+    expect(runTraced(makeRunContext("u1", "r1"), () => traceIdentity())).toEqual({
+      userId: "u1",
+      sessionId: "r1",
+    });
+  });
+
+  it("propagates identity as trace attributes, not metadata", () => {
+    configure();
+    const propagateAttributes = vi.fn((_params, fn: () => unknown) => fn());
+    setTracingApiForTest({ propagateAttributes: propagateAttributes as never });
+
+    const out = runTraced(makeRunContext("user-9", "req-9"), () => "body-ran");
+
+    expect(out).toBe("body-ran");
+    expect(propagateAttributes).toHaveBeenCalledWith(
+      { userId: "user-9", sessionId: "req-9" },
+      expect.any(Function)
+    );
+  });
+
+  it("skips propagation outside a run context rather than inventing one", () => {
+    configure();
+    const propagateAttributes = vi.fn((_p, fn: () => unknown) => fn());
+    setTracingApiForTest({ propagateAttributes: propagateAttributes as never });
+
+    expect(withTraceIdentity(() => "ran")).toBe("ran");
+    expect(propagateAttributes).not.toHaveBeenCalled();
+  });
+
+  it("still runs the body when propagation throws", () => {
+    configure();
+    setTracingApiForTest({
+      propagateAttributes: (() => {
+        throw new Error("langfuse exploded");
+      }) as never,
+    });
+    expect(runTraced(makeRunContext("u1", "r1"), () => "ran")).toBe("ran");
   });
 });
 

@@ -13,7 +13,7 @@ import { usageStore, makeRunContext } from "@/lib/runContext";
 import { db } from "@/lib/firebase-admin";
 import { logger } from "@/lib/logger";
 import { chargeStep, BudgetExceededError } from "./budget";
-import { flushTraces } from "@/lib/observability";
+import { flushTraces, runTraced } from "@/lib/observability";
 
 const log = logger("live:harness");
 
@@ -155,7 +155,7 @@ export function withHarness(
     const denied = await authorizeHarness(req);
     if (denied) return denied;
 
-    return usageStore.run(makeRunContext(LIVE_HARNESS_UID), async () => {
+    return runTraced(makeRunContext(LIVE_HARNESS_UID), async () => {
       try {
         return await handler(req);
       } catch (err) {

@@ -31,7 +31,7 @@
  */
 
 import type OpenAI from "openai";
-import { usageStore } from "@/lib/runContext";
+import { usageStore, type RunContext } from "@/lib/runContext";
 import { logger } from "@/lib/logger";
 
 const log = logger("observability");
@@ -81,6 +81,42 @@ export function traceIdentity(): TraceIdentity {
   return { userId: ctx.userId, sessionId: ctx.requestId };
 }
 
+/**
+ * Run `fn` with this request's identity attached to every span inside it.
+ *
+ * Attaching identity at the RUN boundary rather than per call is the only thing
+ * that actually produces a session. Putting a sessionId in a generation's
+ * metadata looks right and does nothing: Langfuse groups by a propagated trace
+ * attribute, so metadata-only ids leave you with N orphan traces and no way to
+ * see the other fourteen agents in the debate. `propagateAttributes` writes into
+ * the OTel context, which AsyncLocalStorage carries across every await inside
+ * the run — so the CEO loop, the chat stream and each routed agent all land in
+ * one session without any of them knowing this exists.
+ *
+ * Replaces `usageStore.run(...)` at each run boundary, so establishing the run
+ * context and attaching its identity to the traces are the same act and cannot
+ * drift apart.
+ */
+export function runTraced<T>(ctx: RunContext, fn: () => T): T {
+  return usageStore.run(ctx, () => withTraceIdentity(fn));
+}
+
+/** @see runTraced — this is its inner half, exported for tests and odd cases. */
+export function withTraceIdentity<T>(fn: () => T): T {
+  const lf = api();
+  if (!lf) return fn();
+  const id = traceIdentity();
+  if (!id.userId && !id.sessionId) return fn();
+  try {
+    return lf.propagateAttributes({ userId: id.userId, sessionId: id.sessionId }, fn);
+  } catch (err) {
+    log.warn("langfuse identity propagation failed; continuing untraced", {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return fn();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Registration (called from instrumentation.ts at server boot)
 // ---------------------------------------------------------------------------
@@ -98,6 +134,7 @@ type SpanProcessor = { forceFlush(): Promise<void>; shutdown(): Promise<void> };
 interface LangfuseApi {
   observeOpenAI: typeof import("@langfuse/openai").observeOpenAI;
   startObservation: typeof import("@langfuse/tracing").startObservation;
+  propagateAttributes: typeof import("@langfuse/tracing").propagateAttributes;
 }
 
 const g = globalThis as typeof globalThis & {
@@ -135,6 +172,12 @@ export async function registerTracing(): Promise<void> {
       ]);
 
     const processor = new LangfuseSpanProcessor({
+      // Passed explicitly rather than left to the SDK's own env lookup: it
+      // accepts both LANGFUSE_BASE_URL and LANGFUSE_BASEURL, and getting the
+      // region wrong is not a visible failure — US keys against the default EU
+      // host authenticate as nobody and every span is dropped with a 401 nobody
+      // reads. Undefined here keeps the SDK's own default.
+      baseUrl: process.env.LANGFUSE_BASE_URL || undefined,
       environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
       release: process.env.VERCEL_GIT_COMMIT_SHA,
       ...(captureIo() ? {} : { mask: () => "[redacted]" }),
@@ -144,6 +187,7 @@ export async function registerTracing(): Promise<void> {
     g.__langfuseApi = {
       observeOpenAI: openai.observeOpenAI,
       startObservation: tracing.startObservation,
+      propagateAttributes: tracing.propagateAttributes,
     };
     g.__langfuseProcessor = processor as unknown as SpanProcessor;
     log.info("langfuse tracing registered");
@@ -268,7 +312,6 @@ function startAnthropicGeneration(
   const lf = api();
   if (!lf) return null;
   try {
-    const id = traceIdentity();
     return lf.startObservation(
       `anthropic.messages.${method}`,
       {
@@ -278,7 +321,10 @@ function startAnthropicGeneration(
           max_tokens: params.max_tokens as number,
           temperature: params.temperature as number,
         },
-        metadata: { userId: id.userId, sessionId: id.sessionId, streaming: method === "stream" },
+        // Identity is NOT set here — it arrives as a propagated trace attribute
+        // from withTraceIdentity(). Setting it as metadata too would look
+        // correct while grouping nothing.
+        metadata: { streaming: method === "stream" },
       },
       { asType: "generation" }
     ) as unknown as Generation;
