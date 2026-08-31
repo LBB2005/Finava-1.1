@@ -46,6 +46,8 @@ export interface BookState {
 export interface CandidateFacts {
   ticker: string;
   side: "long" | "short";
+  /** GICS sector. Null when unresolved — the concentration rail refuses on null. */
+  sector: string | null;
   marketCapUsd: number | null;
   avgDollarVolumeUsd: number | null;
   shortInterestPct: number | null;
@@ -198,11 +200,75 @@ export function checkEntry(
         : `${c.daysToNextEarnings}d to earnings vs ${m.earningsBlackoutDays}d blackout`
     ),
     ...checkUniverse(m, c),
+    ...checkSectorConcentration(m, book, c, clamped),
     ...checkShortConstraints(m, book, c, clamped),
   ];
 
   const allowed = checks.every((k) => k.passed);
   return { allowed, checks, allowedWeightPct: allowed ? clamped : 0 };
+}
+
+/**
+ * Which declared exposure group a GICS sector belongs to, or the sector itself
+ * when it is in no group. Returns null for an unknown sector.
+ */
+export function sectorGroupFor(m: Mandate, sector: string | null): string | null {
+  if (!sector) return null;
+  for (const [group, members] of Object.entries(m.sectorGroups)) {
+    if (members.includes(sector)) return group;
+  }
+  return sector;
+}
+
+/** The cap that applies to a group or ungrouped sector. */
+export function sectorCapFor(m: Mandate, group: string): number {
+  return m.sectorGroupCapsPct[group] ?? m.defaultSectorCapPct;
+}
+
+/**
+ * Concentration rail, checked at ENTRY only.
+ *
+ * Deliberately not applied to live weights. If it were, a sector winner
+ * appreciating past its cap would force a sale — which contradicts how
+ * single-name drift is already treated, where an 18% cap exists precisely
+ * because a position growing is the book working. So this blocks a new entry
+ * that would push a group over its cap; it never forces a trim on appreciation.
+ *
+ * An unresolved sector REFUSES the entry. Compliance that cannot be verified is
+ * not compliance, and the same discipline applies to every null in this engine.
+ */
+export function checkSectorConcentration(
+  m: Mandate,
+  book: BookState,
+  c: CandidateFacts,
+  requestedWeightPct: number
+): MandateCheck[] {
+  const group = sectorGroupFor(m, c.sector);
+  if (!group) {
+    return [
+      check(
+        "sector_known",
+        false,
+        `sector could not be resolved for ${c.ticker} — cannot verify concentration`
+      ),
+    ];
+  }
+
+  const cap = sectorCapFor(m, group);
+  const existing = book.positions
+    .filter((p) => sectorGroupFor(m, p.sector) === group)
+    .reduce((sum, p) => sum + Math.abs(p.weightPct), 0);
+  const projected = existing + requestedWeightPct;
+
+  return [
+    check("sector_known", true, `${c.ticker} is ${c.sector} (group: ${group})`),
+    check(
+      "sector_concentration",
+      projected <= cap,
+      `${group} would be ${projected.toFixed(1)}% (${existing.toFixed(1)}% held ` +
+        `+ ${requestedWeightPct.toFixed(1)}% new) vs ${cap}% cap`
+    ),
+  ];
 }
 
 /**

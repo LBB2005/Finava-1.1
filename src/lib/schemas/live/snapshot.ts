@@ -16,6 +16,12 @@ export const LivePositionSchema = z.object({
   marketValue: z.number(),
   costBasis: z.number(),
   unrealizedPlPct: z.number(),
+  /**
+   * GICS sector, needed by the concentration rail. Null when it could not be
+   * resolved — never guessed, because a wrong sector silently moves capital
+   * between buckets and the rail would then be enforcing a fiction.
+   */
+  sector: z.string().nullable(),
   /** Live weight, and the weight the mandate wanted — drift is the difference. */
   weightPct: z.number(),
   targetWeightPct: z.number(),
@@ -96,6 +102,22 @@ export const MandateSchema = z.object({
   shortMinMarketCapUsd: z.number().min(0),
   shortMaxShortInterestPct: z.number().min(0),
 
+  /**
+   * Named exposure groups, each one or more GICS sectors.
+   *
+   * A group rather than a raw sector because GICS splits what people mean by
+   * "tech": GOOGL and META are Communication Services, not Information
+   * Technology. Capping Information Technology alone would have let a book hold
+   * 35% of one and 25% of the other — 60% in tech, under a cap that looked like
+   * it was working. The grouping is declared data, published with the mandate,
+   * so it stays auditable rather than becoming a judgment call.
+   */
+  sectorGroups: z.record(z.string(), z.array(z.string())),
+  /** Cap per group name. */
+  sectorGroupCapsPct: z.record(z.string(), z.number()),
+  /** Cap for any GICS sector not named in a group. */
+  defaultSectorCapPct: z.number().positive(),
+
   minMarketCapUsd: z.number().min(0),
   minAvgDollarVolumeUsd: z.number().min(0),
   earningsBlackoutDays: z.number().int().min(0),
@@ -123,6 +145,13 @@ export const MANDATE_V1: Mandate = {
   shortStopLossPct: 25,
   shortMinMarketCapUsd: 5_000_000_000,
   shortMaxShortInterestPct: 20,
+  sectorGroups: {
+    // GOOGL/META live in Communication Services; grouping them with Information
+    // Technology is what makes a "tech" cap mean what a reader expects.
+    Technology: ["Information Technology", "Communication Services"],
+  },
+  sectorGroupCapsPct: { Technology: 35 },
+  defaultSectorCapPct: 25,
   minMarketCapUsd: 2_000_000_000,
   minAvgDollarVolumeUsd: 10_000_000,
   earningsBlackoutDays: 2,

@@ -7,6 +7,9 @@ import {
   positionsNeedingTrim,
   evaluateDrawdown,
   checkInceptionEquity,
+  checkSectorConcentration,
+  sectorGroupFor,
+  sectorCapFor,
   type BookState,
   type CandidateFacts,
 } from "./mandate";
@@ -14,10 +17,16 @@ import { MANDATE_V1, type LivePosition } from "@/lib/schemas/live/snapshot";
 
 const M = MANDATE_V1;
 
-function position(ticker: string, weightPct: number, side: "long" | "short" = "long"): LivePosition {
+function position(
+  ticker: string,
+  weightPct: number,
+  side: "long" | "short" = "long",
+  sector: string | null = "Industrials"
+): LivePosition {
   return {
     ticker,
     side,
+    sector,
     qty: 10,
     avgEntryPrice: 100,
     currentPrice: 110,
@@ -47,6 +56,7 @@ function candidate(over: Partial<CandidateFacts> = {}): CandidateFacts {
   return {
     ticker: "NVDA",
     side: "long",
+    sector: "Information Technology",
     marketCapUsd: 3_000_000_000_000,
     avgDollarVolumeUsd: 500_000_000,
     shortInterestPct: 1.2,
@@ -358,5 +368,100 @@ describe("checkInceptionEquity", () => {
     const r = checkInceptionEquity(m, 100_000);
     expect(r.declared).toBe(10_000);
     expect(r.actual).toBe(100_000);
+  });
+});
+
+describe("sector concentration", () => {
+  const tech = (t: string, w: number, sector: string) => position(t, w, "long", sector);
+
+  it("groups Communication Services with Information Technology", () => {
+    // Why the rail is written on groups and not raw GICS sectors: GOOGL and META
+    // are Communication Services, so an Information-Technology-only cap would
+    // have let a book hold 35% of one and 25% of the other — 60% in tech, under
+    // a cap that looked like it was working.
+    expect(sectorGroupFor(M, "Information Technology")).toBe("Technology");
+    expect(sectorGroupFor(M, "Communication Services")).toBe("Technology");
+  });
+
+  it("leaves an ungrouped sector as its own bucket", () => {
+    expect(sectorGroupFor(M, "Materials")).toBe("Materials");
+  });
+
+  it("returns null for an unknown sector", () => {
+    expect(sectorGroupFor(M, null)).toBeNull();
+  });
+
+  it("applies the tech cap to the group and the default elsewhere", () => {
+    expect(sectorCapFor(M, "Technology")).toBe(35);
+    expect(sectorCapFor(M, "Materials")).toBe(25);
+  });
+
+  it("allows a tech entry up to the 35% group cap", () => {
+    const b = book({
+      positions: [
+        tech("MSFT", 12, "Information Technology"),
+        tech("GOOGL", 12, "Communication Services"),
+      ],
+    });
+    const checks = checkSectorConcentration(M, b, candidate(), 11);
+    expect(checks.find((c) => c.rule === "sector_concentration")?.passed).toBe(true);
+  });
+
+  it("refuses the tech entry that would breach 35%", () => {
+    const b = book({
+      positions: [
+        tech("MSFT", 12, "Information Technology"),
+        tech("GOOGL", 12, "Communication Services"),
+      ],
+    });
+    const checks = checkSectorConcentration(M, b, candidate(), 12);
+    expect(checks.find((c) => c.rule === "sector_concentration")?.passed).toBe(false);
+  });
+
+  it("counts BOTH tech sectors toward the same cap", () => {
+    // The 24% already held is entirely Communication Services; a new Information
+    // Technology name still sees it. That is the whole point of the grouping.
+    const b = book({
+      positions: [
+        tech("GOOGL", 12, "Communication Services"),
+        tech("META", 12, "Communication Services"),
+      ],
+    });
+    const checks = checkSectorConcentration(M, b, candidate(), 12);
+    expect(checks.find((c) => c.rule === "sector_concentration")?.passed).toBe(false);
+  });
+
+  it("holds non-tech sectors to 25%", () => {
+    const b = book({
+      positions: [tech("CF", 12, "Materials"), tech("NEM", 12, "Materials")],
+    });
+    const checks = checkSectorConcentration(M, b, candidate({ sector: "Materials" }), 5);
+    expect(checks.find((c) => c.rule === "sector_concentration")?.passed).toBe(false);
+  });
+
+  it("refuses an entry whose sector could not be resolved", () => {
+    // Compliance that cannot be verified is not compliance.
+    const checks = checkSectorConcentration(M, book(), candidate({ sector: null }), 5);
+    expect(checks.find((c) => c.rule === "sector_known")?.passed).toBe(false);
+  });
+
+  it("never forces a trim on sector drift — only single-name drift trims", () => {
+    // Entry-only by design: a sector winner appreciating past its cap must not
+    // trigger a sale, exactly as single-name drift does not.
+    const b = book({ positions: [tech("MSFT", 20, "Information Technology")] });
+    expect(positionsNeedingTrim(M, b.positions).map((t) => t.ticker)).toEqual(["MSFT"]);
+  });
+
+  it("blocks the breaching entry through checkEntry, not just the helper", () => {
+    const b = book({
+      positions: [
+        tech("MSFT", 12, "Information Technology"),
+        tech("GOOGL", 12, "Communication Services"),
+        tech("META", 11, "Communication Services"),
+      ],
+    });
+    const verdict = checkEntry(M, b, candidate(), 6);
+    expect(verdict.allowed).toBe(false);
+    expect(verdict.allowedWeightPct).toBe(0);
   });
 });

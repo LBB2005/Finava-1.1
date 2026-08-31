@@ -15,6 +15,7 @@ import { z } from "zod";
 import { withHarness, runStep, easternDay } from "@/lib/live/harness";
 import { getAccount, getPositions, alpacaTradingConfigured } from "@/lib/alpacaTrading";
 import { evaluateDrawdown, checkInceptionEquity } from "@/lib/live/mandate";
+import { getFactorUniverse } from "@/lib/factorUniverse";
 import { MANDATE_V1, type LivePosition, type BookSnapshot } from "@/lib/schemas/live/snapshot";
 import { appendSnapshot, appendEvent, LedgerConflictError } from "@/lib/live/ledger";
 import { getPriorSnapshot, getOpeningDecisions, countEntriesToday } from "@/lib/live/ledgerRead";
@@ -78,6 +79,21 @@ export const POST = withHarness(async (req) => {
     );
 
     const openedBy = await getOpeningDecisions(brokerPositions.map((p) => p.symbol));
+
+    // Sector per held name, for the concentration rail. A universe failure
+    // leaves them null, which makes the rail refuse new entries rather than
+    // silently mis-bucket existing capital.
+    const sectorOf = new Map<string, string | null>();
+    try {
+      const universe = await getFactorUniverse();
+      for (const st of universe.stocks) {
+        if (st.ticker) sectorOf.set(st.ticker.toUpperCase(), st.sector ?? null);
+      }
+    } catch (err) {
+      log.warn("sector lookup failed; positions carry a null sector", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
     const priorTargets = new Map(prior?.positions?.map((p) => [p.ticker, p.targetWeightPct]) ?? []);
 
     const positions: LivePosition[] = brokerPositions.map((p) => {
@@ -92,6 +108,7 @@ export const POST = withHarness(async (req) => {
         marketValue: p.marketValue,
         costBasis: p.costBasis,
         unrealizedPlPct: p.unrealizedPlPct,
+        sector: sectorOf.get(p.symbol) ?? null,
         weightPct,
         // Absent a recorded target the live weight IS the target: pretending to a
         // target we never set would manufacture drift that no decision caused.

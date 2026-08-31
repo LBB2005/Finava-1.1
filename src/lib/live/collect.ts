@@ -54,6 +54,27 @@ export function renderTranscript(events: AgentEvent[]): string {
     .join("\n\n");
 }
 
+/**
+ * The crew's FINAL written report, if it produced one.
+ *
+ * Distinct from the transcript on purpose. The transcript is every event in
+ * order — including each sub-agent's raw output — and is what gets published,
+ * because a record of the conclusions without the reasoning is unfalsifiable.
+ * But it is the wrong input to a structured-extraction call: it can run to
+ * megabytes, and the answer being extracted is in the final report anyway.
+ * Sending the whole stream cost an 8-minute synthesis run to a "terminated"
+ * request before this existed.
+ */
+export function finalReport(events: AgentEvent[]): string | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.type === "final_response" && typeof e.content === "string" && e.content.trim()) {
+      return e.content;
+    }
+  }
+  return null;
+}
+
 /** Firestore's doc limit is 1 MiB; chunk well under it, on a character budget. */
 export const TRANSCRIPT_CHUNK_CHARS = 200_000;
 

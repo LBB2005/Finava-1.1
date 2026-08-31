@@ -13,6 +13,8 @@ import {
   extractJsonBlock,
   formatIssues,
   extractStructured,
+  boundReport,
+  MAX_REPORT_CHARS,
 } from "./extractDecision";
 import { buildDecisionContract, confidenceGrid } from "./decisionContract";
 import { CrewDecisionSchema } from "@/lib/schemas/live/decision";
@@ -207,5 +209,46 @@ describe("buildDecisionContract", () => {
 
   it("demands a machine-checkable condition, not a judgement call", () => {
     expect(contract).toContain("no human judgement");
+  });
+});
+
+describe("boundReport", () => {
+  it("leaves a normal report untouched", () => {
+    expect(boundReport("short")).toEqual({ text: "short", truncated: false });
+  });
+
+  it("keeps the TAIL of an oversized report", () => {
+    // A report states its decision in its conclusion, so the end is the half
+    // worth keeping. Cutting the head loses context; cutting the tail loses
+    // the answer.
+    const report = "HEAD" + "x".repeat(MAX_REPORT_CHARS) + "CONCLUSION";
+    const b = boundReport(report);
+    expect(b.truncated).toBe(true);
+    expect(b.text.endsWith("CONCLUSION")).toBe(true);
+    expect(b.text.length).toBe(MAX_REPORT_CHARS);
+  });
+
+  it("does not truncate exactly at the limit", () => {
+    expect(boundReport("y".repeat(MAX_REPORT_CHARS)).truncated).toBe(false);
+  });
+});
+
+describe("oversized reports", () => {
+  it("tells the model it is seeing an excerpt rather than the whole argument", async () => {
+    const gen = stub('{"ticker":"NVDA","weight":5}');
+    await extractStructured({
+      ...base,
+      report: "z".repeat(MAX_REPORT_CHARS + 1000),
+      generateFn: gen,
+    });
+    const prompt = (gen as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0].prompt;
+    expect(prompt).toContain("FINAL PORTION");
+  });
+
+  it("says nothing about truncation for a normal report", async () => {
+    const gen = stub('{"ticker":"NVDA","weight":5}');
+    await extractStructured({ ...base, generateFn: gen });
+    const prompt = (gen as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0].prompt;
+    expect(prompt).not.toContain("FINAL PORTION");
   });
 });

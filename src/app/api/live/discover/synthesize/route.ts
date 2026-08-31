@@ -13,7 +13,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withHarness, runStep, easternDay } from "@/lib/live/harness";
 import { runDiscoverySynthesis } from "@/agents/discovery";
-import { collector, renderTranscript } from "@/lib/live/collect";
+import { collector, renderTranscript, finalReport } from "@/lib/live/collect";
 import { getStepResult } from "@/lib/live/runState";
 import { mergeWaves } from "@/lib/discoveryRun";
 import { extractStructured } from "@/lib/live/extractDecision";
@@ -69,9 +69,13 @@ export const POST = withHarness(async (req) => {
     // Extracted from the synthesis the crew already wrote rather than asking a
     // model to rank again — a second ranking pass would be a decision the
     // published transcript does not account for.
+    // Extract from the crew's FINAL report, not the whole event stream. The
+    // transcript carries every sub-agent's raw output and is what gets
+    // published; feeding it to an LLM call is what killed an 8-minute synthesis
+    // run with a "terminated" request. The ranking lives in the final report.
     const ranked = await extractStructured({
       schema: RankedCandidatesSchema,
-      report: transcript,
+      report: finalReport(collected.events) ?? transcript,
       target: "the ranked candidate list the synthesis produced",
       contract: RANKED_CONTRACT,
       guidance:

@@ -8,6 +8,7 @@
 // has to survive all the way to them.
 
 import { getQuote, getBasicFinancials, getEarningsCalendar } from "@/lib/finnhub";
+import { getFactorUniverse } from "@/lib/factorUniverse";
 import { logger } from "@/lib/logger";
 import type { CandidateFacts } from "./mandate";
 
@@ -24,12 +25,13 @@ export async function candidateFacts(ticker: string): Promise<CandidateFactsWith
   const symbol = ticker.toUpperCase();
   const dataGaps: CandidateFactsWithGaps["dataGaps"] = [];
 
-  const [financials, quote, earnings] = await Promise.allSettled([
+  const [financials, quote, earnings, universe] = await Promise.allSettled([
     getBasicFinancials(symbol),
     getQuote(symbol),
     // Finnhub's calendar is a date-range query; the blackout rail only cares
     // about the next report, so a 90-day window is ample and keeps the payload small.
     getEarningsCalendar(today(), plusDays(90), symbol),
+    getFactorUniverse(),
   ]);
 
   function gap(field: string, source: string, settled: PromiseSettledResult<unknown>) {
@@ -64,9 +66,24 @@ export async function candidateFacts(ticker: string): Promise<CandidateFactsWith
     earnings.status === "fulfilled" ? daysUntilNextReport(earnings.value) : null;
   gap("daysToNextEarnings", "finnhub_earnings_calendar", earnings);
 
+  // Sector drives the concentration rail, so an unresolved one must stay null
+  // rather than defaulting to anything — the rail refuses on null by design.
+  const sector =
+    universe.status === "fulfilled"
+      ? (universe.value.stocks.find((st) => st.ticker?.toUpperCase() === symbol)?.sector ?? null)
+      : null;
+  if (!sector) {
+    dataGaps.push({
+      field: "sector",
+      status: universe.status === "fulfilled" ? "unavailable" : "failed",
+      source: "factor_universe",
+    });
+  }
+
   return {
     ticker: symbol,
     side: "long",
+    sector,
     marketCapUsd: marketCap,
     avgDollarVolumeUsd,
     shortInterestPct: numOrNull(fin?.shortInterestPct),

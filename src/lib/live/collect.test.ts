@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { collector, renderTranscript, chunkTranscript } from "./collect";
+import { collector, renderTranscript, chunkTranscript, finalReport } from "./collect";
 import type { AgentEvent } from "@/types/chat";
 
 const ev = (e: Record<string, unknown> & { type: string }) => e as unknown as AgentEvent;
@@ -81,5 +81,31 @@ describe("chunkTranscript", () => {
   it("splits exactly at the boundary without emitting an empty chunk", () => {
     expect(chunkTranscript("abcd", 4)).toEqual(["abcd"]);
     expect(chunkTranscript("abcde", 4)).toEqual(["abcd", "e"]);
+  });
+});
+
+describe("finalReport", () => {
+  it("returns the crew's final written report", () => {
+    const out = finalReport([
+      ev({ type: "agent_start", agent: "risk" }),
+      ev({ type: "final_response", content: "NVDA ranks first." }),
+    ]);
+    expect(out).toBe("NVDA ranks first.");
+  });
+
+  it("takes the LAST final_response when a run emitted more than one", () => {
+    const out = finalReport([
+      ev({ type: "final_response", content: "first pass" }),
+      ev({ type: "final_response", content: "revised after skeptic" }),
+    ]);
+    expect(out).toBe("revised after skeptic");
+  });
+
+  it("returns null when the crew produced no report", () => {
+    expect(finalReport([ev({ type: "agent_start", agent: "risk" })])).toBeNull();
+  });
+
+  it("treats a blank report as absent, so the caller falls back", () => {
+    expect(finalReport([ev({ type: "final_response", content: "   " })])).toBeNull();
   });
 });

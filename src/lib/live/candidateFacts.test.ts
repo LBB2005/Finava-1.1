@@ -6,6 +6,10 @@ const getEarningsCalendar = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/finnhub", () => ({ getQuote, getBasicFinancials, getEarningsCalendar }));
 
+// Sector comes from the factor universe, which fans ~500 tickers when cold.
+const getFactorUniverse = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/factorUniverse", () => ({ getFactorUniverse }));
+
 import { candidateFacts } from "./candidateFacts";
 
 beforeEach(() => {
@@ -14,6 +18,12 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue({ metric: { marketCapitalization: 3_000_000, avgVolume10Day: 50, shortInterestPct: 1.2 } });
   getEarningsCalendar.mockReset().mockResolvedValue({ earningsCalendar: [] });
+  getFactorUniverse.mockReset().mockResolvedValue({
+    stocks: [
+      { ticker: "NVDA", sector: "Information Technology" },
+      { ticker: "GOOGL", sector: "Communication Services" },
+    ],
+  });
 });
 
 describe("candidateFacts", () => {
@@ -95,5 +105,30 @@ describe("candidateFacts", () => {
     const f = await candidateFacts("NVDA");
     expect(f.marketCapUsd).toBeNull();
     expect(f.dataGaps).toHaveLength(3);
+  });
+});
+
+describe("sector resolution", () => {
+  it("resolves the sector the concentration rail needs", async () => {
+    expect((await candidateFacts("NVDA")).sector).toBe("Information Technology");
+  });
+
+  it("leaves sector null for a name absent from the universe, and records the gap", async () => {
+    // Never guessed: a wrong sector silently moves capital between buckets and
+    // the concentration rail would then be enforcing a fiction.
+    const f = await candidateFacts("ZZZZ");
+    expect(f.sector).toBeNull();
+    expect(f.dataGaps).toContainEqual({
+      field: "sector",
+      status: "unavailable",
+      source: "factor_universe",
+    });
+  });
+
+  it("distinguishes a universe FAILURE from a name simply being absent", async () => {
+    getFactorUniverse.mockRejectedValue(new Error("timeout"));
+    const f = await candidateFacts("NVDA");
+    expect(f.sector).toBeNull();
+    expect(f.dataGaps.find((g) => g.field === "sector")?.status).toBe("failed");
   });
 });
