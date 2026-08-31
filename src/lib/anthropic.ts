@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { observeAnthropic } from "@/lib/observability";
 
 export const MODEL = "claude-sonnet-4-6";
 export const HAIKU = "claude-haiku-4-5";
@@ -18,7 +19,10 @@ function getClient(): Anthropic {
         "ANTHROPIC_API_KEY is not set. Add it to .env.local and restart the dev server."
       );
     }
-    g.__anthropicClient = new Anthropic({ apiKey });
+    // Wrapped for tracing at construction so every call-site — the CEO loop, the
+    // chat SSE stream, discovery — is observed without touching any of them.
+    // The wrapper is a pass-through until Langfuse is configured AND registered.
+    g.__anthropicClient = observeAnthropic(new Anthropic({ apiKey }));
   }
   return g.__anthropicClient;
 }

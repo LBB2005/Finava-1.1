@@ -69,6 +69,15 @@ const serverSchema = z.object({
   LLM_LOG: z.string().optional(),
   LLM_ROUTING: z.string().optional(),
 
+  // LLM tracing (optional — `langfuseConfigured()` gates it; both keys required
+  // together, so a half-set pair traces nothing rather than dropping spans
+  // silently). LANGFUSE_CAPTURE_IO=off exports metadata only, keeping prompt
+  // bodies — which can carry a user's holdings — off a third party.
+  LANGFUSE_PUBLIC_KEY: z.string().optional(),
+  LANGFUSE_SECRET_KEY: z.string().optional(),
+  LANGFUSE_BASE_URL: z.string().optional(),
+  LANGFUSE_CAPTURE_IO: z.string().optional(),
+
   // Market data (optional — routes 503 when their key is missing).
   POLYGON_API_KEY: z.string().optional(),
   FINNHUB_API_KEY: z.string().optional(),

@@ -25,6 +25,13 @@ export async function register(): Promise<void> {
     // In development, surface loudly but don't block pure-frontend work.
     console.error(`[instrumentation] Environment validation failed (continuing in dev):\n${message}`);
   }
+
+  // LLM tracing. No-ops without LANGFUSE_* keys, and registers its own failures
+  // rather than throwing — a missing tracer is not a reason to refuse to boot.
+  // Deliberately after env validation so a genuinely misconfigured production
+  // server still fails on the thing that matters first.
+  const { registerTracing } = await import("@/lib/observability");
+  await registerTracing();
 }
 
 /**

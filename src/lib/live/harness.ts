@@ -13,6 +13,7 @@ import { usageStore, makeRunContext } from "@/lib/runContext";
 import { db } from "@/lib/firebase-admin";
 import { logger } from "@/lib/logger";
 import { chargeStep, BudgetExceededError } from "./budget";
+import { flushTraces } from "@/lib/observability";
 
 const log = logger("live:harness");
 
@@ -176,6 +177,12 @@ export function withHarness(
           err instanceof Error ? err.message : "Harness step failed",
           500
         );
+      } finally {
+        // A harness step is the longest-running thing this app does and the
+        // function is frozen the instant it returns, so anything still in the
+        // tracer's batch queue is lost. Flushed on the failure path too: the
+        // trace of a run that died is the one worth having.
+        await flushTraces();
       }
     });
   };
