@@ -12,9 +12,8 @@ import type { Conversation } from "@/components/layout/ConversationList";
 import type { ChatMessage, ChatMode, AgentEvent, AgentStep } from "@/types/chat";
 import type { ChatContext } from "@/lib/chatContext";
 import type { PageContext } from "@/lib/pageContext";
+import { planWaves, mergeWaveEvidence, mergeWaves } from "@/lib/discoveryRun";
 import {
-  WAVE_SIZE,
-  VALUATION_PER_WAVE,
   emptyEvidence,
   type ScoutPick,
   type DiscoverEvidence,
@@ -347,7 +346,7 @@ export default function ChatEngine() {
     try {
       let picks: ScoutPick[] = seed?.picks ?? [];
       let query = seed?.query ?? text;
-      const evidence: DiscoverEvidence = seed?.evidence ?? emptyEvidence();
+      let evidence: DiscoverEvidence = seed?.evidence ?? emptyEvidence();
 
       // Phase 1 — scout (skipped on resume).
       if (!seed) {
@@ -396,18 +395,15 @@ export default function ChatEngine() {
       }
 
       // Phase 2 — deterministic crew waves (deep only).
-      const totalWaves = Math.ceil(picks.length / WAVE_SIZE);
+      const waves = planWaves(picks);
+      const totalWaves = waves.length;
       const startWave = seed?.startWave ?? 0;
-      for (let w = startWave; w < totalWaves; w++) {
-        const wavePicks = picks.slice(w * WAVE_SIZE, (w + 1) * WAVE_SIZE);
-        const tickers = wavePicks.map((p) => p.ticker);
-        const valuationTickers = wavePicks.slice(0, VALUATION_PER_WAVE).map((p) => p.ticker);
-        const sectors = [...new Set(wavePicks.map((p) => p.sector))];
-        s().setDiscoverProgress(convId, { current: w + 1, total: totalWaves });
+      for (const waveReq of waves.slice(startWave)) {
+        s().setDiscoverProgress(convId, { current: waveReq.waveIndex + 1, total: totalWaves });
         s().clearStreamingContent(convId);
         let waveEvidence: WaveEvidence | null = null;
         await postAgentStream(
-          { wave: { tickers, sectors, waveIndex: w, totalWaves, valuationTickers } },
+          { wave: waveReq },
           (event) => {
             handleAgentEvent(event, convId, { convId, retry });
             if (event.type === "wave_result") waveEvidence = event.wave;
@@ -417,10 +413,7 @@ export default function ChatEngine() {
         );
         if (waveEvidence) {
           const we = waveEvidence as WaveEvidence;
-          evidence.waves.push(we);
-          for (const [t, byAgent] of Object.entries(we.valuation)) {
-            evidence.valuation[t] = { ...(evidence.valuation[t] ?? {}), ...byAgent };
-          }
+          evidence = mergeWaveEvidence(evidence, we);
           await pushDiscover(
             JSON.stringify({ kind: "wave", wave: we, totalWaves } as DiscoverMessageContent),
             convId
@@ -789,21 +782,19 @@ export default function ChatEngine() {
     } catch { return; }
     if (!picks.length) return;
 
-    const evidence = emptyEvidence();
+    const doneWaveEvidence: WaveEvidence[] = [];
     let doneWaves = 0;
     for (let i = shortlistIdx + 1; i < messages.length; i++) {
       if (messages[i].mode !== "discover") continue;
       try {
         const c = JSON.parse(messages[i].content) as DiscoverMessageContent;
         if (c.kind === "wave") {
-          evidence.waves.push(c.wave);
-          for (const [t, b] of Object.entries(c.wave.valuation)) {
-            evidence.valuation[t] = { ...(evidence.valuation[t] ?? {}), ...b };
-          }
+          doneWaveEvidence.push(c.wave);
           doneWaves = Math.max(doneWaves, c.wave.waveIndex + 1);
         }
       } catch { /* ignore */ }
     }
+    const evidence = mergeWaves(doneWaveEvidence);
 
     const key = `${conversationId}:${messages[shortlistIdx].id}:${doneWaves}`;
     if (resumedRef.current.has(key)) return;
