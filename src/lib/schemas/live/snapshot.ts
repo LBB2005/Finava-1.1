@@ -40,8 +40,14 @@ export const BookSnapshotSchema = z.object({
 
   highWaterMark: z.number(),
   drawdownPct: z.number(),
-  /** Set when drawdown breached the rail; blocks new entries until it clears. */
-  entriesFrozenUntil: z.string().nullable(),
+  /** True while the drawdown rail is tripped; blocks new entries. */
+  entriesFrozen: z.boolean(),
+  /**
+   * Trading days of freeze left, including today. A COUNT, not a date: the rail
+   * is served in trading days so a weekend cannot quietly discharge it, and a
+   * calendar deadline would do exactly that.
+   */
+  freezeDaysRemaining: z.number().int().min(0),
 
   positions: z.array(LivePositionSchema),
   grossExposurePct: z.number(),

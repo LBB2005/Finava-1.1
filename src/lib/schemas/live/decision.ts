@@ -110,3 +110,26 @@ export const DecisionRecordSchema = z.object({
   createdAt: z.string(),
 });
 export type DecisionRecord = z.infer<typeof DecisionRecordSchema>;
+
+/**
+ * The subset of a decision the CREW actually authors.
+ *
+ * Everything else on DecisionRecord — ids, runId, tradingDay, hashes,
+ * transcriptRef, createdAt, agentVersion — is supplied by the harness and must
+ * never be extractable from model output. Splitting them is not tidiness: if the
+ * model could emit `decisionId` or `promptHash` it could, in a bad run, hand the
+ * ledger a doc id that collides with an existing record or a hash that does not
+ * describe the prompts actually used, and the append-only guarantee would be
+ * asserting something untrue. The crew states a view; the harness states the facts.
+ */
+export const CrewDecisionSchema = DecisionRecordSchema.pick({
+  ticker: true,
+  kind: true,
+  thesis: true,
+  stated: true,
+  invalidation: true,
+  votes: true,
+  dissent: true,
+  targetWeightPct: true,
+});
+export type CrewDecision = z.infer<typeof CrewDecisionSchema>;

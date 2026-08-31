@@ -70,7 +70,8 @@ export type AgentKey =
   | "chatFollowups"
   | "screenParse" // Research · Screen lens — NL query → filter
   | "chatRouter" // Chat · Auto mode — classify intent (simple/agent/discover) + clarify gate
-  | "titleConversation"; // Sidebar — clean 3–6 word auto-title for a chat
+  | "titleConversation" // Sidebar — clean 3–6 word auto-title for a chat
+  | "structuredExtract"; // Finava Live — second pass turning a crew report into schema-valid JSON
 
 // Per-agent model when routing is ON.
 const ROUTED_MODELS: Record<AgentKey, string> = {
@@ -107,6 +108,10 @@ const ROUTED_MODELS: Record<AgentKey, string> = {
   screenParse: HAIKU,
   chatRouter: HAIKU, // fast, cheap intent router for Auto mode
   titleConversation: GEMINI_FLASH_LITE, // tiny narration job — cheapest model
+  // Reading-comprehension extraction over crew prose, same job as supplyChain.
+  // Not a cheap tier: it has to hold a closed enum vocabulary and emit exact
+  // literals, and a mangled metric name costs a whole decision.
+  structuredExtract: SONNET,
 };
 
 // Per-agent model when routing is OFF — the model each call-site used before this

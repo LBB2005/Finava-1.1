@@ -87,11 +87,16 @@ export async function chargeStep(
     const snap = await tx.get(runRef(runId));
     const prior = Number(snap.data()?.creditsSpent ?? 0);
     const spent = prior + Math.max(0, credits);
+    // Written under `stepCredits`, NOT under `steps`. runStep owns `steps` and
+    // records each step's result there; if both writers touched the same subtree
+    // this would depend on Firestore's nested-map merge semantics to avoid
+    // clobbering the `done` flag — and a step marked not-done is a step that
+    // re-runs and re-spends, which is precisely what this module exists to stop.
     tx.set(
       runRef(runId),
       {
         creditsSpent: spent,
-        steps: { [step]: { credits, at: new Date().toISOString() } },
+        stepCredits: { [step]: { credits, at: new Date().toISOString() } },
       },
       { merge: true }
     );

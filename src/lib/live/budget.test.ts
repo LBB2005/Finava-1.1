@@ -102,7 +102,7 @@ describe("chargeStep", () => {
     await chargeStep("2026-09-08", "scout", 100, 1000);
     expect(store.get("liveRuns/2026-09-08")).toMatchObject({
       creditsSpent: 100,
-      steps: { scout: { credits: 100 } },
+      stepCredits: { scout: { credits: 100 } },
     });
   });
 
