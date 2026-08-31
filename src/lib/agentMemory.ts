@@ -11,6 +11,7 @@
  */
 
 import { createHash } from "crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import * as admin from "firebase-admin";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/firebase-admin";
@@ -79,14 +80,48 @@ function normalizeInput(input: unknown): unknown {
   return input;
 }
 
+/**
+ * Optional cache namespace for the current async context.
+ *
+ * The cache is keyed on (agent, input), which is right for the common case and
+ * WRONG whenever a caller needs a genuinely cold run. The motivating case is
+ * Finava Live's blind re-underwrite: it re-analyses a held name with the prior
+ * thesis withheld, to measure whether the crew reaches the same conclusion
+ * twice. But the sub-agent inputs are identical to the original underwrite's, so
+ * without a namespace every sub-agent returns the FIRST run's output and the
+ * "cold rerun consistency" metric is really measuring a warm cache — a number
+ * that looks like a result, reads like a result, and means nothing.
+ *
+ * A namespace rather than a bypass flag, for two reasons: the scoped run still
+ * gets caching WITHIN itself (a wave re-requesting the same agent is cheap), and
+ * its results never overwrite the shared entries other users read.
+ *
+ * AsyncLocalStorage rather than a parameter because the crew is deep — the CEO
+ * dispatches sub-agents that dispatch further, and threading a flag through
+ * every signature would guarantee one path silently missed it. That path is
+ * exactly where the contamination would hide.
+ */
+const cacheScopeStore = new AsyncLocalStorage<string>();
+
+/** Run `fn` with every agentCache read/write namespaced under `scope`. */
+export function withCacheScope<T>(scope: string, fn: () => Promise<T>): Promise<T> {
+  return cacheScopeStore.run(scope, fn);
+}
+
+/** The active namespace, or null outside a scoped run. Exported for tests. */
+export function currentCacheScope(): string | null {
+  return cacheScopeStore.getStore() ?? null;
+}
+
 function buildCacheKey(agentName: string, input: unknown): string {
   const normalized = normalizeInput(input);
   const canonical = JSON.stringify(normalized);
+  const scope = currentCacheScope();
   const hash = createHash("sha256")
-    .update(agentName + ":" + canonical)
+    .update(agentName + ":" + canonical + (scope ? `:@${scope}` : ""))
     .digest("hex")
     .slice(0, 16);
-  return `${agentName}:${hash}`;
+  return scope ? `${agentName}:${scope}:${hash}` : `${agentName}:${hash}`;
 }
 
 // ── Cache read/write ──────────────────────────────────────────────────────────

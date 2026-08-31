@@ -131,6 +131,60 @@ describe("generate()", () => {
     await generate({ agent: "dcf", prompt: "x", maxTokens: 9999 });
     const body = create.mock.calls[0][0];
     expect(body.reasoning).toEqual({ max_tokens: 1500 }); // DCF_REASONING_MAX_TOKENS
-    expect(body.max_tokens).toBe(2500); // DCF_MAX_TOKENS overrides the caller's 9999
+    // 2500 content + 1500 reasoning. This assertion previously read 2500, which
+    // encoded the bug: OpenRouter counts reasoning against max_tokens, so the
+    // model could spend the whole budget thinking and return nothing at all.
+    expect(body.max_tokens).toBe(4000); // overrides the caller's 9999
+  });
+});
+
+describe("reasoning token budget", () => {
+  // Regression for a silent, expensive production failure: OpenRouter counts
+  // reasoning tokens against max_tokens, so a reasoning model given a budget it
+  // can spend entirely on thinking returns an EMPTY completion with
+  // finish_reason "length". Observed on gpt-5.5 at max_tokens 2500 / reasoning
+  // 1500: 2500 completion tokens, 0 characters of content, $0.075 a call, and
+  // then the fallback burns too. It looks like a model outage, not a config bug.
+  beforeEach(() => {
+    create.mockResolvedValue({
+      choices: [{ message: { content: "ok" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+    });
+  });
+
+  async function paramsFor(agent: string, maxTokens: number, reasoning?: number) {
+    const { generate } = await import("./llm");
+    await generate({ agent: agent as never, prompt: "x", maxTokens, reasoning });
+    return create.mock.calls.at(-1)![0];
+  }
+
+  it("leaves the dcf agent real headroom for its answer", async () => {
+    const p = await paramsFor("dcf", 500);
+    expect(p.max_tokens - p.reasoning.max_tokens).toBeGreaterThanOrEqual(1000);
+  });
+
+  it("raises max_tokens rather than shrinking the reasoning budget", async () => {
+    // Shrinking reasoning would silently degrade the analysis instead of the
+    // caller finding out the budget was wrong.
+    const p = await paramsFor("dcf", 500);
+    expect(p.reasoning.max_tokens).toBe(1500);
+  });
+
+  it("protects any agent that is given a reasoning budget, not just dcf", async () => {
+    // The failure is a property of reasoning models and token accounting, so an
+    // agent that later gains a reasoning budget must inherit the guard.
+    const p = await paramsFor("competitor", 1200, 1100);
+    expect(p.max_tokens - p.reasoning.max_tokens).toBeGreaterThanOrEqual(1000);
+  });
+
+  it("leaves a call with no reasoning budget untouched", async () => {
+    const p = await paramsFor("finavaSynthesis", 1500);
+    expect(p.max_tokens).toBe(1500);
+    expect(p.reasoning).toBeUndefined();
+  });
+
+  it("does not inflate an already-generous budget", async () => {
+    const p = await paramsFor("competitor", 9000, 1000);
+    expect(p.max_tokens).toBe(9000);
   });
 });

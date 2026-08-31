@@ -31,6 +31,8 @@ const clientSchema = z.object({
   NEXT_PUBLIC_APP_NAME: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().optional(),
   NEXT_PUBLIC_ADMIN_UIDS: z.string().optional(),
+  // Read by the client admin gate but previously undeclared here.
+  NEXT_PUBLIC_ADMIN_EMAILS: z.string().optional(),
   NEXT_PUBLIC_BETA_ADMIN_ONLY: z.string().optional(),
 });
 
@@ -45,6 +47,7 @@ const clientRaw = {
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   NEXT_PUBLIC_ADMIN_UIDS: process.env.NEXT_PUBLIC_ADMIN_UIDS,
+  NEXT_PUBLIC_ADMIN_EMAILS: process.env.NEXT_PUBLIC_ADMIN_EMAILS,
   NEXT_PUBLIC_BETA_ADMIN_ONLY: process.env.NEXT_PUBLIC_BETA_ADMIN_ONLY,
 };
 
@@ -110,6 +113,19 @@ const serverSchema = z.object({
   CRON_SECRET: z.string().optional(),
   MARKOV_INGEST_SECRET: z.string().optional(),
 
+  // Finava Live (all optional — every /api/live/* route 503s when
+  // LIVE_HARNESS_SECRET is absent, the same shape as stripeConfigured()).
+  // LIVE_HARNESS_SECRET is deliberately NOT CRON_SECRET: it lives in a public
+  // repo's Actions settings and authorizes a system that places orders, so its
+  // blast radius must not overlap the cron routes'.
+  LIVE_HARNESS_SECRET: z.string().optional(),
+  LIVE_HARNESS_UID: z.string().optional(),
+  LIVE_TRADING_ENABLED: z.string().optional(),
+  LIVE_DAILY_CREDIT_CAP: z.string().optional(),
+  LIVE_AGENT_VERSION: z.string().optional(),
+  LIVE_AGENT_COMMIT: z.string().optional(),
+  LIVE_LOG_REPO: z.string().optional(),
+
   // Local tooling paths (optional).
   MARKOV_SKILL_PATH: z.string().optional(),
   UV_PATH: z.string().optional(),
@@ -159,6 +175,13 @@ const serverRaw = {
   BETA_ADMIN_ONLY: process.env.BETA_ADMIN_ONLY,
   CRON_SECRET: process.env.CRON_SECRET,
   MARKOV_INGEST_SECRET: process.env.MARKOV_INGEST_SECRET,
+  LIVE_HARNESS_SECRET: process.env.LIVE_HARNESS_SECRET,
+  LIVE_HARNESS_UID: process.env.LIVE_HARNESS_UID,
+  LIVE_TRADING_ENABLED: process.env.LIVE_TRADING_ENABLED,
+  LIVE_DAILY_CREDIT_CAP: process.env.LIVE_DAILY_CREDIT_CAP,
+  LIVE_AGENT_VERSION: process.env.LIVE_AGENT_VERSION,
+  LIVE_AGENT_COMMIT: process.env.LIVE_AGENT_COMMIT,
+  LIVE_LOG_REPO: process.env.LIVE_LOG_REPO,
   MARKOV_SKILL_PATH: process.env.MARKOV_SKILL_PATH,
   UV_PATH: process.env.UV_PATH,
   BOT_STATUS_PATH: process.env.BOT_STATUS_PATH,

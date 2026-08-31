@@ -70,7 +70,8 @@ export type AgentKey =
   | "chatFollowups"
   | "screenParse" // Research · Screen lens — NL query → filter
   | "chatRouter" // Chat · Auto mode — classify intent (simple/agent/discover) + clarify gate
-  | "titleConversation"; // Sidebar — clean 3–6 word auto-title for a chat
+  | "titleConversation" // Sidebar — clean 3–6 word auto-title for a chat
+  | "structuredExtract"; // Finava Live — second pass turning a crew report into schema-valid JSON
 
 // Per-agent model when routing is ON.
 const ROUTED_MODELS: Record<AgentKey, string> = {
@@ -107,6 +108,10 @@ const ROUTED_MODELS: Record<AgentKey, string> = {
   screenParse: HAIKU,
   chatRouter: HAIKU, // fast, cheap intent router for Auto mode
   titleConversation: GEMINI_FLASH_LITE, // tiny narration job — cheapest model
+  // Reading-comprehension extraction over crew prose, same job as supplyChain.
+  // Not a cheap tier: it has to hold a closed enum vocabulary and emit exact
+  // literals, and a mangled metric name costs a whole decision.
+  structuredExtract: SONNET,
 };
 
 // Per-agent model when routing is OFF — the model each call-site used before this
@@ -162,8 +167,26 @@ const TIER_B_NO_THINKING = new Set<AgentKey>([
 ]);
 // DCF runs on GPT-5.5 (best math) with a bounded reasoning budget — the one
 // numeric agent we let think, since it's the valuation showcase.
-const DCF_MAX_TOKENS = 2500;
+//
+// These are the CONTENT budget and the reasoning budget SEPARATELY. They are not
+// added up here because the sum is computed in resolveCall, which is also where
+// the invariant is enforced — see MIN_CONTENT_TOKENS.
+const DCF_CONTENT_TOKENS = 2500;
 const DCF_REASONING_MAX_TOKENS = 1500;
+
+/**
+ * Headroom a reasoning model must be left for its actual answer.
+ *
+ * OpenRouter counts reasoning tokens against `max_tokens`. A reasoning model
+ * given a budget it can spend entirely on thinking will do exactly that and
+ * return an EMPTY completion with finish_reason "length" — a silent failure that
+ * looks like a model outage rather than a misconfiguration, costs full price for
+ * zero output, and then burns the fallback call too.
+ *
+ * Observed, not theorised: gpt-5.5 with max_tokens 2500 / reasoning 1500 spent
+ * all 2500 tokens reasoning and returned 0 characters, at $0.075 a call.
+ */
+const MIN_CONTENT_TOKENS = 1000;
 
 function isAnthropicModel(model: string): boolean {
   return model.startsWith("anthropic/");
@@ -249,11 +272,19 @@ function resolveCall(opts: GenerateOptions): {
       maxTokens = Math.min(maxTokens, TIER_A_MAX_TOKENS);
       reasoning = undefined; // non-reasoning narration model
     } else if (opts.agent === "dcf") {
-      maxTokens = DCF_MAX_TOKENS;
+      maxTokens = DCF_CONTENT_TOKENS + DCF_REASONING_MAX_TOKENS;
       reasoning = DCF_REASONING_MAX_TOKENS;
     } else if (TIER_B_NO_THINKING.has(opts.agent)) {
       reasoning = undefined; // judgment on GPT/Gemini, no Anthropic thinking budget
     }
+  }
+
+  // Whatever the tier logic decided, a reasoning call must still be able to
+  // answer. Applied to every agent, not just dcf: the failure is a property of
+  // reasoning models and the token accounting, so any agent that later gains a
+  // reasoning budget inherits the protection rather than rediscovering the bug.
+  if (reasoning !== undefined && maxTokens - reasoning < MIN_CONTENT_TOKENS) {
+    maxTokens = reasoning + MIN_CONTENT_TOKENS;
   }
 
   return { model, maxTokens, reasoning };

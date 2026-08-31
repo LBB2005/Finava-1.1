@@ -4,36 +4,270 @@
       "collectionGroup": "tickerMemory",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "ticker", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "ticker",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tickerMemory",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "ticker", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "ticker",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tickerMemory",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "ticker", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ticker",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tickerMemory",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "ticker", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ticker",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "liveDecisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tradingDay",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "liveDecisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ticker",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "liveDecisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "kind",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tradingDay",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "liveDecisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "agentVersion",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tradingDay",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "liveEvaluations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "decisionId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tradingDay",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "liveEvaluations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tradingDay",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "liveOrders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "runId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "liveOrders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ticker",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "liveFills",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tradingDay",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "liveOutcomes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "horizonDays",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tradingDay",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "liveOutcomes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "decisionId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "horizonDays",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "liveEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tradingDay",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "liveDecisions",
+      "fieldPath": "thesis",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "liveDecisions",
+      "fieldPath": "dissent",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "liveDecisions",
+      "fieldPath": "votes",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "liveDecisions",
+      "fieldPath": "invalidation",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "liveDecisions",
+      "fieldPath": "mandateChecks",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "liveSnapshots",
+      "fieldPath": "positions",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "transcriptChunks",
+      "fieldPath": "text",
+      "indexes": []
+    }
+  ]
 }
