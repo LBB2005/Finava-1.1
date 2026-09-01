@@ -102,7 +102,14 @@ export async function candidateFacts(
     dataGaps.push({ field: "marketCapUsd", status: "unavailable", source: "finnhub_basic_financials" });
   }
 
-  const quoteAsOf = quote.status === "fulfilled" ? quote.value.asOf : null;
+  // Only an EXCHANGE-dated quote counts as a source timestamp. When Finnhub
+  // omits `t`, getQuote falls back to the fetch time — a statement about us, not
+  // about the price — and treating that as provenance would stamp a fabricated
+  // timestamp "clean". Undated is the honest standing.
+  const quoteAsOf =
+    quote.status === "fulfilled" && quote.value.asOfSource === "exchange"
+      ? quote.value.asOf
+      : null;
   const price = gated(
     "price",
     "finnhub_quote",

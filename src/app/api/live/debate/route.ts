@@ -17,7 +17,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withHarness, runStep, easternDay } from "@/lib/live/harness";
 import { runCeoAgent } from "@/agents/ceo";
-import { withCacheScope } from "@/lib/agentMemory";
+import { withCacheScope, withRecallAsOf } from "@/lib/agentMemory";
+import { getRunAsOf } from "@/lib/live/runState";
 import { collector, renderTranscript } from "@/lib/live/collect";
 import { extractStructured } from "@/lib/live/extractDecision";
 import { buildDecisionContract } from "@/lib/live/decisionContract";
@@ -93,6 +94,12 @@ export const POST = withHarness(async (req) => {
   const runId = parsed.data.runId ?? tradingDay;
   const step = `debate_${mode}_${ticker.toUpperCase()}`;
 
+  // Memory recall is clipped to what was knowable when the run opened. Without
+  // this, tickerMemory happily injects an insight written after the decision
+  // being reconstructed — harmless live, where memory cannot come from the
+  // future, and a straight look-ahead leak the first time a day is replayed.
+  const asOf = await getRunAsOf(runId);
+
   const { result, replayed } = await runStep(runId, step, async () => {
     const { emit, collected } = collector();
     const blind = mode === "blind";
@@ -109,7 +116,9 @@ export const POST = withHarness(async (req) => {
     // A per-run namespace, so a blind rerun cannot read the original
     // underwrite's sub-agent outputs, and its own outputs never overwrite the
     // shared cache other callers read.
-    await (blind ? withCacheScope(`blind:${runId}:${ticker}`, run) : run());
+    const scoped = () =>
+      blind ? withCacheScope(`blind:${runId}:${ticker}`, run) : run();
+    await (asOf ? withRecallAsOf(asOf, scoped) : scoped());
 
     const transcript = renderTranscript(collected.events);
 

@@ -54,11 +54,36 @@ describe("Finnhub quote and simple endpoints", () => {
       open: 191,
       prevClose: 193,
       asOf: "2027-01-15T08:00:00.000Z",
+      asOfSource: "exchange",
     });
     expect(fetch).toHaveBeenCalledWith(
       "https://finnhub.io/api/v1/quote?symbol=AAPL&token=fh_key",
       expect.objectContaining({ next: { revalidate: 30 } })
     );
+  });
+
+  it("marks an undated quote as fetch-timed, not exchange-timed", async () => {
+    // Finnhub omits `t`. The fallback timestamp is a statement about when we
+    // asked, not about the price, and anything reasoning about what was knowable
+    // at a point in time must be able to tell the two apart.
+    process.env.FINNHUB_API_KEY = "fh_key";
+    const { getQuote } = await loadFinnhub();
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ c: 195, d: 2, dp: 1.04 }));
+
+    const quote = await getQuote("AAPL");
+    expect(quote.asOfSource).toBe("fetch");
+    // Still populated, because the UI reads it either way.
+    expect(quote.asOf).toBe("2026-06-15T12:00:00.000Z");
+  });
+
+  it("treats a zero exchange timestamp as undated rather than the epoch", async () => {
+    process.env.FINNHUB_API_KEY = "fh_key";
+    const { getQuote } = await loadFinnhub();
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ c: 195, t: 0 }));
+
+    const quote = await getQuote("AAPL");
+    expect(quote.asOfSource).toBe("fetch");
+    expect(quote.asOf).toBe("2026-06-15T12:00:00.000Z");
   });
 
   it("rejects zero-price quotes and drops failed snapshots from batches", async () => {
@@ -167,6 +192,195 @@ describe("Finnhub candle fallback", () => {
       l: [],
       v: [],
       t: [],
+    });
+  });
+});
+
+describe("getSnapshots", () => {
+  it("short-circuits an empty ticker list without calling out", async () => {
+    process.env.FINNHUB_API_KEY = "fh_key";
+    const { getSnapshots } = await loadFinnhub();
+    await expect(getSnapshots([])).resolves.toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("drops the tickers whose quote failed rather than surfacing $0", async () => {
+    process.env.FINNHUB_API_KEY = "fh_key";
+    const { getSnapshots } = await loadFinnhub();
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(Response.json({ c: 195, d: 2, dp: 1, h: 1, l: 1, o: 1, pc: 193, t: 1 }))
+      .mockResolvedValueOnce(new Response("nope", { status: 404 }));
+
+    const out = await getSnapshots(["AAPL", "BADD"]);
+    expect(out.map((s) => s.ticker)).toEqual(["AAPL"]);
+  });
+});
+
+describe("the ownership / peers / search endpoints", () => {
+  const url = () => vi.mocked(fetch).mock.calls.at(-1)![0];
+
+  beforeEach(() => {
+    process.env.FINNHUB_API_KEY = "fh_key";
+    // A Response body can only be read once, so build a fresh one per call.
+    vi.mocked(fetch).mockImplementation(async () => Response.json({}));
+  });
+
+  it("fetches peers on the default cache window", async () => {
+    const { getPeers } = await loadFinnhub();
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json(["MSFT", "GOOGL"]));
+    await expect(getPeers("AAPL")).resolves.toEqual(["MSFT", "GOOGL"]);
+    expect(url()).toBe("https://finnhub.io/api/v1/stock/peers?symbol=AAPL&token=fh_key");
+  });
+
+  it("caches 13F-derived ownership for 12h — it moves on a quarterly cadence", async () => {
+    const { getOwnership, getFundOwnership } = await loadFinnhub();
+    await getOwnership("AAPL");
+    expect(url()).toContain("/stock/ownership?symbol=AAPL&limit=20");
+    expect(vi.mocked(fetch).mock.calls.at(-1)![1]).toMatchObject({ next: { revalidate: 43200 } });
+
+    await getFundOwnership("AAPL");
+    expect(url()).toContain("/stock/fund-ownership?symbol=AAPL&limit=20");
+    expect(vi.mocked(fetch).mock.calls.at(-1)![1]).toMatchObject({ next: { revalidate: 43200 } });
+  });
+
+  it("url-encodes a symbol search and caches it for a day", async () => {
+    const { searchSymbol } = await loadFinnhub();
+    await searchSymbol("Taiwan Semiconductor & Co");
+    expect(url()).toContain("/search?q=Taiwan%20Semiconductor%20%26%20Co");
+    expect(vi.mocked(fetch).mock.calls.at(-1)![1]).toMatchObject({ next: { revalidate: 86400 } });
+  });
+
+  it("getMarketSnapshot quotes SPY plus the sector ETFs", async () => {
+    const { getMarketSnapshot } = await loadFinnhub();
+    vi.mocked(fetch).mockImplementation(async () =>
+      Response.json({ c: 100, d: 0, dp: 0, h: 1, l: 1, o: 1, pc: 100, t: 1 }),
+    );
+    await expect(getMarketSnapshot()).resolves.toHaveLength(10);
+  });
+});
+
+describe("getPeerMetrics", () => {
+  beforeEach(() => {
+    process.env.FINNHUB_API_KEY = "fh_key";
+  });
+
+  /** Reply to /peers with `peers`, then to each /metric call in order. */
+  function scriptPeers(peers: string[], metrics: (Record<string, number> | null)[]) {
+    const f = vi.mocked(fetch);
+    f.mockResolvedValueOnce(Response.json(peers));
+    for (const m of metrics) {
+      f.mockResolvedValueOnce(
+        m === null ? new Response("nope", { status: 403 }) : Response.json({ metric: m }),
+      );
+    }
+  }
+
+  it("takes the median peer P/E and P/S", async () => {
+    const { getPeerMetrics } = await loadFinnhub();
+    scriptPeers(["MSFT", "GOOGL", "AMZN"], [
+      { peTTM: 20, psTTM: 4 },
+      { peTTM: 30, psTTM: 6 },
+      { peTTM: 40, psTTM: 8 },
+    ]);
+    await expect(getPeerMetrics("AAPL")).resolves.toEqual({ peerPe: 30, peerPs: 6 });
+  });
+
+  it("averages the middle pair for an even peer count", async () => {
+    const { getPeerMetrics } = await loadFinnhub();
+    scriptPeers(["MSFT", "GOOGL"], [
+      { peTTM: 20, psTTM: 4 },
+      { peTTM: 30, psTTM: 6 },
+    ]);
+    await expect(getPeerMetrics("AAPL")).resolves.toEqual({ peerPe: 25, peerPs: 5 });
+  });
+
+  it("excludes the subject and caps the peer set at eight", async () => {
+    const { getPeerMetrics } = await loadFinnhub();
+    const peers = ["AAPL", ...Array.from({ length: 12 }, (_, i) => `P${i}`)];
+    scriptPeers(peers, Array.from({ length: 12 }, () => ({ peTTM: 10, psTTM: 2 })));
+    await getPeerMetrics("AAPL");
+    // 1 peers call + 8 metric calls.
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(9);
+    expect(vi.mocked(fetch).mock.calls.slice(1).map((c) => String(c[0]))).not.toContain(
+      expect.stringContaining("symbol=AAPL"),
+    );
+  });
+
+  it("ignores a peer whose metrics failed", async () => {
+    const { getPeerMetrics } = await loadFinnhub();
+    scriptPeers(["MSFT", "GOOGL"], [null, { peTTM: 30, psTTM: 6 }]);
+    await expect(getPeerMetrics("AAPL")).resolves.toEqual({ peerPe: 30, peerPs: 6 });
+  });
+
+  it("ignores non-positive and missing metric values", async () => {
+    const { getPeerMetrics } = await loadFinnhub();
+    scriptPeers(["MSFT", "GOOGL"], [{ peTTM: -5 }, { peTTM: 30, psTTM: 6 }]);
+    await expect(getPeerMetrics("AAPL")).resolves.toEqual({ peerPe: 30, peerPs: 6 });
+  });
+
+  it("returns nulls when every peer metric is unusable", async () => {
+    const { getPeerMetrics } = await loadFinnhub();
+    scriptPeers(["MSFT"], [null]);
+    await expect(getPeerMetrics("AAPL")).resolves.toEqual({ peerPe: null, peerPs: null });
+  });
+
+  it("returns nulls when the peers lookup fails", async () => {
+    const { getPeerMetrics } = await loadFinnhub();
+    vi.mocked(fetch).mockResolvedValueOnce(new Response("nope", { status: 403 }));
+    await expect(getPeerMetrics("AAPL")).resolves.toEqual({ peerPe: null, peerPs: null });
+  });
+
+  it("returns nulls when the ticker has no peers", async () => {
+    const { getPeerMetrics } = await loadFinnhub();
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([]));
+    await expect(getPeerMetrics("AAPL")).resolves.toEqual({ peerPe: null, peerPs: null });
+  });
+
+  it("tolerates a non-array peers payload", async () => {
+    const { getPeerMetrics } = await loadFinnhub();
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ error: "premium" }));
+    await expect(getPeerMetrics("AAPL")).resolves.toEqual({ peerPe: null, peerPs: null });
+  });
+});
+
+describe("the Polygon candle fallback", () => {
+  beforeEach(() => {
+    process.env.POLYGON_API_KEY = "poly_key";
+    // No Finnhub key and no Alpaca → straight to Polygon.
+    delete process.env.FINNHUB_API_KEY;
+    deps.hasAlpacaData.mockReturnValue(false);
+  });
+
+  it("maps W and M resolutions onto Polygon timespans", async () => {
+    const { getCandles } = await loadFinnhub();
+    deps.getAggregates.mockResolvedValue({ results: [] });
+
+    await getCandles("AAPL", "W", 0, 86_400);
+    expect(deps.getAggregates).toHaveBeenLastCalledWith("AAPL", 1, "week", expect.any(String), expect.any(String));
+
+    await getCandles("AAPL", "M", 0, 86_400);
+    expect(deps.getAggregates).toHaveBeenLastCalledWith("AAPL", 1, "month", expect.any(String), expect.any(String));
+  });
+
+  it("maps a numeric resolution onto minute bars", async () => {
+    const { getCandles } = await loadFinnhub();
+    deps.getAggregates.mockResolvedValue({ results: [] });
+    await getCandles("AAPL", "15", 0, 86_400);
+    expect(deps.getAggregates).toHaveBeenLastCalledWith("AAPL", 15, "minute", expect.any(String), expect.any(String));
+  });
+
+  it("falls back to daily bars for an unparseable resolution", async () => {
+    const { getCandles } = await loadFinnhub();
+    deps.getAggregates.mockResolvedValue({ results: [] });
+    await getCandles("AAPL", "weekly-ish", 0, 86_400);
+    expect(deps.getAggregates).toHaveBeenLastCalledWith("AAPL", 1, "day", expect.any(String), expect.any(String));
+  });
+
+  it("reports no_data when Polygon returns no bars", async () => {
+    const { getCandles } = await loadFinnhub();
+    deps.getAggregates.mockResolvedValue({});
+    await expect(getCandles("AAPL", "D", 0, 86_400)).resolves.toEqual({
+      s: "no_data", c: [], o: [], h: [], l: [], v: [], t: [],
     });
   });
 });

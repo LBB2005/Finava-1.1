@@ -14,7 +14,7 @@ function bundle(overrides: Partial<StockBundle> = {}): StockBundle {
   return {
     ticker: "AAPL",
     profile: { name: "Apple Inc.", exchange: "NASDAQ", industry: "Technology", logo: null, weburl: null, marketCap: 3_400_000, currency: "USD" },
-    quote: { ticker: "AAPL", price: 228.5, change: 2.7, changePct: 1.2, volume: 1, high: 1, low: 1, open: 1, prevClose: 1, asOf: "2026-07-11T20:00:00Z" },
+    quote: { ticker: "AAPL", price: 228.5, change: 2.7, changePct: 1.2, volume: 1, high: 1, low: 1, open: 1, prevClose: 1, asOf: "2026-07-11T20:00:00Z", asOfSource: "exchange" },
     keyStats: { marketCap: 3_400_000, peTTM: 34.1, high52: 237, low52: 164, beta: 1.2, dividendYield: 0.45, epsTTM: 6.7 },
     candles: null,
     candleRange: "1Y",

@@ -38,3 +38,16 @@ export async function getRunState(
     creditsSpent: Number(data.creditsSpent ?? 0),
   };
 }
+
+/**
+ * The as-of instant this run was opened with.
+ *
+ * Null when session_open has not run or predates as-of stamping. Callers decide
+ * what that means: `decide` refuses, because a decision must be able to say what
+ * it was entitled to know; `debate` proceeds unclipped, because a crew that
+ * recalls too much is a weaker result, not a corrupted ledger entry.
+ */
+export async function getRunAsOf(runId: string): Promise<string | null> {
+  const open = await getStepResult<{ asOf?: string }>(runId, "session_open");
+  return open?.asOf ?? null;
+}

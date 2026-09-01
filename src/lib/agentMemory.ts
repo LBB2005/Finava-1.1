@@ -113,6 +113,29 @@ export function currentCacheScope(): string | null {
   return cacheScopeStore.getStore() ?? null;
 }
 
+/**
+ * The as-of instant recall must not see past.
+ *
+ * Ambient for the same reason the cache scope is: recall happens deep inside the
+ * CEO's sub-agent fan-out, and threading a cutoff through every signature would
+ * guarantee one path silently missed it — which is precisely where the
+ * contamination would hide.
+ *
+ * Empty outside a scoped run, which is the normal case: a chat session has no
+ * as-of and recalls everything, because there is no future to leak from.
+ */
+const recallAsOfStore = new AsyncLocalStorage<string>();
+
+/** Run `fn` with memory recall clipped to insights known at `asOf`. */
+export function withRecallAsOf<T>(asOf: string, fn: () => Promise<T>): Promise<T> {
+  return recallAsOfStore.run(asOf, fn);
+}
+
+/** The active recall cutoff, or null when recall is unrestricted. */
+export function currentRecallAsOf(): string | null {
+  return recallAsOfStore.getStore() ?? null;
+}
+
 function buildCacheKey(agentName: string, input: unknown): string {
   const normalized = normalizeInput(input);
   const canonical = JSON.stringify(normalized);
@@ -218,6 +241,32 @@ export function extractTickers(text: string): string[] {
  * leak one user's holdings-derived insights into another's prompt and open a
  * persistent cross-user prompt-injection path.
  */
+/**
+ * A row's creation instant in ms, or Infinity when it cannot be established.
+ *
+ * Deliberately NOT `toDate`, which defaults anything unrecognised to epoch 0.
+ * That default is fine for rendering a date and exactly backwards for a cutoff:
+ * an unreadable timestamp would become maximally OLD and pass every filter. Here
+ * an undatable row is treated as future and withheld — recall losing a row beats
+ * a decision citing one it could not have known.
+ */
+function rowCreatedMs(row: Record<string, unknown>): number {
+  const raw = row.createdAt;
+  let ms = Number.NaN;
+  if (typeof raw === "string") {
+    ms = Date.parse(raw);
+  } else if (raw instanceof Date) {
+    ms = raw.getTime();
+  } else if (typeof (raw as { toDate?: () => Date })?.toDate === "function") {
+    try {
+      ms = (raw as { toDate: () => Date }).toDate().getTime();
+    } catch {
+      ms = Number.NaN;
+    }
+  }
+  return Number.isFinite(ms) ? ms : Number.POSITIVE_INFINITY;
+}
+
 export async function getTickerMemory(userId: string, tickers: string[]): Promise<string> {
   if (!userId || !tickers.length) return "";
   try {
@@ -242,10 +291,20 @@ export async function getTickerMemory(userId: string, tickers: string[]): Promis
     );
 
     // Group newest-first per ticker, capping each at MAX_INSIGHTS_PER_TICKER.
+    //
+    // The as-of cutoff is applied HERE rather than as a Firestore inequality:
+    // combining `ticker in [...]` with a range on createdAt needs its own
+    // composite index, and this collection is already one index short. Filtering
+    // in memory can under-fill a ticker whose newest rows all post-date the
+    // cutoff, which is the safe direction to fail — recall returns less than it
+    // could, never more than it should.
+    const cutoff = currentRecallAsOf();
+    const cutoffMs = cutoff ? Date.parse(cutoff) : NaN;
     const byTicker = new Map<string, Record<string, unknown>[]>();
     for (const snap of snaps) {
       for (const doc of snap.docs) {
         const row = doc.data();
+        if (!Number.isNaN(cutoffMs) && rowCreatedMs(row) > cutoffMs) continue;
         const key = String(row.ticker);
         const arr = byTicker.get(key) ?? [];
         if (arr.length < MAX_INSIGHTS_PER_TICKER) {

@@ -110,6 +110,8 @@ import {
   checkCache,
   extractTickers,
   getTickerMemory,
+  withRecallAsOf,
+  currentRecallAsOf,
   saveCache,
   saveTickerMemory,
 } from "./agentMemory";
@@ -204,6 +206,73 @@ describe("ticker memory", () => {
       "[MSFT · 2026-06-12] MSFT margins remain resilient."
     );
     await expect(getTickerMemory("u1", [])).resolves.toBe("");
+  });
+
+  it("withholds insights written after the recall cutoff", async () => {
+    // The look-ahead case: replaying 2026-06-11 must not surface an insight
+    // written on the 12th, however true it turned out to be.
+    deps.memoryDocs = [
+      {
+        userId: "u1",
+        ticker: "AAPL",
+        insight: "Known before the decision.",
+        createdAt: "2026-06-10T00:00:00.000Z",
+      },
+      {
+        userId: "u1",
+        ticker: "AAPL",
+        insight: "Written the day after.",
+        createdAt: "2026-06-12T00:00:00.000Z",
+      },
+    ];
+
+    const recalled = await withRecallAsOf("2026-06-11T00:00:00.000Z", () =>
+      getTickerMemory("u1", ["AAPL"])
+    );
+    expect(recalled).toContain("Known before the decision.");
+    expect(recalled).not.toContain("Written the day after.");
+  });
+
+  it("keeps an insight written exactly at the cutoff", async () => {
+    deps.memoryDocs = [
+      {
+        userId: "u1",
+        ticker: "AAPL",
+        insight: "Right on the boundary.",
+        createdAt: "2026-06-11T00:00:00.000Z",
+      },
+    ];
+    const recalled = await withRecallAsOf("2026-06-11T00:00:00.000Z", () =>
+      getTickerMemory("u1", ["AAPL"])
+    );
+    expect(recalled).toContain("Right on the boundary.");
+  });
+
+  it("recalls everything outside a scoped run — a chat has no future to leak from", async () => {
+    deps.memoryDocs = [
+      {
+        userId: "u1",
+        ticker: "AAPL",
+        insight: "Written the day after.",
+        createdAt: "2026-06-12T00:00:00.000Z",
+      },
+    ];
+    expect(currentRecallAsOf()).toBeNull();
+    await expect(getTickerMemory("u1", ["AAPL"])).resolves.toContain(
+      "Written the day after."
+    );
+  });
+
+  it("withholds a row whose createdAt cannot be read at all", async () => {
+    // An undatable row cannot be shown to predate the cutoff. Losing a row beats
+    // a decision citing one it could not have known.
+    deps.memoryDocs = [
+      { userId: "u1", ticker: "AAPL", insight: "Undatable.", createdAt: 12345 },
+    ];
+    const recalled = await withRecallAsOf("2026-06-11T00:00:00.000Z", () =>
+      getTickerMemory("u1", ["AAPL"])
+    );
+    expect(recalled).toBe("");
   });
 
   it("saves parsed insights in one batch and prunes the oldest beyond the cap", async () => {

@@ -33,6 +33,19 @@ export interface TickerSnapshot {
   // show how fresh the price is rather than implying it's real-time. Quotes are
   // cached up to 30s (revalidate), so "now" would overstate freshness.
   asOf: string;
+  /**
+   * Where `asOf` came from.
+   *
+   * "exchange" — Finnhub dated the quote and `asOf` is that instant.
+   * "fetch"    — Finnhub did not, and `asOf` is when we asked, which is a
+   *              statement about us and not about the price.
+   *
+   * The distinction exists because the fallback is indistinguishable from a
+   * genuinely current quote once it is a bare string, and anything reasoning
+   * about what was knowable at a point in time (see live/asOf.ts) would read a
+   * fabricated timestamp as verified. Display can keep using `asOf` either way.
+   */
+  asOfSource: "exchange" | "fetch";
 }
 
 // Real-time quote for a single ticker.
@@ -45,6 +58,7 @@ export async function getQuote(ticker: string): Promise<TickerSnapshot> {
   if (typeof price !== "number" || price <= 0) {
     throw new Error(`No quote available for ${ticker}`);
   }
+  const dated = typeof d.t === "number" && d.t > 0;
   return {
     ticker,
     price,
@@ -55,9 +69,8 @@ export async function getQuote(ticker: string): Promise<TickerSnapshot> {
     low: d.l ?? 0,
     open: d.o ?? 0,
     prevClose: d.pc ?? 0,
-    asOf: typeof d.t === "number" && d.t > 0
-      ? new Date(d.t * 1000).toISOString()
-      : new Date().toISOString(),
+    asOf: dated ? new Date(d.t * 1000).toISOString() : new Date().toISOString(),
+    asOfSource: dated ? "exchange" : "fetch",
   };
 }
 

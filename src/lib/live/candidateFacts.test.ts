@@ -13,7 +13,9 @@ vi.mock("@/lib/factorUniverse", () => ({ getFactorUniverse }));
 import { candidateFacts } from "./candidateFacts";
 
 beforeEach(() => {
-  getQuote.mockReset().mockResolvedValue({ ticker: "NVDA", price: 100 });
+  getQuote
+    .mockReset()
+    .mockResolvedValue({ ticker: "NVDA", price: 100, asOfSource: "fetch" });
   getBasicFinancials
     .mockReset()
     .mockResolvedValue({
@@ -175,6 +177,7 @@ describe("as-of stamping", () => {
       ticker: "NVDA",
       price: 100,
       asOf: "2026-09-09T20:00:00.000Z",
+      asOfSource: "exchange",
     });
 
     const f = await candidateFacts("NVDA", AS_OF);
@@ -195,6 +198,7 @@ describe("as-of stamping", () => {
       ticker: "NVDA",
       price: 100,
       asOf: "2026-09-08T13:00:00.000Z",
+      asOfSource: "exchange",
     });
 
     const f = await candidateFacts("NVDA", AS_OF);
@@ -232,5 +236,23 @@ describe("as-of stamping", () => {
     for (const stamp of f.evidence) {
       expect(Number.isNaN(Date.parse(stamp.observedAt))).toBe(false);
     }
+  });
+
+  it("will not treat a fetch-timed quote as provenance", async () => {
+    // getQuote fabricates asOf when Finnhub omits `t`. Trusting it would stamp a
+    // timestamp that describes our request as though it described the price.
+    getQuote.mockResolvedValue({
+      ticker: "NVDA",
+      price: 100,
+      asOf: "2026-09-08T13:14:00.000Z",
+      asOfSource: "fetch",
+    });
+
+    const f = await candidateFacts("NVDA", AS_OF);
+    const price = f.evidence.find((e) => e.field === "price");
+    expect(price?.standing).toBe("undated");
+    expect(price?.sourceAsOf).toBeNull();
+    // Undated still reaches the crew — only post-as-of is withheld.
+    expect(f.avgDollarVolumeUsd).toBe(50 * 1e6 * 100);
   });
 });
