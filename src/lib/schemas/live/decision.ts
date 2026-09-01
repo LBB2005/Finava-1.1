@@ -10,7 +10,14 @@
 import { z } from "zod";
 import { InvalidationConditionSchema } from "./invalidation";
 
-export const DECISION_SCHEMA_VERSION = 1;
+/**
+ * 2 — added `asOf` and `evidence`. A v1 record states what the crew concluded;
+ * a v2 record also states the information set it was entitled to see, which is
+ * what makes "the model already knew the answer" a checkable claim rather than
+ * an accusation. The bump is deliberate: a reader must be able to tell a record
+ * that was never stamped from one whose evidence happened to be empty.
+ */
+export const DECISION_SCHEMA_VERSION = 2;
 
 /** Horizons are a closed set — an unscored horizon can never mature. */
 export const DecisionHorizonSchema = z.union([
@@ -64,9 +71,24 @@ export type DecisionKind = z.infer<typeof DecisionKindSchema>;
 /** A metric the crew wanted but could not get, and why. Never silently dropped. */
 export const DataGapSchema = z.object({
   field: z.string().max(60),
-  /** "unavailable" = the source has no such value; "failed" = transport blip. */
-  status: z.enum(["unavailable", "failed"]),
+  /**
+   * "unavailable" = the source has no such value; "failed" = transport blip;
+   * "excluded_post_asof" = we HAD the value and withheld it, because the source
+   * dates it after the run's as-of. The third is not a failure — it is the rail
+   * working, and it must not read in the log as data we could not obtain.
+   */
+  status: z.enum(["unavailable", "failed", "excluded_post_asof"]),
   source: z.string().max(60),
+});
+
+/** When a fact was read, and when its source says it is from. */
+export const FactStampSchema = z.object({
+  field: z.string().max(60),
+  source: z.string().max(60),
+  observedAt: z.string(),
+  /** Null when the provider will not date its payload. */
+  sourceAsOf: z.string().nullable(),
+  standing: z.enum(["clean", "undated", "post_asof"]),
 });
 
 export const DecisionRecordSchema = z.object({
@@ -101,6 +123,16 @@ export const DecisionRecordSchema = z.object({
     })
   ),
   dataGaps: z.array(DataGapSchema).default([]),
+
+  /**
+   * The instant the crew was entitled to know things as of, minted once at
+   * session open. Distinct from `createdAt`, which is when the record was
+   * written: the gap between them is how long the run took, and conflating the
+   * two is what makes look-ahead invisible.
+   */
+  asOf: z.string(),
+  /** Per-fact provenance behind this decision. */
+  evidence: z.array(FactStampSchema).default([]),
 
   /** Dated agent/prompt version, so performance segments by version. */
   agentVersion: z.string().min(1).max(30),

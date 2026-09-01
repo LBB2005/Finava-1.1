@@ -66,6 +66,23 @@ export const POST = withHarness(async (req) => {
   }
   const { snapshot } = reconcile.result;
 
+  // The as-of minted at session open. Read rather than re-derived: a fresh
+  // Date() here would date the evidence to whenever `decide` happened to run,
+  // which is exactly the conflation `asOf` exists to prevent. A run whose
+  // session_open predates this field has no as-of to stand on, and a decision
+  // that cannot say what it was entitled to know is not one we should record.
+  const sessionOpen = state.steps.session_open as
+    | { done?: boolean; result?: { asOf?: string } }
+    | undefined;
+  const asOf = sessionOpen?.result?.asOf;
+  if (!asOf) {
+    return apiError(
+      "out_of_order",
+      "This run has no as-of instant — re-open the session before deciding",
+      409
+    );
+  }
+
   const debates = Object.entries(state.steps)
     .filter(([name]) => name.startsWith("debate_"))
     .map(([, v]) => (v as { result?: DebateStep }).result)
@@ -95,7 +112,7 @@ export const POST = withHarness(async (req) => {
       }
 
       const crew = debate.decision;
-      const facts: CandidateFactsWithGaps = await candidateFacts(crew.ticker);
+      const facts: CandidateFactsWithGaps = await candidateFacts(crew.ticker, asOf);
       const held = snapshot.positions.find((p) => p.ticker === crew.ticker);
 
       let verdict;
@@ -133,6 +150,8 @@ export const POST = withHarness(async (req) => {
         targetWeightPct: weight,
         mandateChecks: verdict.checks,
         dataGaps: facts.dataGaps,
+        asOf,
+        evidence: facts.evidence,
         agentVersion: version,
         promptHash: hash,
         transcriptRef: `liveTranscripts/${runId}-${crew.ticker}-${debate.mode}`,

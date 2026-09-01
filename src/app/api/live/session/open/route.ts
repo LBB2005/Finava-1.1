@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 import { withHarness, runStep, easternDay } from "@/lib/live/harness";
 import { readBudget } from "@/lib/live/budget";
+import { establishAsOf } from "@/lib/live/asOf";
 import { getCalendar, isTradingDay, alpacaTradingConfigured } from "@/lib/alpacaTrading";
 import { getFactorUniverse } from "@/lib/factorUniverse";
 import { apiError } from "@/lib/apiError";
@@ -46,10 +47,16 @@ export const POST = withHarness(async () => {
   }
 
   const { result, replayed } = await runStep(runId, "session_open", async () => {
+    // The run's as-of instant, minted once here and read by every later step.
+    // It lives in the step result rather than a fresh Date() per step because
+    // runStep persists results: a replayed workflow returns THIS instant instead
+    // of minting a later one, so the decision stays reproducible against the
+    // information set that produced it.
+    const asOf = establishAsOf();
     const calendar = await getCalendar(tradingDay, tradingDay);
     if (!isTradingDay(calendar, tradingDay)) {
       log.info("not a trading day", { tradingDay });
-      return { runId, tradingDay, skip: true, reason: "not a trading session", universeSize: 0 };
+      return { runId, tradingDay, asOf, skip: true, reason: "not a trading session", universeSize: 0 };
     }
 
     // Warm the shared factor memo. A failure here is not fatal — the scout can
@@ -67,6 +74,7 @@ export const POST = withHarness(async () => {
     return {
       runId,
       tradingDay,
+      asOf,
       skip: false,
       sessionOpen: calendar[0]?.open ?? null,
       sessionClose: calendar[0]?.close ?? null,

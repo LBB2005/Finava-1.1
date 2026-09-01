@@ -55,10 +55,12 @@ import type { DecisionRecord } from "@/lib/schemas/live/decision";
 
 function decision(over: Partial<DecisionRecord> = {}): DecisionRecord {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     decisionId: decisionId("2026-09-08", "NVDA", "entry"),
     runId: "2026-09-08",
     tradingDay: "2026-09-08",
+    asOf: "2026-09-08T13:15:00.000Z",
+    evidence: [],
     ticker: "NVDA",
     kind: "entry",
     blindReunderwrite: false,

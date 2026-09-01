@@ -11,19 +11,61 @@ import { getQuote, getBasicFinancials, getEarningsCalendar } from "@/lib/finnhub
 import { getFactorUniverse } from "@/lib/factorUniverse";
 import { logger } from "@/lib/logger";
 import type { CandidateFacts } from "./mandate";
+import { stampFact, shouldWithhold, type FactStamp } from "./asOf";
 
 const log = logger("live:facts");
 
 export interface CandidateFactsWithGaps extends CandidateFacts {
-  dataGaps: { field: string; status: "unavailable" | "failed"; source: string }[];
+  dataGaps: { field: string; status: "unavailable" | "failed" | "excluded_post_asof"; source: string }[];
+  /** When each fact was read, and when its source says it is from. */
+  evidence: FactStamp[];
 }
 
 /** ETFs the mandate excludes outright. Leveraged/inverse names are not the book's game. */
 const LEVERAGED_INVERSE = /^(TQQQ|SQQQ|SPXL|SPXS|UPRO|SDOW|UDOW|TNA|TZA|SOXL|SOXS|LABU|LABD|YINN|YANG|NUGT|DUST|BOIL|KOLD|UVXY|SVXY|VIXY)$/i;
 
-export async function candidateFacts(ticker: string): Promise<CandidateFactsWithGaps> {
+/**
+ * @param asOf The run's as-of instant. Every fact is stamped against it, and a
+ *   value the provider dates AFTER it is withheld — the crew cannot be tested on
+ *   an information set that includes the future. Facts the provider will not date
+ *   are still shown, and recorded as undated, because refusing them would empty
+ *   the bundle for most providers and turn a measurable weakness into a silent one.
+ */
+export async function candidateFacts(
+  ticker: string,
+  asOf: string
+): Promise<CandidateFactsWithGaps> {
   const symbol = ticker.toUpperCase();
   const dataGaps: CandidateFactsWithGaps["dataGaps"] = [];
+  const evidence: FactStamp[] = [];
+
+  /**
+   * Stamp a value and decide whether the crew may see it.
+   *
+   * Returns null for anything the provider dates after the run's as-of, and
+   * records the exclusion as a gap so the withheld fact is visible in the ledger
+   * rather than looking like a value we never had.
+   */
+  function gated<T>(
+    field: string,
+    source: string,
+    sourceAsOf: string | null | undefined,
+    value: T | null
+  ): T | null {
+    const stamp = stampFact({ field, source, sourceAsOf, asOf });
+    evidence.push(stamp);
+    if (value !== null && shouldWithhold(stamp)) {
+      dataGaps.push({ field, status: "excluded_post_asof", source });
+      log.warn("fact withheld: source post-dates the run as-of", {
+        symbol,
+        field,
+        sourceAsOf: stamp.sourceAsOf,
+        asOf,
+      });
+      return null;
+    }
+    return value;
+  }
 
   const [financials, quote, earnings, universe] = await Promise.allSettled([
     getBasicFinancials(symbol),
@@ -49,6 +91,10 @@ export async function candidateFacts(ticker: string): Promise<CandidateFactsWith
       : null) ?? null;
   gap("marketCapUsd", "finnhub_basic_financials", financials);
 
+  // Finnhub's basic-financials payload carries no publication timestamp, so
+  // every field derived from it is undated: we know when we read it, never when
+  // it was published or last revised. That is precisely the surface a revision
+  // sneaks through, and the stamp is what makes it countable.
   const marketCapUsd = numOrNull(fin?.marketCapitalization);
   // Finnhub reports market cap in millions.
   const marketCap = marketCapUsd === null ? null : marketCapUsd * 1e6;
@@ -56,8 +102,14 @@ export async function candidateFacts(ticker: string): Promise<CandidateFactsWith
     dataGaps.push({ field: "marketCapUsd", status: "unavailable", source: "finnhub_basic_financials" });
   }
 
-  const price = quote.status === "fulfilled" ? numOrNull(quote.value.price) : null;
-  gap("price", "alpaca_snapshot", quote);
+  const quoteAsOf = quote.status === "fulfilled" ? quote.value.asOf : null;
+  const price = gated(
+    "price",
+    "finnhub_quote",
+    quoteAsOf,
+    quote.status === "fulfilled" ? numOrNull(quote.value.price) : null
+  );
+  gap("price", "finnhub_quote", quote);
 
   // Finnhub's key is "10DayAverageTradingVolume", reported in MILLIONS of
   // shares — not "avgVolume10Day", which does not exist and silently returned
@@ -93,6 +145,16 @@ export async function candidateFacts(ticker: string): Promise<CandidateFactsWith
     });
   }
 
+  for (const [field, source] of [
+    ["marketCapUsd", "finnhub_basic_financials"],
+    ["avgDollarVolumeUsd", "finnhub_basic_financials"],
+    ["shortInterestPct", "finnhub_basic_financials"],
+    ["daysToNextEarnings", "finnhub_earnings_calendar"],
+    ["sector", "factor_universe"],
+  ] as const) {
+    evidence.push(stampFact({ field, source, sourceAsOf: null, asOf }));
+  }
+
   return {
     ticker: symbol,
     side: "long",
@@ -114,6 +176,7 @@ export async function candidateFacts(ticker: string): Promise<CandidateFactsWith
     isLeveragedOrInverseEtf: LEVERAGED_INVERSE.test(symbol),
     isOption: symbol.length > 6,
     dataGaps,
+    evidence,
   };
 }
 
