@@ -17,7 +17,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withHarness, runStep, easternDay } from "@/lib/live/harness";
 import { runCeoAgent } from "@/agents/ceo";
-import { withCacheScope, withRecallAsOf } from "@/lib/agentMemory";
+import { withCacheScope } from "@/lib/agentMemory";
+import { withAsOfScope } from "@/lib/asOfScope";
 import { getRunAsOf } from "@/lib/live/runState";
 import { collector, renderTranscript } from "@/lib/live/collect";
 import { extractStructured } from "@/lib/live/extractDecision";
@@ -94,10 +95,11 @@ export const POST = withHarness(async (req) => {
   const runId = parsed.data.runId ?? tradingDay;
   const step = `debate_${mode}_${ticker.toUpperCase()}`;
 
-  // Memory recall is clipped to what was knowable when the run opened. Without
-  // this, tickerMemory happily injects an insight written after the decision
-  // being reconstructed — harmless live, where memory cannot come from the
-  // future, and a straight look-ahead leak the first time a day is replayed.
+  // Everything the crew can see is clipped to what was knowable when the run
+  // opened: memory recall AND live web search. Without it, tickerMemory injects
+  // insights written after the decision being reconstructed and Perplexity reads
+  // today's web — harmless live, where neither can come from the future, and a
+  // straight look-ahead leak the first time a day is replayed.
   const asOf = await getRunAsOf(runId);
 
   const { result, replayed } = await runStep(runId, step, async () => {
@@ -118,7 +120,7 @@ export const POST = withHarness(async (req) => {
     // shared cache other callers read.
     const scoped = () =>
       blind ? withCacheScope(`blind:${runId}:${ticker}`, run) : run();
-    await (asOf ? withRecallAsOf(asOf, scoped) : scoped());
+    await (asOf ? withAsOfScope(asOf, scoped) : scoped());
 
     const transcript = renderTranscript(collected.events);
 

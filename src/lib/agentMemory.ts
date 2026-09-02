@@ -15,6 +15,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import * as admin from "firebase-admin";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/firebase-admin";
+import { currentAsOf } from "@/lib/asOfScope";
 
 const { Timestamp } = admin.firestore;
 
@@ -111,29 +112,6 @@ export function withCacheScope<T>(scope: string, fn: () => Promise<T>): Promise<
 /** The active namespace, or null outside a scoped run. Exported for tests. */
 export function currentCacheScope(): string | null {
   return cacheScopeStore.getStore() ?? null;
-}
-
-/**
- * The as-of instant recall must not see past.
- *
- * Ambient for the same reason the cache scope is: recall happens deep inside the
- * CEO's sub-agent fan-out, and threading a cutoff through every signature would
- * guarantee one path silently missed it — which is precisely where the
- * contamination would hide.
- *
- * Empty outside a scoped run, which is the normal case: a chat session has no
- * as-of and recalls everything, because there is no future to leak from.
- */
-const recallAsOfStore = new AsyncLocalStorage<string>();
-
-/** Run `fn` with memory recall clipped to insights known at `asOf`. */
-export function withRecallAsOf<T>(asOf: string, fn: () => Promise<T>): Promise<T> {
-  return recallAsOfStore.run(asOf, fn);
-}
-
-/** The active recall cutoff, or null when recall is unrestricted. */
-export function currentRecallAsOf(): string | null {
-  return recallAsOfStore.getStore() ?? null;
 }
 
 function buildCacheKey(agentName: string, input: unknown): string {
@@ -298,7 +276,7 @@ export async function getTickerMemory(userId: string, tickers: string[]): Promis
     // in memory can under-fill a ticker whose newest rows all post-date the
     // cutoff, which is the safe direction to fail — recall returns less than it
     // could, never more than it should.
-    const cutoff = currentRecallAsOf();
+    const cutoff = currentAsOf();
     const cutoffMs = cutoff ? Date.parse(cutoff) : NaN;
     const byTicker = new Map<string, Record<string, unknown>[]>();
     for (const snap of snaps) {

@@ -6,6 +6,7 @@
  */
 
 import { getSkillsPrompt } from "@/agents/skills";
+import { perplexityAsOfFilters } from "@/lib/asOfScope";
 
 const PERPLEXITY_API = "https://api.perplexity.ai/chat/completions";
 
@@ -72,6 +73,8 @@ NOTABLE QUOTES/POSTS:
           { role: "user", content: userPrompt },
         ],
         max_tokens: 1200,
+        // Clipped to the run's as-of when one is scoped; unrestricted otherwise.
+        ...perplexityAsOfFilters(),
         temperature: 0.2,
         search_recency_filter: "week",
         return_citations: true,

@@ -110,11 +110,10 @@ import {
   checkCache,
   extractTickers,
   getTickerMemory,
-  withRecallAsOf,
-  currentRecallAsOf,
   saveCache,
   saveTickerMemory,
 } from "./agentMemory";
+import { withAsOfScope, currentAsOf } from "./asOfScope";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -226,7 +225,7 @@ describe("ticker memory", () => {
       },
     ];
 
-    const recalled = await withRecallAsOf("2026-06-11T00:00:00.000Z", () =>
+    const recalled = await withAsOfScope("2026-06-11T00:00:00.000Z", () =>
       getTickerMemory("u1", ["AAPL"])
     );
     expect(recalled).toContain("Known before the decision.");
@@ -242,7 +241,7 @@ describe("ticker memory", () => {
         createdAt: "2026-06-11T00:00:00.000Z",
       },
     ];
-    const recalled = await withRecallAsOf("2026-06-11T00:00:00.000Z", () =>
+    const recalled = await withAsOfScope("2026-06-11T00:00:00.000Z", () =>
       getTickerMemory("u1", ["AAPL"])
     );
     expect(recalled).toContain("Right on the boundary.");
@@ -257,7 +256,7 @@ describe("ticker memory", () => {
         createdAt: "2026-06-12T00:00:00.000Z",
       },
     ];
-    expect(currentRecallAsOf()).toBeNull();
+    expect(currentAsOf()).toBeNull();
     await expect(getTickerMemory("u1", ["AAPL"])).resolves.toContain(
       "Written the day after."
     );
@@ -269,7 +268,7 @@ describe("ticker memory", () => {
     deps.memoryDocs = [
       { userId: "u1", ticker: "AAPL", insight: "Undatable.", createdAt: 12345 },
     ];
-    const recalled = await withRecallAsOf("2026-06-11T00:00:00.000Z", () =>
+    const recalled = await withAsOfScope("2026-06-11T00:00:00.000Z", () =>
       getTickerMemory("u1", ["AAPL"])
     );
     expect(recalled).toBe("");

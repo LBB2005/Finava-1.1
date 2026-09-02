@@ -8,7 +8,7 @@ const deps = vi.hoisted(() => ({
   runStepFn: vi.fn(),
   runCeoAgent: vi.fn(),
   withCacheScope: vi.fn(),
-  withRecallAsOf: vi.fn(),
+  withAsOfScope: vi.fn(),
   getRunAsOf: vi.fn(),
   extractStructured: vi.fn(),
   renderTranscript: vi.fn(),
@@ -27,10 +27,8 @@ vi.mock("@/lib/live/harness", () => ({
   },
 }));
 vi.mock("@/agents/ceo", () => ({ runCeoAgent: deps.runCeoAgent }));
-vi.mock("@/lib/agentMemory", () => ({
-  withCacheScope: deps.withCacheScope,
-  withRecallAsOf: deps.withRecallAsOf,
-}));
+vi.mock("@/lib/agentMemory", () => ({ withCacheScope: deps.withCacheScope }));
+vi.mock("@/lib/asOfScope", () => ({ withAsOfScope: deps.withAsOfScope }));
 vi.mock("@/lib/live/runState", () => ({ getRunAsOf: deps.getRunAsOf }));
 vi.mock("@/lib/live/extractDecision", () => ({ extractStructured: deps.extractStructured }));
 vi.mock("@/lib/live/decisionContract", () => ({
@@ -65,7 +63,7 @@ beforeEach(() => {
   deps.runStepFn.mockResolvedValue(null);
   deps.runCeoAgent.mockResolvedValue(undefined);
   deps.withCacheScope.mockImplementation((_ns: string, fn: () => unknown) => fn());
-  deps.withRecallAsOf.mockImplementation((_asOf: string, fn: () => unknown) => fn());
+  deps.withAsOfScope.mockImplementation((_asOf: string, fn: () => unknown) => fn());
   deps.getRunAsOf.mockResolvedValue("2026-08-31T13:15:00.000Z");
   deps.renderTranscript.mockReturnValue("TRANSCRIPT");
   deps.extractStructured.mockResolvedValue({ ok: true, value: DECISION, attempts: 1 });
@@ -215,7 +213,7 @@ describe("POST /api/live/debate — memory recall cutoff", () => {
 
     await debate({ ticker: "AAPL", mode: "entry" });
 
-    expect(deps.withRecallAsOf).toHaveBeenCalledWith(
+    expect(deps.withAsOfScope).toHaveBeenCalledWith(
       "2026-08-31T13:15:00.000Z",
       expect.any(Function)
     );
@@ -229,14 +227,14 @@ describe("POST /api/live/debate — memory recall cutoff", () => {
     const { status } = await debate({ ticker: "AAPL", mode: "entry" });
 
     expect(status).toBe(200);
-    expect(deps.withRecallAsOf).not.toHaveBeenCalled();
+    expect(deps.withAsOfScope).not.toHaveBeenCalled();
     expect(deps.runCeoAgent).toHaveBeenCalled();
   });
 
   it("still namespaces the cache on a blind rerun while clipping recall", async () => {
     await debate({ ticker: "AAPL", mode: "blind" });
 
-    expect(deps.withRecallAsOf).toHaveBeenCalled();
+    expect(deps.withAsOfScope).toHaveBeenCalled();
     expect(deps.withCacheScope).toHaveBeenCalledWith(
       expect.stringContaining("blind:"),
       expect.any(Function)

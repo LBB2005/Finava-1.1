@@ -10,6 +10,7 @@
 
 import { generate } from "@/lib/llm";
 import { recordUsage } from "@/lib/usage";
+import { perplexityAsOfFilters } from "@/lib/asOfScope";
 import { getSkillsPrompt } from "@/agents/skills";
 import { fenceExternal, EXTERNAL_DATA_RULE } from "@/lib/externalContent";
 
@@ -95,6 +96,8 @@ Format your response with a clear section for each ticker.`;
           { role: "user", content: userPrompt },
         ],
         max_tokens: 1500,
+        // Clipped to the run's as-of when one is scoped; unrestricted otherwise.
+        ...perplexityAsOfFilters(),
         temperature: 0.1,
         search_recency_filter: "day",
         return_citations: true,

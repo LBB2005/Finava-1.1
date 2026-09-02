@@ -1,4 +1,5 @@
 import { recordUsage } from "@/lib/usage";
+import { perplexityAsOfFilters } from "@/lib/asOfScope";
 
 const BASE = "https://api.perplexity.ai";
 const KEY = process.env.PERPLEXITY_API_KEY;
@@ -15,6 +16,17 @@ export async function perplexitySearch(
   model: "sonar-pro" | "sonar" = "sonar-pro"
 ): Promise<string> {
   if (!KEY) return "Perplexity API key not configured.";
+
+  // Clip the search to what was publishable by the run's as-of. Enforced by
+  // Perplexity server-side rather than asked for in the prompt: a model told to
+  // ignore recent results will still read them, and "please pretend it is June"
+  // is not a control. Absent a scope (every ordinary chat) these stay undefined
+  // and the search is unrestricted.
+  //
+  // Both filters matter. `search_before_date_filter` bounds publication;
+  // `last_updated_before_filter` bounds revision, without which a page published
+  // in June but rewritten in September still carries September's facts.
+  const dateFilters = perplexityAsOfFilters();
 
   const res = await fetch(`${BASE}/chat/completions`, {
     method: "POST",
@@ -34,6 +46,7 @@ export async function perplexitySearch(
         { role: "user", content: prompt },
       ],
       max_tokens: 2000,
+      ...dateFilters,
     }),
   });
 
