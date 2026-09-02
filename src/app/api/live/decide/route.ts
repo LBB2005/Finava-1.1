@@ -25,6 +25,7 @@ import {
 } from "@/lib/schemas/live/decision";
 import { appendDecision, appendEvent, decisionId, LedgerConflictError } from "@/lib/live/ledger";
 import { getRunState } from "@/lib/live/runState";
+import { transcriptId, transcriptRef } from "@/lib/live/transcripts";
 import { candidateFacts, type CandidateFactsWithGaps } from "@/lib/live/candidateFacts";
 import { AGENT_VERSION } from "@/lib/live/version";
 import { promptHash } from "@/lib/live/promptHash";
@@ -41,7 +42,9 @@ interface DebateStep {
   ticker: string;
   mode: "entry" | "exit" | "blind";
   blind: boolean;
-  transcript: string;
+  /** Where the transcript was stored. Optional: steps recorded before
+      transcripts moved out of the run document carry no reference. */
+  transcriptRef?: string;
   decision: CrewDecision | null;
   extractionIssues: string[];
 }
@@ -154,7 +157,12 @@ export const POST = withHarness(async (req) => {
         evidence: facts.evidence,
         agentVersion: version,
         promptHash: hash,
-        transcriptRef: `liveTranscripts/${runId}-${crew.ticker}-${debate.mode}`,
+        // The debate step records the reference it actually wrote to; the
+        // computed form is the fallback for a step recorded before transcripts
+        // moved out of the run document. Two hand-built copies of this path is
+        // how the reference came to point at a document nobody wrote.
+        transcriptRef:
+          debate.transcriptRef ?? transcriptRef(transcriptId(runId, crew.ticker, debate.mode)),
         createdAt: new Date().toISOString(),
       };
 

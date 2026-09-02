@@ -21,6 +21,7 @@ import { withCacheScope } from "@/lib/agentMemory";
 import { withAsOfScope } from "@/lib/asOfScope";
 import { getRunAsOf } from "@/lib/live/runState";
 import { collector, renderTranscript } from "@/lib/live/collect";
+import { transcriptId, transcriptRef, writeTranscript } from "@/lib/live/transcripts";
 import { extractStructured } from "@/lib/live/extractDecision";
 import { buildDecisionContract } from "@/lib/live/decisionContract";
 import { CrewDecisionSchema } from "@/lib/schemas/live/decision";
@@ -124,6 +125,15 @@ export const POST = withHarness(async (req) => {
 
     const transcript = renderTranscript(collected.events);
 
+    // The transcript goes to its own document and only its reference is carried
+    // in the run state. Three debate transcripts inlined into liveRuns/{runId}
+    // exceeded Firestore's 1 MiB document ceiling on 2026-09-02 and cost an
+    // eleven-minute step that had already been paid for. It also puts the
+    // transcript at exactly the path each DecisionRecord's transcriptRef names,
+    // which nothing was writing before.
+    const tid = transcriptId(runId, ticker, mode);
+    const stored = await writeTranscript(tid, transcript);
+
     const extraction = await extractStructured({
       schema: CrewDecisionSchema,
       report: transcript,
@@ -149,7 +159,8 @@ export const POST = withHarness(async (req) => {
       ticker: ticker.toUpperCase(),
       mode,
       blind,
-      transcript,
+      transcriptRef: transcriptRef(tid),
+      transcriptChars: stored.chars,
       decision: extraction.ok ? extraction.value : null,
       extractionIssues: extraction.ok ? [] : extraction.issues,
       extractionAttempts: extraction.attempts,

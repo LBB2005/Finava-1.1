@@ -14,6 +14,7 @@ import { withHarness } from "@/lib/live/harness";
 import { getRunState } from "@/lib/live/runState";
 import { getChainHeads, canonicalJson, hashEntry, CHAIN_GENESIS } from "@/lib/live/ledger";
 import { getDecisionsForDay, getSnapshot } from "@/lib/live/ledgerRead";
+import { readTranscript } from "@/lib/live/transcripts";
 import { MANDATE_V1 } from "@/lib/schemas/live/snapshot";
 import { executionMode } from "@/lib/live/version";
 import { provenance } from "@/lib/live/promptHash";
@@ -53,8 +54,26 @@ export const GET = withHarness(async (req) => {
   // rather than just the outcome.
   const transcripts: Record<string, string> = {};
   for (const [step, value] of Object.entries(state.steps)) {
-    const r = (value as { result?: { transcript?: string; ticker?: string; mode?: string } }).result;
-    if (r?.transcript) transcripts[r.ticker ? `${r.ticker}-${r.mode}` : step] = r.transcript;
+    const r = (
+      value as {
+        result?: { transcript?: string; transcriptRef?: string; ticker?: string; mode?: string };
+      }
+    ).result;
+    if (!r) continue;
+    const key = r.ticker ? `${r.ticker}-${r.mode}` : step;
+
+    // Debate transcripts live in their own documents (see transcripts.ts); a
+    // step that still carries its text inline is one recorded before that move,
+    // or a step small enough never to have needed it. Publish either, and say so
+    // in the file when a referenced transcript cannot be resolved — a silently
+    // missing transcript would make the record look thinner than it was.
+    if (r.transcriptRef) {
+      const id = r.transcriptRef.replace(/^liveTranscripts\//, "");
+      const text = await readTranscript(id);
+      transcripts[key] = text ?? `[transcript ${r.transcriptRef} could not be resolved]`;
+    } else if (r.transcript) {
+      transcripts[key] = r.transcript;
+    }
   }
 
   const day = {
