@@ -36,6 +36,18 @@ const BodySchema = z.object({
  * it was picking names when it was really picking questions, and no amount of
  * outcome data could separate the two after the fact.
  */
+/**
+ * How many names reach the research waves.
+ *
+ * The deep tier's own default is twenty. Twelve is the deliberate figure: the
+ * mandate admits at most three entries a day and the run debates four, so the
+ * back half of a twenty-name shortlist was being researched to be discarded.
+ * Narrowing here is the cheapest place to save — a name dropped before the
+ * waves costs nothing, while a name dropped after them has already been paid
+ * for. It does lean harder on the scout's ranking, which is the real trade.
+ */
+export const SHORTLIST_SIZE = 12;
+
 export const STANDING_QUERY =
   "High-quality US-listed companies trading below what their fundamentals and " +
   "momentum justify, suitable for a concentrated long-biased book held weeks to months.";
@@ -52,7 +64,7 @@ export const POST = withHarness(async (req) => {
 
   const { result, replayed } = await runStep(runId, "scout", async () => {
     const { emit, collected } = collector();
-    await runScoutAgent({ query, tier: "deep" }, emit);
+    await runScoutAgent({ query, tier: "deep", limit: SHORTLIST_SIZE }, emit);
 
     // Deep tier emits deep_shortlist. A clarify event means the scout judged the
     // query too vague — for a FIXED standing query that is a bug in the query,

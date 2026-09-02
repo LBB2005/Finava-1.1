@@ -23,6 +23,7 @@ import type { AgentEvent } from "@/types/chat";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 import type {
   WaveRequest,
+  WaveAgentSet,
   WaveEvidence,
   SynthesizeRequest,
 } from "@/lib/scoutTypes";
@@ -49,6 +50,32 @@ const VALUATION_AGENTS = [
   "run_hype_agent",
   "run_competitor_agent",
 ];
+
+/** The full crew. What Discover in chat runs, and the default here. */
+export const DEFAULT_WAVE_AGENTS: WaveAgentSet = {
+  batch: BATCH_AGENTS,
+  valuation: VALUATION_AGENTS,
+};
+
+/**
+ * The lean crew Finava Live runs at the triage stage.
+ *
+ * Dropped: run_dcf_agent (GPT-5 with a reasoning budget), run_competitor_agent
+ * and run_risk_agent (both Sonnet). They are the most expensive calls in the
+ * wave and they were being spent on twenty names to keep at most three — a
+ * discounted-cash-flow valuation of a company the day cannot buy is not a
+ * screening signal, it is a bill.
+ *
+ * Nothing is lost from the decision itself: every one of these agents still runs
+ * in full at the debate stage, on the shortlist that survived. Triage decides
+ * who deserves a real look; the debate takes it.
+ */
+export const TRIAGE_WAVE_AGENTS: WaveAgentSet = {
+  batch: BATCH_AGENTS.filter((a) => a !== "run_risk_agent"),
+  valuation: VALUATION_AGENTS.filter(
+    (a) => a !== "run_dcf_agent" && a !== "run_competitor_agent"
+  ),
+};
 
 // Throttle: a 5-name wave can fan ~50-70 external calls (risk/technical/etc each
 // hit one candle endpoint per ticker). Cap simultaneous agent dispatches so a
@@ -103,8 +130,12 @@ export async function runDiscoveryWave(req: WaveRequest, emit: EventEmitter): Pr
 
   emit({ type: "wave_start", waveIndex: req.waveIndex, totalWaves: req.totalWaves, tickers });
 
+  // A caller that names no crew gets the full one, so Discover in chat is
+  // untouched by the harness's cheaper triage.
+  const crew = req.agents ?? DEFAULT_WAVE_AGENTS;
+
   const tasks: (() => Promise<Tagged>)[] = [];
-  for (const agent of BATCH_AGENTS) {
+  for (const agent of crew.batch) {
     tasks.push(async () => ({ kind: "batch", agent, out: await runOne(agent, { tickers }) }));
   }
   tasks.push(async () => ({
@@ -113,7 +144,7 @@ export async function runDiscoveryWave(req: WaveRequest, emit: EventEmitter): Pr
     out: await runOne("run_macro_agent", { sectors }),
   }));
   for (const ticker of valuationTickers) {
-    for (const agent of VALUATION_AGENTS) {
+    for (const agent of crew.valuation) {
       tasks.push(async () => ({ kind: "val", ticker, agent, out: await runOne(agent, { ticker }) }));
     }
   }

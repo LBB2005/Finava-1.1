@@ -12,12 +12,18 @@ import { z } from "zod";
 /**
  * How many names go to a full crew debate per day.
  *
- * Bounded because a debate is 3-8 minutes and the whole run has to commit before
- * 09:30 ET. Six is roughly the most that fits with runway to spare; the mandate
- * caps entries at 3/day regardless, so debating more would mostly produce
- * rejections — which are worth having, but not at the cost of missing the open.
+ * Bounded because a debate is ~10 minutes and about a dollar, and the whole run
+ * has to commit before 09:30 ET. Four, for three entry slots: the spare covers a
+ * name that clears the crew but fails a rail, and when all three slots fill it
+ * yields one rejection on merit.
+ *
+ * It was six. On 2026-09-02 that bought three debates the day could never act on
+ * — CF, EIX and FCX were all refused by max_entries_per_day, not by anything
+ * about the businesses — at roughly a dollar each. A name refused because the
+ * day was full is also poor counterfactual data: the rejected cohort is supposed
+ * to isolate judgment, and a queue limit is not a judgment.
  */
-export const MAX_DEBATE_SUBJECTS = 6;
+export const MAX_DEBATE_SUBJECTS = 4;
 
 export const RankedCandidatesSchema = z.object({
   ranked: z

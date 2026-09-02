@@ -11,7 +11,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withHarness, runStep, easternDay } from "@/lib/live/harness";
-import { runDiscoveryWave } from "@/agents/discovery";
+import { runDiscoveryWave, TRIAGE_WAVE_AGENTS } from "@/agents/discovery";
 import { planWaves } from "@/lib/discoveryRun";
 import { collector } from "@/lib/live/collect";
 import { getStepResult } from "@/lib/live/runState";
@@ -56,7 +56,9 @@ export const POST = withHarness(async (req) => {
 
   const { result, replayed } = await runStep(runId, `wave_${waveIndex}`, async () => {
     const { emit, collected } = collector();
-    await runDiscoveryWave(waveReq, emit);
+    // Triage crew, not the full one: the heavy valuation agents are saved for
+    // the debate, where the names that survive get them in full.
+    await runDiscoveryWave({ ...waveReq, agents: TRIAGE_WAVE_AGENTS }, emit);
 
     const waveResult = collected.first("wave_result");
     if (!waveResult) throw new Error(`Wave ${waveIndex} produced no evidence`);

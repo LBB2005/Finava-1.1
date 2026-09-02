@@ -9,7 +9,10 @@
 // Bump this in the same commit as any prompt/agent change that could plausibly
 // move a decision. Never retroactively.
 
-export const AGENT_VERSION = process.env.LIVE_AGENT_VERSION || "v1.0-2026-09-02";
+// v1.1 — triage crew trimmed (no DCF/Risk/Competitor in the waves), shortlist
+// 20 → 12, debates 6 → 4. A decision now rests on less pre-debate evidence, so
+// it segments separately from v1.0 whatever it does to the returns.
+export const AGENT_VERSION = process.env.LIVE_AGENT_VERSION || "v1.1-2026-09-02";
 
 export type ExecutionMode = "shadow" | "paper" | "live";
 

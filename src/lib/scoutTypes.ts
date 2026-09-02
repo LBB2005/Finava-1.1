@@ -75,6 +75,12 @@ export function emptyEvidence(): DiscoverEvidence {
 }
 
 /** Body the client POSTs to run one deterministic crew wave. */
+/** Which agents a wave runs. See DEFAULT_WAVE_AGENTS / TRIAGE_WAVE_AGENTS. */
+export interface WaveAgentSet {
+  batch: string[];
+  valuation: string[];
+}
+
 export interface WaveRequest {
   tickers: string[];
   sectors: string[];
@@ -82,6 +88,8 @@ export interface WaveRequest {
   totalWaves: number;
   /** The ≤3 tickers in this wave that get the heavy valuation agents (top by fit). */
   valuationTickers: string[];
+  /** Crew override. Omitted means the full crew, which is what Discover runs. */
+  agents?: WaveAgentSet;
 }
 
 /** Body the client POSTs to run the single final synthesis pass. */
