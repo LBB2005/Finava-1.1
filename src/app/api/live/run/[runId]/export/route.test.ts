@@ -21,6 +21,9 @@ vi.mock("@/lib/live/ledgerRead", () => ({
   getSnapshot: deps.getSnapshot,
   getDecisionsForDay: deps.getDecisionsForDay,
 }));
+vi.mock("@/lib/live/transcripts", () => ({
+  readTranscript: (id: string) => Promise.resolve(`resolved:${id}`),
+}));
 vi.mock("@/lib/live/ledger", () => ({
   getChainHeads: deps.getChainHeads,
   canonicalJson: (v: unknown) => JSON.stringify(v),
@@ -31,7 +34,7 @@ vi.mock("@/lib/live/version", () => ({ executionMode: deps.executionMode }));
 vi.mock("@/lib/live/promptHash", () => ({ provenance: deps.provenance }));
 vi.mock("@/lib/live/scoring", () => ({ scoringRegistration: deps.scoringRegistration }));
 
-import { DISCLAIMER, GET } from "./route";
+import { DISCLAIMER, GET, lastStepAt } from "./route";
 
 const req = (runId: string) =>
   new Request(`http://test.local/api/live/run/${runId}/export`);
@@ -50,8 +53,11 @@ beforeEach(() => {
   deps.getRunState.mockResolvedValue({
     creditsSpent: 240,
     steps: {
-      session_open: { result: { skip: false } },
-      debate_entry_AAPL: { result: { transcript: "AAPL debate", ticker: "AAPL", mode: "entry" } },
+      session_open: { at: "2026-08-31T13:00:00.000Z", result: { skip: false } },
+      debate_entry_AAPL: {
+        at: "2026-08-31T14:00:00.000Z",
+        result: { transcript: "AAPL debate", ticker: "AAPL", mode: "entry" },
+      },
     },
   });
   deps.getSnapshot.mockResolvedValue({ tradingDay: "2026-08-31", equity: 100_000 });
@@ -91,7 +97,9 @@ describe("GET /api/live/run/[runId]/export", () => {
       creditsSpent: 240,
     });
     expect(day.mandate).toBeTruthy();
-    expect(typeof day.generatedAt).toBe("string");
+    // Derived from the run, not from the clock — see the regression test below.
+    expect(day.runCompletedAt).toBe("2026-08-31T14:00:00.000Z");
+    expect(day).not.toHaveProperty("generatedAt");
   });
 
   it("counts entries, exits, rejections and blind re-underwrites separately", async () => {
@@ -239,5 +247,35 @@ describe("provenance summary", () => {
     ]);
     const second = (await exportDay()).json.contentHash;
     expect(second).not.toBe(first);
+  });
+});
+
+describe("the payload is deterministic", () => {
+  // The whole integrity claim rests on this. The executor refuses to trade
+  // anything whose published commit does not hash to the payload it recomputes,
+  // so a payload carrying a wall-clock stamp could never match a file written a
+  // moment earlier — and the check would have failed open in practice, or been
+  // quietly dropped as "flaky".
+  it("returns the same contentHash for two exports of the same run", async () => {
+    const first = await exportDay();
+    const second = await exportDay();
+    expect(second.json.contentHash).toBe(first.json.contentHash);
+    expect(second.json.files["days/2026-08-31/day.json"]).toEqual(
+      first.json.files["days/2026-08-31/day.json"]
+    );
+  });
+
+  it("takes the latest step completion, whatever order the steps are stored in", () => {
+    expect(
+      lastStepAt({
+        b: { at: "2026-08-31T14:00:00.000Z" },
+        a: { at: "2026-08-31T15:00:00.000Z" },
+        c: { at: "2026-08-31T13:00:00.000Z" },
+      })
+    ).toBe("2026-08-31T15:00:00.000Z");
+  });
+
+  it("ignores steps with no usable stamp rather than defaulting to now", () => {
+    expect(lastStepAt({ a: {}, b: { at: 42 }, c: null })).toBeNull();
   });
 });
