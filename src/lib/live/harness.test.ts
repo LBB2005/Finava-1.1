@@ -60,6 +60,7 @@ import {
   easternDay,
   easternMinutes,
   runStep,
+  StepVersionMismatchError,
 } from "./harness";
 
 const SECRET = "s3cret-harness-value";
@@ -68,6 +69,9 @@ beforeEach(() => {
   store.clear();
   process.env.LIVE_HARNESS_SECRET = SECRET;
   process.env.LIVE_DAILY_CREDIT_CAP = "1000";
+  // The fingerprint folds in the deployed commit, so this is what a "same build"
+  // replay looks like. Individual tests change it to simulate a deploy.
+  process.env.LIVE_AGENT_COMMIT = "commit-aaa";
   requireAdmin.mockReset();
   requireAdmin.mockResolvedValue({ error: new Response("no") });
 });
@@ -203,5 +207,77 @@ describe("runStep", () => {
     await expect(runStep("2026-09-02", "scout", async () => "a")).rejects.toThrow(
       /budget exceeded/i
     );
+  });
+});
+
+describe("runStep — cross-version replay", () => {
+  it("stores the agent fingerprint alongside the result", async () => {
+    await runStep("2026-09-02", "scout", async () => "a");
+    const doc = store.get("liveRuns/2026-09-02") as {
+      steps: Record<string, { promptHash?: string }>;
+    };
+    expect(doc.steps.scout.promptHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("replays normally when the build has not changed", async () => {
+    await runStep("2026-09-02", "scout", async () => "a");
+    const again = await runStep("2026-09-02", "scout", async () => "b");
+    expect(again).toEqual({ result: "a", replayed: true });
+  });
+
+  it("REFUSES the replay when a deploy landed between the run and the retry", async () => {
+    // Otherwise the replayed step carries the old prompts while every step after
+    // it runs on the new ones, and the decision is a mixture of two builds
+    // stamped with only one.
+    await runStep("2026-09-02", "debate_AAPL", async () => "old-build-result");
+
+    process.env.LIVE_AGENT_COMMIT = "commit-bbb";
+
+    await expect(
+      runStep("2026-09-02", "debate_AAPL", async () => "new")
+    ).rejects.toBeInstanceOf(StepVersionMismatchError);
+  });
+
+  it("does not re-run the body when it refuses", async () => {
+    // Re-running would double-spend a crew debate and, for a step that already
+    // appended to the ledger, collide with the append-only chain.
+    await runStep("2026-09-02", "decide", async () => "old");
+    process.env.LIVE_AGENT_COMMIT = "commit-bbb";
+
+    const body = vi.fn(async () => "new");
+    await expect(runStep("2026-09-02", "decide", body)).rejects.toThrow();
+    expect(body).not.toHaveBeenCalled();
+  });
+
+  it("names both builds in the error, so the operator can tell which is which", async () => {
+    await runStep("2026-09-02", "decide", async () => "old");
+    process.env.LIVE_AGENT_COMMIT = "commit-bbb";
+
+    const err = await runStep("2026-09-02", "decide", async () => "new").catch((e) => e);
+    expect(err).toBeInstanceOf(StepVersionMismatchError);
+    expect(err.step).toBe("decide");
+    expect(err.runId).toBe("2026-09-02");
+    expect(err.storedHash).not.toBe(err.currentHash);
+  });
+
+  it("still replays a step recorded before fingerprinting shipped", async () => {
+    // Refusing would strand any run in flight at deploy time, and the gap closes
+    // on its own within one run.
+    store.set("liveRuns/2026-09-02", {
+      steps: { scout: { done: true, result: "legacy", at: "2026-09-02T00:00:00.000Z" } },
+    });
+
+    const out = await runStep("2026-09-02", "scout", async () => "fresh");
+    expect(out).toEqual({ result: "legacy", replayed: true });
+  });
+
+  it("isolates the check per step — an untouched step still replays", async () => {
+    await runStep("2026-09-02", "scout", async () => "a");
+    process.env.LIVE_AGENT_COMMIT = "commit-bbb";
+    await runStep("2026-09-02", "wave_0", async () => "b");
+
+    // wave_0 was first recorded under the NEW build, so it replays cleanly.
+    const again = await runStep("2026-09-02", "wave_0", async () => "c");
+    expect(again).toEqual({ result: "b", replayed: true });
   });
 });

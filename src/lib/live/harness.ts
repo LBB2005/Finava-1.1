@@ -13,6 +13,7 @@ import { makeRunContext } from "@/lib/runContext";
 import { db } from "@/lib/firebase-admin";
 import { logger } from "@/lib/logger";
 import { chargeStep, BudgetExceededError } from "./budget";
+import { promptHash } from "./promptHash";
 import { flushTraces, runTraced } from "@/lib/observability";
 
 const log = logger("live:harness");
@@ -110,6 +111,30 @@ export interface StepRecord<T> {
 }
 
 /**
+ * Thrown when a completed step was produced by a different agent build.
+ *
+ * Not recoverable here on purpose. Re-running the step instead would be worse
+ * than failing: a step that already appended to the ledger cannot run twice
+ * (the chain is append-only and would throw ALREADY_EXISTS), and silently
+ * re-spending a full crew debate is exactly what replay exists to prevent. The
+ * operator decides — start a fresh runId, or redeploy the build that made it.
+ */
+export class StepVersionMismatchError extends Error {
+  constructor(
+    readonly runId: string,
+    readonly step: string,
+    readonly storedHash: string,
+    readonly currentHash: string
+  ) {
+    super(
+      `Step ${step} of run ${runId} was produced by a different agent build ` +
+        `(${storedHash.slice(0, 12)}… vs ${currentHash.slice(0, 12)}…)`
+    );
+    this.name = "StepVersionMismatchError";
+  }
+}
+
+/**
  * Run one harness step at most once per run.
  *
  * "Re-run failed jobs" is a button in the Actions UI and it re-runs SUCCEEDED
@@ -119,6 +144,13 @@ export interface StepRecord<T> {
  *
  * The budget is charged AFTER the step body, on the way out: the work is already
  * paid for by then, and recording it is what lets the NEXT step refuse.
+ *
+ * A replay is REFUSED when the stored step came from a different agent build.
+ * "Re-run failed jobs" can be pressed after a deploy, in which case the replayed
+ * steps carry the old prompts while everything after them runs on the new ones,
+ * and the decision that falls out is a mixture of two versions stamped with only
+ * one. A record whose promptHash does not describe the code that produced it is
+ * precisely the artifact promptHash exists to rule out.
  */
 export async function runStep<T>(
   runId: string,
@@ -126,9 +158,22 @@ export async function runStep<T>(
   fn: () => Promise<T>
 ): Promise<StepRecord<T>> {
   const snap = await runRef(runId).get();
-  const steps = (snap.data()?.steps ?? {}) as Record<string, { result?: T; done?: boolean }>;
+  const steps = (snap.data()?.steps ?? {}) as Record<
+    string,
+    { result?: T; done?: boolean; promptHash?: string }
+  >;
   const prior = steps[step];
+  const fingerprint = promptHash();
   if (prior?.done) {
+    if (prior.promptHash && prior.promptHash !== fingerprint) {
+      throw new StepVersionMismatchError(runId, step, prior.promptHash, fingerprint);
+    }
+    if (!prior.promptHash) {
+      // A step recorded before fingerprinting shipped. Refusing would strand any
+      // run already in flight at deploy time, and the gap closes on its own
+      // within one run, so this is a warning rather than a wall.
+      log.warn("replaying an unfingerprinted step", { runId, step });
+    }
     log.info("step replayed from store", { runId, step });
     return { result: prior.result as T, replayed: true };
   }
@@ -136,7 +181,11 @@ export async function runStep<T>(
   const result = await fn();
 
   await runRef(runId).set(
-    { steps: { [step]: { done: true, result, at: new Date().toISOString() } } },
+    {
+      steps: {
+        [step]: { done: true, result, at: new Date().toISOString(), promptHash: fingerprint },
+      },
+    },
     { merge: true }
   );
   await chargeStep(runId, step);
@@ -159,6 +208,20 @@ export function withHarness(
       try {
         return await handler(req);
       } catch (err) {
+        if (err instanceof StepVersionMismatchError) {
+          log.error("refused a cross-version replay", {
+            runId: err.runId,
+            step: err.step,
+            storedHash: err.storedHash,
+            currentHash: err.currentHash,
+          });
+          return apiError("version_mismatch", err.message, 409, {
+            runId: err.runId,
+            step: err.step,
+            storedPromptHash: err.storedHash,
+            currentPromptHash: err.currentHash,
+          });
+        }
         if (err instanceof BudgetExceededError) {
           log.error("run aborted on budget", { runId: err.runId, step: err.step, spent: err.spent });
           return apiError("budget_exceeded", err.message, 429, {
