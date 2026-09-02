@@ -18,6 +18,7 @@ import { MANDATE_V1 } from "@/lib/schemas/live/snapshot";
 import { executionMode } from "@/lib/live/version";
 import { provenance } from "@/lib/live/promptHash";
 import { scoringRegistration } from "@/lib/live/scoring";
+import { scoreProvenance, summariseProvenance } from "@/lib/live/provenance";
 import { apiError } from "@/lib/apiError";
 import { createHash } from "node:crypto";
 
@@ -77,6 +78,16 @@ export const GET = withHarness(async (req) => {
       rejects: decisions.filter((d) => d.kind === "reject").length,
       blindReunderwrites: decisions.filter((d) => d.blindReunderwrite).length,
     },
+    // How much of the day's evidence could actually be dated.
+    //
+    // Derived from the stamps already on each decision, never stored: a reader
+    // recomputes it from these same files rather than trusting a figure only we
+    // can produce. Expect "weak" to dominate today — Finnhub's fundamentals
+    // carry no publication timestamp, so most facts are undated by construction,
+    // and a summary that flattered that would hide the thing worth knowing.
+    provenance: summariseProvenance(
+      decisions.map((d) => scoreProvenance(d.evidence ?? [], d.dataGaps ?? []))
+    ),
     creditsSpent: state.creditsSpent,
     chainHeads: heads.heads,
     chainGenesis: CHAIN_GENESIS,
