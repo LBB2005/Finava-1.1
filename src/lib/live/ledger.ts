@@ -185,6 +185,11 @@ export type LiveEventKind =
   | "rail_cleared"
   | "version_bump"
   | "budget_exceeded"
+  // An approved decision that could not become an order — no tradable price, or
+  // nothing held to sell. Recorded rather than logged: a decision the rails
+  // permitted and the book did not act on is a gap in the record unless the
+  // reason is in the record too.
+  | "execution_skipped"
   | "correction"
   | "admin_action";
 

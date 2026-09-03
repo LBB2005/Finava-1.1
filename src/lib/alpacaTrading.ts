@@ -3,9 +3,8 @@
 // Separate from src/lib/alpaca.ts, which is market data only (data.alpaca.markets).
 // This module talks to the trading host, so it carries the paper-only guard.
 //
-// PHASE 0 SCOPE: reads only. `placeOrder` and `cancelOrder` land in Phase 1 and
-// MUST call assertPaperHost() before anything leaves the process. The reads are
-// here now because reconciliation needs them and because getOrderByClientId is
+// `placeOrder` and `cancelOrder` are the only mutators, and both call
+// assertPaperHost() before anything leaves the process. getOrderByClientId is
 // the defence against the double-fill bug — on a POST timeout the executor looks
 // the order up and re-submits only if it is genuinely absent. Never retry a
 // POST /orders.
@@ -82,6 +81,36 @@ async function tradingGet<T>(path: string, params?: Record<string, string>): Pro
   if (!res.ok) {
     throw new AlpacaTradingError(
       `Alpaca ${path} failed: ${res.status}`,
+      res.status,
+      await res.text().catch(() => "")
+    );
+  }
+  return (await res.json()) as T;
+}
+
+/**
+ * POST to the trading host.
+ *
+ * Separate from tradingGet rather than a `method` parameter on it, so that every
+ * call site that can CHANGE something is visibly distinct from one that reads.
+ * Deliberately has no retry: fetchWithRetry would re-send a create, and a
+ * re-sent order is the exact failure this module is built to avoid. A caller
+ * that times out must look the order up, never repeat the POST.
+ */
+async function tradingPost<T>(path: string, body: unknown): Promise<T> {
+  const { key, secret } = creds();
+  if (!key || !secret) {
+    throw new AlpacaTradingError("Alpaca trading credentials are not configured");
+  }
+  const res = await fetch(`${ALPACA_TRADING_BASE}${path}`, {
+    method: "POST",
+    headers: { ...authHeaders(), "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    throw new AlpacaTradingError(
+      `Alpaca POST ${path} failed: ${res.status}`,
       res.status,
       await res.text().catch(() => "")
     );
@@ -265,4 +294,71 @@ export async function getClock(): Promise<MarketClock> {
  */
 export function isTradingDay(calendar: CalendarDay[], tradingDay: string): boolean {
   return calendar.some((d) => d.date === tradingDay);
+}
+
+// ── Mutators ─────────────────────────────────────────────────────────────────
+// Everything below can change the account. assertPaperHost() first, every time.
+
+export interface PlaceOrderInput {
+  symbol: string;
+  side: "buy" | "sell";
+  /** Fractional. Whole-share market-on-open would bias the book toward cheap names. */
+  qty: number;
+  timeInForce: "day" | "opg";
+  /** Deterministic idempotency key, derived from the decision it executes. */
+  clientOrderId: string;
+}
+
+/**
+ * Submit one market order.
+ *
+ * Returns the existing order when Alpaca rejects the client id as a duplicate,
+ * which is what makes a replayed run safe: the second submission of the same
+ * decision resolves to the first order instead of doubling the position. A
+ * duplicate is a SUCCESS here, not an error — the desired state is "this
+ * decision has exactly one order", and it already holds.
+ */
+export async function placeOrder(input: PlaceOrderInput): Promise<AlpacaOrder> {
+  assertPaperHost();
+  if (!(input.qty > 0)) {
+    throw new AlpacaTradingError(`Refusing to place a non-positive quantity (${input.qty})`);
+  }
+  try {
+    const raw = await tradingPost<Record<string, unknown>>("/v2/orders", {
+      symbol: input.symbol.toUpperCase(),
+      qty: String(input.qty),
+      side: input.side,
+      type: "market",
+      time_in_force: input.timeInForce,
+      client_order_id: input.clientOrderId,
+    });
+    return parseOrder(raw);
+  } catch (err) {
+    if (err instanceof AlpacaTradingError && err.status === 422) {
+      const existing = await getOrderByClientId(input.clientOrderId);
+      if (existing) return existing;
+    }
+    throw err;
+  }
+}
+
+/** Cancel a working order. A 404 or 422 means it is already gone or filled. */
+export async function cancelOrder(orderId: string): Promise<void> {
+  assertPaperHost();
+  const { key, secret } = creds();
+  if (!key || !secret) {
+    throw new AlpacaTradingError("Alpaca trading credentials are not configured");
+  }
+  const res = await fetch(`${ALPACA_TRADING_BASE}/v2/orders/${encodeURIComponent(orderId)}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  if (!res.ok && res.status !== 404 && res.status !== 422) {
+    throw new AlpacaTradingError(
+      `Alpaca cancel ${orderId} failed: ${res.status}`,
+      res.status,
+      await res.text().catch(() => "")
+    );
+  }
 }

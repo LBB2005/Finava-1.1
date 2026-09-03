@@ -131,6 +131,9 @@ export interface AlpacaSnapshot {
   prevClose: number | null;
   changePct: number | null;
   dayVolume: number | null;
+  /** Today's official opening print. Optional: only the executor needs it, to
+      measure slippage against the price the whole market could have had. */
+  open?: number | null;
 }
 
 // Latest price + prior close + today's (IEX) volume for many symbols in ONE call.
@@ -153,7 +156,7 @@ export async function getAlpacaSnapshots(
     string,
     {
       latestTrade?: { p?: number };
-      dailyBar?: { c?: number; v?: number };
+      dailyBar?: { c?: number; v?: number; o?: number };
       prevDailyBar?: { c?: number };
     }
   >;
@@ -170,6 +173,7 @@ export async function getAlpacaSnapshots(
       prevClose: typeof prevClose === "number" ? prevClose : null,
       changePct,
       dayVolume: typeof snap.dailyBar?.v === "number" ? snap.dailyBar.v : null,
+      open: typeof snap.dailyBar?.o === "number" ? snap.dailyBar.o : null,
     });
   }
   return out;

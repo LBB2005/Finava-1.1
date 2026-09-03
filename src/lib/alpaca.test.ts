@@ -135,12 +135,17 @@ describe("Alpaca multi-symbol endpoints", () => {
       prevClose: 200,
       changePct: 5,
       dayVolume: 1234,
+      // No dailyBar.o in this fixture: null, never a stand-in price. The
+      // executor measures slippage against this, so a fabricated open would
+      // read as "executed perfectly".
+      open: null,
     });
     expect(out.get("MSFT")).toEqual({
       price: null,
       prevClose: 0,
       changePct: null,
       dayVolume: 999,
+      open: null,
     });
     expect(String(vi.mocked(fetch).mock.calls[0][0])).toContain("symbols=AAPL%2CMSFT");
   });
