@@ -27,9 +27,28 @@ export function newRequestId(): string {
   return randomUUID().slice(0, 8);
 }
 
-/** Build a fresh run context (requestId auto-generated when not supplied). */
+/**
+ * The shape a correlation id is allowed to take.
+ *
+ * `requestId` can originate in an inbound `x-request-id` header, which is
+ * attacker-controlled, and from here it flows into every log line and into the
+ * Langfuse sessionId. Constrain it to the alphabet real correlation ids use
+ * (UUIDs, Vercel request ids, W3C traceparents) so nothing downstream has to
+ * defend itself against control characters, delimiters, or unbounded length.
+ */
+const REQUEST_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
+
+/**
+ * Build a fresh run context (requestId auto-generated when not supplied).
+ *
+ * An unusable `requestId` is REPLACED, never rejected: a hostile header must not
+ * be able to fail a request, and it must not be able to steer one either. It is
+ * also not truncated — a 200-char id clipped to 64 would silently merge two
+ * distinct upstream runs under one correlation key.
+ */
 export function makeRunContext(userId: string, requestId?: string): RunContext {
-  return { userId, requestId: requestId ?? newRequestId(), credits: { total: 0 } };
+  const id = requestId && REQUEST_ID.test(requestId) ? requestId : newRequestId();
+  return { userId, requestId: id, credits: { total: 0 } };
 }
 
 /** The current request's correlation id (undefined outside a run context). */

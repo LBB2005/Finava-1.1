@@ -50,13 +50,26 @@ export function langfuseConfigured(): boolean {
 /**
  * Should prompt/completion text be sent to Langfuse?
  *
- * Defaults to on — a trace without its input is nearly useless for the thing
- * this was installed to do. Set `LANGFUSE_CAPTURE_IO=off` to export only
- * metadata (model, latency, tokens, cost) and keep prompt bodies, which can
- * carry a user's holdings, on our own infrastructure.
+ * Defaults to OFF, and must be opted into with `LANGFUSE_CAPTURE_IO=on`.
+ *
+ * A trace without its input is weaker for the thing this was installed to do,
+ * but the input here is not neutral: an agent prompt carries the user's actual
+ * holdings, and the span carries their Firebase uid alongside it. Defaulting on
+ * meant that merely adding Langfuse keys — a decision about *observability* —
+ * silently began exporting user portfolios to a third party. The default now
+ * matches what the operator asked for, and the extra step is a prompt to think
+ * about the DPA rather than a hurdle.
+ *
+ * With capture off, spans still carry everything the tool is actually for:
+ * model, latency, tokens, cost, agent name, and session grouping.
+ *
+ * Fails closed — anything that is not a recognised affirmative keeps prompt
+ * bodies on our own infrastructure.
  */
+const AFFIRMATIVE = new Set(["on", "true", "1"]);
+
 export function captureIo(): boolean {
-  return (process.env.LANGFUSE_CAPTURE_IO ?? "on") !== "off";
+  return AFFIRMATIVE.has((process.env.LANGFUSE_CAPTURE_IO ?? "").trim().toLowerCase());
 }
 
 // ---------------------------------------------------------------------------

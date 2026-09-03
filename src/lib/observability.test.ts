@@ -74,16 +74,25 @@ describe("langfuseConfigured", () => {
 });
 
 describe("captureIo", () => {
-  it("defaults to on", () => {
+  it("defaults to OFF — prompt bodies carry holdings and must be opted in", () => {
     delete process.env.LANGFUSE_CAPTURE_IO;
-    expect(captureIo()).toBe(true);
+    expect(captureIo()).toBe(false);
   });
 
-  it("is off only for the exact opt-out value", () => {
-    process.env.LANGFUSE_CAPTURE_IO = "off";
-    expect(captureIo()).toBe(false);
-    process.env.LANGFUSE_CAPTURE_IO = "on";
-    expect(captureIo()).toBe(true);
+  it("turns on for an explicit affirmative, in any case or spacing", () => {
+    for (const v of ["on", "ON", " on ", "true", "True", "1"]) {
+      process.env.LANGFUSE_CAPTURE_IO = v;
+      expect(captureIo()).toBe(true);
+    }
+  });
+
+  it("stays off for anything that is not an affirmative", () => {
+    // Fails closed: a typo or a stale "off" both keep prompts on our own
+    // infrastructure, which is the safe direction for an unclear value.
+    for (const v of ["", "off", "no", "false", "0", "onn", "yes please"]) {
+      process.env.LANGFUSE_CAPTURE_IO = v;
+      expect(captureIo()).toBe(false);
+    }
   });
 });
 
@@ -369,9 +378,9 @@ describe("observeAnthropic", () => {
     expect(gen.end).toHaveBeenCalledTimes(1);
   });
 
-  it("omits prompt bodies when LANGFUSE_CAPTURE_IO=off", async () => {
+  it("omits prompt bodies by default, without any LANGFUSE_CAPTURE_IO set", async () => {
     configure();
-    process.env.LANGFUSE_CAPTURE_IO = "off";
+    delete process.env.LANGFUSE_CAPTURE_IO;
     const gen = fakeGeneration();
     const startObservation = vi.fn().mockReturnValue(gen);
     setTracingApiForTest({ startObservation: startObservation as never });

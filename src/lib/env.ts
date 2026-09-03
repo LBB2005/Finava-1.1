@@ -71,8 +71,8 @@ const serverSchema = z.object({
 
   // LLM tracing (optional — `langfuseConfigured()` gates it; both keys required
   // together, so a half-set pair traces nothing rather than dropping spans
-  // silently). LANGFUSE_CAPTURE_IO=off exports metadata only, keeping prompt
-  // bodies — which can carry a user's holdings — off a third party.
+  // silently). Prompt/completion bodies — which can carry a user's holdings —
+  // are NOT exported unless LANGFUSE_CAPTURE_IO=on; metadata always is.
   LANGFUSE_PUBLIC_KEY: z.string().optional(),
   LANGFUSE_SECRET_KEY: z.string().optional(),
   LANGFUSE_BASE_URL: z.string().optional(),

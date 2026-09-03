@@ -66,18 +66,25 @@ export async function POST(req: Request) {
         });
         if (!uid) break;
 
-        const patch: Record<string, unknown> = {
-          stripeCustomerId: asId(session.customer),
-          stripeSubscriptionId: asId(session.subscription),
-          // Paid now supersedes any running trial.
-          trialEndsAt: null,
-        };
+        // Paid now supersedes any running trial.
+        const dated: Record<string, unknown> = { trialEndsAt: null };
         const subId = asId(session.subscription);
         if (subId) {
           const sub = await stripe.subscriptions.retrieve(subId);
-          Object.assign(patch, subscriptionPatch(sub));
+          Object.assign(dated, subscriptionPatch(sub));
         }
-        await writeSettings(uid, patch);
+        const applied = await applySubscriptionEvent(uid, event.created, dated, {
+          // The Stripe ids carry no entitlement and are what resolveUid indexes
+          // on, so they land even when the entitlement half is stale — dropping
+          // them would leave later events unable to find this user.
+          always: {
+            stripeCustomerId: asId(session.customer),
+            stripeSubscriptionId: asId(session.subscription),
+          },
+        });
+        if (!applied) {
+          console.log(`[stripe/webhook] ignored stale checkout completion for ${uid}`);
+        }
         break;
       }
 
@@ -97,7 +104,9 @@ export async function POST(req: Request) {
         if (patch.subscriptionStatus !== "past_due") {
           patch.pastDueSince = FieldValue.delete();
         }
-        const applied = await applySubscriptionEvent(uid, event.created, patch);
+        const applied = await applySubscriptionEvent(uid, event.created, patch, {
+          advanceClock: true,
+        });
         if (!applied) {
           console.log(`[stripe/webhook] ignored stale ${event.type} for ${uid}`);
         }
@@ -111,14 +120,19 @@ export async function POST(req: Request) {
           customerId: asId(sub.customer),
         });
         if (!uid) break;
-        const applied = await applySubscriptionEvent(uid, event.created, {
-          plan: "Free",
-          subscriptionStatus: "canceled",
-          stripeSubscriptionId: FieldValue.delete(),
-          currentPeriodEnd: FieldValue.delete(),
-          cancelAtPeriodEnd: FieldValue.delete(),
-          pastDueSince: FieldValue.delete(),
-        });
+        const applied = await applySubscriptionEvent(
+          uid,
+          event.created,
+          {
+            plan: "Free",
+            subscriptionStatus: "canceled",
+            stripeSubscriptionId: FieldValue.delete(),
+            currentPeriodEnd: FieldValue.delete(),
+            cancelAtPeriodEnd: FieldValue.delete(),
+            pastDueSince: FieldValue.delete(),
+          },
+          { advanceClock: true }
+        );
         if (!applied) {
           console.log(`[stripe/webhook] ignored stale subscription.deleted for ${uid}`);
         }
@@ -139,7 +153,10 @@ export async function POST(req: Request) {
           const sub = await stripe.subscriptions.retrieve(subId);
           patch.currentPeriodEnd = periodEndISO(sub);
         }
-        await writeSettings(uid, patch);
+        const applied = await applySubscriptionEvent(uid, event.created, patch);
+        if (!applied) {
+          console.log(`[stripe/webhook] ignored stale invoice.paid for ${uid}`);
+        }
         break;
       }
 
@@ -148,16 +165,17 @@ export async function POST(req: Request) {
         const uid = await resolveUid({ customerId: asId(invoice.customer) });
         if (!uid) break;
         // Start (or preserve) the past-due grace clock from the FIRST failure, so
-        // entitlements can bound how long a failing card keeps paid access.
-        const ref = db.collection("userSettings").doc(uid);
-        const existingSince = (await ref.get()).data()?.pastDueSince as string | undefined;
-        await ref.set(
-          {
-            subscriptionStatus: "past_due",
-            pastDueSince: existingSince ?? new Date(event.created * 1000).toISOString(),
-          },
-          { merge: true }
-        );
+        // entitlements can bound how long a failing card keeps paid access. The
+        // existing stamp is read off the snapshot the guard already fetched.
+        const applied = await applySubscriptionEvent(uid, event.created, (existing) => ({
+          subscriptionStatus: "past_due",
+          pastDueSince:
+            (existing.pastDueSince as string | undefined) ??
+            new Date(event.created * 1000).toISOString(),
+        }));
+        if (!applied) {
+          console.log(`[stripe/webhook] ignored stale invoice.payment_failed for ${uid}`);
+        }
         break;
       }
 
@@ -225,19 +243,36 @@ function subscriptionPatch(sub: Stripe.Subscription): Record<string, unknown> {
   };
 }
 
-async function writeSettings(
-  uid: string,
-  patch: Record<string, unknown>
-): Promise<void> {
-  await db.collection("userSettings").doc(uid).set(patch, { merge: true });
-}
+/** A patch, or a builder for one given the settings doc as it stands today. */
+type DatedPatch =
+  | Record<string, unknown>
+  | ((existing: Record<string, unknown>) => Record<string, unknown>);
 
 /**
- * Apply a subscription-lifecycle patch, but ONLY if this event is at least as
- * recent as the last one applied. Stripe does not guarantee delivery order and
- * retries for ~3 days, so a delayed OLDER `updated` could otherwise overwrite a
- * newer `deleted` and resurrect paid access. We track the last applied
- * `event.created` per user and ignore anything older. Returns false when skipped.
+ * Apply an entitlement patch, but ONLY if this event is at least as recent as
+ * the last subscription-lifecycle event applied for this user.
+ *
+ * Stripe does not guarantee delivery order and retries for ~3 days, so a delayed
+ * OLDER event can arrive after a newer one. Left unguarded that means a retried
+ * `invoice.paid` from before a cancellation writes `subscriptionStatus: "active"`
+ * over a `deleted` that already downgraded the user — resurrecting paid access
+ * for someone who no longer has a subscription. Every branch that writes plan or
+ * status therefore goes through here.
+ *
+ * TWO ROLES, DELIBERATELY SPLIT:
+ *
+ *  - `advanceClock: true` — the `customer.subscription.*` events, which define
+ *    what "current" means and stamp `lastSubscriptionEventAt`.
+ *  - default (false) — invoice and checkout events, which RESPECT the clock but
+ *    must not SET it. An `invoice.paid` and its `customer.subscription.updated`
+ *    are seconds apart and can arrive either way round; if the invoice stamped
+ *    the clock it would reject the update that actually carries the plan, and a
+ *    fix for a resurrection bug would have become an upgrade-never-applies bug.
+ *
+ * `always` is for fields that carry no entitlement (the Stripe ids resolveUid
+ * indexes on) and so are written even when the dated half is skipped.
+ *
+ * Returns false when the dated half was skipped as stale.
  *
  * (Read-then-set rather than a transaction: Stripe delivers a given
  * subscription's events sequentially, so the out-of-order case this guards is
@@ -246,14 +281,22 @@ async function writeSettings(
 async function applySubscriptionEvent(
   uid: string,
   eventCreated: number,
-  patch: Record<string, unknown>
+  dated: DatedPatch,
+  opts: { advanceClock?: boolean; always?: Record<string, unknown> } = {}
 ): Promise<boolean> {
   const ref = db.collection("userSettings").doc(uid);
-  const last =
-    ((await ref.get()).data()?.lastSubscriptionEventAt as number | undefined) ?? 0;
-  if (eventCreated < last) return false;
-  await ref.set({ ...patch, lastSubscriptionEventAt: eventCreated }, { merge: true });
-  return true;
+  const existing = (await ref.get()).data() ?? {};
+  const fresh = eventCreated >= ((existing.lastSubscriptionEventAt as number | undefined) ?? 0);
+
+  const patch: Record<string, unknown> = { ...opts.always };
+  if (fresh) {
+    Object.assign(patch, typeof dated === "function" ? dated(existing) : dated);
+    if (opts.advanceClock) patch.lastSubscriptionEventAt = eventCreated;
+  }
+
+  // A stale event with nothing unconditional to write does not touch Firestore.
+  if (Object.keys(patch).length > 0) await ref.set(patch, { merge: true });
+  return fresh;
 }
 
 /**

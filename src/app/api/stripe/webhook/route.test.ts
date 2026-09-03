@@ -323,6 +323,91 @@ describe("POST /api/stripe/webhook", () => {
     expect(deps.createEventDoc).toHaveBeenCalled();
   });
 
+  // ── Out-of-order protection beyond the subscription.* events ───────────────
+  // Stripe retries for ~3 days and does not guarantee order. A delayed event
+  // that PREDATES an applied cancellation must not write entitlement state, or
+  // it resurrects paid access for a user who has already been downgraded.
+
+  it("ignores a stale invoice.paid that would resurrect access after cancellation", async () => {
+    deps.constructEvent.mockReturnValueOnce(
+      event("invoice.paid", { customer: "cus_123", subscription: "sub_x", lines: { data: [] } })
+    );
+    deps.getUserSettingsQuery.mockResolvedValue({
+      empty: false,
+      docs: [{ id: "user_by_customer" }],
+    });
+    // A cancellation created at 2.0e9 already landed; this invoice is from 1.7e9.
+    deps.getUserSettingsDoc.mockResolvedValue({
+      data: () => ({ lastSubscriptionEventAt: 2_000_000_000 }),
+    });
+
+    const res = await POST(webhookRequest());
+
+    expect(res.status).toBe(200);
+    expect(deps.setUserSettings).not.toHaveBeenCalled();
+    expect(deps.createEventDoc).toHaveBeenCalled();
+  });
+
+  it("ignores a stale invoice.payment_failed that predates the last applied event", async () => {
+    deps.constructEvent.mockReturnValueOnce(
+      event("invoice.payment_failed", { customer: "cus_123" })
+    );
+    deps.getUserSettingsQuery.mockResolvedValue({
+      empty: false,
+      docs: [{ id: "user_by_customer" }],
+    });
+    deps.getUserSettingsDoc.mockResolvedValue({
+      data: () => ({ lastSubscriptionEventAt: 2_000_000_000 }),
+    });
+
+    const res = await POST(webhookRequest());
+
+    expect(res.status).toBe(200);
+    expect(deps.setUserSettings).not.toHaveBeenCalled();
+  });
+
+  it("writes identity from a stale checkout completion but not its plan or status", async () => {
+    // stripeCustomerId is what resolveUid indexes on and carries no entitlement,
+    // so it is written regardless; the plan/status half is clock-guarded.
+    deps.constructEvent.mockReturnValueOnce(
+      event("checkout.session.completed", {
+        client_reference_id: "user_checkout",
+        customer: "cus_123",
+        subscription: "sub_123",
+        metadata: {},
+      })
+    );
+    deps.getUserSettingsDoc.mockResolvedValue({
+      data: () => ({ lastSubscriptionEventAt: 2_000_000_000 }),
+    });
+
+    const res = await POST(webhookRequest());
+
+    expect(res.status).toBe(200);
+    expect(deps.setUserSettings).toHaveBeenCalledWith(
+      { stripeCustomerId: "cus_123", stripeSubscriptionId: "sub_123" },
+      { merge: true }
+    );
+  });
+
+  it("does not let an invoice event advance the subscription clock", async () => {
+    // Invoice events RESPECT the clock but must not SET it: an invoice.paid and
+    // its customer.subscription.updated are seconds apart, and stamping the
+    // clock from the invoice would drop the update that carries the plan.
+    deps.constructEvent.mockReturnValueOnce(
+      event("invoice.paid", { customer: "cus_123", subscription: "sub_x", lines: { data: [] } })
+    );
+    deps.getUserSettingsQuery.mockResolvedValue({
+      empty: false,
+      docs: [{ id: "user_by_customer" }],
+    });
+
+    await POST(webhookRequest());
+
+    const [patch] = deps.setUserSettings.mock.calls[0];
+    expect(patch).not.toHaveProperty("lastSubscriptionEventAt");
+  });
+
   it("returns 500 so Stripe retries when handler logic fails, leaving no idempotency record", async () => {
     deps.setUserSettings.mockRejectedValueOnce(new Error("write failed"));
 

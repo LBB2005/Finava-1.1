@@ -126,7 +126,10 @@ export function withRoute<
     if (core instanceof NextResponse) return core;
 
     // Establish the run context for every JSON route: a correlation id for logs
-    // plus the userId that recordUsage() reads. Honor an inbound x-request-id.
+    // plus the userId that recordUsage() reads. An inbound x-request-id is
+    // honored so a caller's trace stitches to ours, but it is attacker-supplied
+    // — makeRunContext validates its shape and substitutes a generated id when
+    // it does not look like a correlation id.
     const requestId = req.headers.get("x-request-id") ?? undefined;
     return runTraced(makeRunContext(core.userId ?? "anon", requestId), async () => {
       try {
