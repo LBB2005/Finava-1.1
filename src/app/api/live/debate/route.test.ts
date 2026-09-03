@@ -13,6 +13,11 @@ const deps = vi.hoisted(() => ({
   extractStructured: vi.fn(),
   renderTranscript: vi.fn(),
   buildDecisionContract: vi.fn(() => "CONTRACT"),
+  writeTranscript: vi.fn(async (_id: string, text: string) => ({
+    chunks: 1,
+    chars: text.length,
+    createdAt: "2026-08-31T00:00:00.000Z",
+  })),
   stepNames: [] as string[],
 }));
 
@@ -33,6 +38,12 @@ vi.mock("@/lib/live/runState", () => ({ getRunAsOf: deps.getRunAsOf }));
 vi.mock("@/lib/live/extractDecision", () => ({ extractStructured: deps.extractStructured }));
 vi.mock("@/lib/live/decisionContract", () => ({
   buildDecisionContract: deps.buildDecisionContract,
+}));
+vi.mock("@/lib/live/transcripts", () => ({
+  transcriptId: (runId: string, ticker: string, mode: string) =>
+    `${runId}-${ticker.toUpperCase()}-${mode}`,
+  transcriptRef: (id: string) => `liveTranscripts/${id}`,
+  writeTranscript: deps.writeTranscript,
 }));
 vi.mock("@/lib/live/collect", () => ({
   collector: () => ({ emit: vi.fn(), collected: { first: vi.fn(), events: [] } }),
@@ -79,7 +90,8 @@ describe("POST /api/live/debate — the normal path", () => {
       ticker: "AAPL",
       mode: "entry",
       blind: false,
-      transcript: "TRANSCRIPT",
+      transcriptRef: "liveTranscripts/2026-08-31-AAPL-entry",
+      transcriptChars: "TRANSCRIPT".length,
       decision: DECISION,
       extractionIssues: [],
       extractionAttempts: 1,
@@ -177,8 +189,13 @@ describe("POST /api/live/debate — guards and failures", () => {
       extractionIssues: ["no invalidation stated"],
       extractionAttempts: 2,
     });
-    // The transcript is still published — the crew's reasoning is the finding.
-    expect(json.transcript).toBe("TRANSCRIPT");
+    // The transcript is still published — the crew's reasoning is the finding —
+    // but it lives in its own document now, so the step records where it went.
+    expect(json.transcriptRef).toBe("liveTranscripts/2026-08-31-AAPL-entry");
+    expect(deps.writeTranscript).toHaveBeenCalledWith(
+      "2026-08-31-AAPL-entry",
+      "TRANSCRIPT"
+    );
     spy.mockRestore();
   });
 
